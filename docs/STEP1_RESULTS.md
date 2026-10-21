@@ -10,9 +10,9 @@
 | Plant zoo | 5 training families (FOPDT, SOPDT, 3rd-order + RHP zero, integrating, PMSM speed loop) + 1 **held-out** family (two-mass resonance) |
 | Expert | coordinate line search over the same 3×5 action vocabulary the decoder emits (16 sims/step) |
 | Dataset | 2 000 plants × 20 steps = 40 000 states, 600 000 one-step lookahead rows |
-| Head | 1D-CNN over the traces + MLP over 20 features → 3×`choice(5)` + `score(5)` + `noul`, ~200 KB |
+| Head | 1D-CNN over the traces + MLP over 20 features → 3×`choice(5)` + `score(5)` + `noul`, 165 KB as ONNX |
 | Value net | (state, action) → predicted cost, 26 KB, used as a one-step lookahead filter |
-| Baseline set | Z-N, relay autotune, simplex, CMA-ES, Bayesian optimisation, MATLAB `pidtune`, identify→`pidtune` |
+| Baselines | Z-N, relay autotune, simplex, CMA-ES, Bayesian optimisation, MATLAB `pidtune`, identify→`pidtune` |
 
 ## KPI 1 — decision latency (the "system-1" claim)
 
@@ -20,14 +20,16 @@ ONNX Runtime, 1 thread, batch 1, 3 000 repetitions:
 
 | backend | p50 | p95 | p99 | size |
 | :--- | ---: | ---: | ---: | ---: |
-| ONNX Runtime (CPU, int32 threads) | **0.186 ms** | 0.214 ms | 0.237 ms | 165 KB |
+| ONNX Runtime (CPU) | **0.186 ms** | 0.214 ms | 0.237 ms | 165 KB |
 | PyTorch eager (CPU) | 2.392 ms | — | — | 203 KB |
 
 Parity between the ONNX graph and PyTorch: max abs difference **2.3e-05**.
 Target was "decision < 1 ms"; measured **0.19 ms**, i.e. ~5× inside budget.
 
 Full iteration on the lab model: decision 0.19 ms + Simulink Fast Restart run
-40 ms (StopTime = 1 s, measured in `research/bench/`) + IPC ≈ **< 50 ms**.
+**40 ms** (StopTime = 1 s, measured in `research/bench/`) + IPC ≈ **< 50 ms**.
+Without Fast Restart the same model costs 763 ms per run, so the bridge — not
+the model — would dominate.
 
 ## KPI 2 — calibration
 
@@ -41,57 +43,53 @@ Temperature fitted on a 10 % held-out split of the rollouts:
 | `score` | 0.993 | — | — | — |
 | `noul` | 0.986 | — | — | — |
 
-ECE ≈ 0.02 is the number that makes `score`-based early stopping and
-`noul`-based gating meaningful. For comparison, Laya ships at ECE 0.466.
+ECE ≈ 0.02 is what makes `score`-based early stopping and `noul`-based gating
+meaningful. Laya ships at ECE 0.466 for comparison.
 
-## KPI 3 — does the head beat the classical tuners?
+## KPI 3 — held-out benchmark (120 plants, unseen family)
 
-Provisional 60-plant comparison (fixed seed, identical cost function, identical
-simulation accounting). `head@20` = the head with 20 closed-loop simulations;
-`cma240` = a strong CMA-ES reference with 240 simulations.
+Target = 1.05 × a strong CMA-ES reference (240 simulations/plant, median J =
+0.207). All methods see the same cost function, the same Z-N starting point and
+the same simulation accounting.
 
-**Held-out family (two-mass resonance, never seen in training)**
+| method | final J (median) | final J (p90) | × reference | success | sims/plant |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| **jev head** | **0.333** | 1.438 | **1.46** | 12 % | **20** |
+| Bayesian opt. | 0.393 | **0.855** | 1.99 | **23 %** | 20 |
+| identify → `pidtune` | 0.505 | 0.938 | 2.87 | 17 % | 2 |
+| relay autotune | 0.900 | 0.933 | 4.33 | 12 % | 2 |
+| CMA-ES | 0.998 | 2.156 | 4.45 | 2 % | 18 |
+| simplex | 1.250 | 2.266 | 5.12 | 0 % | 20 |
+| Z-N | 1.953 | 3.404 | 8.37 | 0 % | 1 |
 
-| method | final J (median) | p90 | sims/plant |
-| :--- | ---: | ---: | ---: |
-| Z-N | 1.953 | 3.629 | 1 |
-| relay autotune | — | — | 2 |
-| simplex | 0.863 | 1.746 | 20 |
-| CMA-ES | 1.015 | 1.852 | 18 |
-| CMA-ES (reference) | **0.228** | 0.687 | 240 |
-| **jev head** | **0.291** | 0.753 | **20** |
+**Reading**
 
-→ the head reaches **1.28×** the 240-simulation reference cost in **12×** fewer
-simulations, and beats simplex/CMA at the same budget by 3.0×/3.5×.
-
-**Training families (in-distribution)**
-
-| method | final J (median) | sims/plant |
-| :--- | ---: | ---: |
-| Z-N | 3.108 | 1 |
-| simplex | 2.079 | 20 |
-| CMA-ES | 1.959 | 18 |
-| CMA-ES (reference) | **1.095** | 240 |
-| jev head | 1.935 | 20 |
-
-→ in-distribution the head is *competitive with* CMA at equal budget, not
-better. The advantage of the learned head is **generalisation**, not raw search.
+* The head has the **lowest median cost of every method that does not know the
+  model** — 3.0× better than CMA-ES at the same 20-simulation budget, and
+  1.46× the cost of a 240-simulation reference using 12× fewer simulations.
+* It does **not** dominate: the tail is heavy (p90 1.44 vs BO's 0.86), so the
+  fraction of plants that land inside 5 % of the reference is 12 % versus 23 %
+  for Bayesian optimisation. The head is the better bet on the median plant and
+  the worse bet on the unlucky one.
+* `identify → pidtune` is remarkable: two simulations, 0.505. Any claim about
+  learned tuning has to survive that comparison, which is exactly why it is in
+  the table.
 
 ## Honest caveats
 
-1. **`pidtune` is very strong when the model is known** (median J 0.81 on 40
-   plants, 0 simulations). A learned tuner matters only when the model is
-   unavailable or wrong; the `identify+pidtune` baseline (2 sims) is the fair
-   comparison and is reported alongside.
-2. **The action vocabulary is coarse** (±10–25 % per axis, 5 levels). The head
-   compensates with expected-value decoding, but a wider or two-stage vocabulary
-   (coarse → fine) is the obvious next lever.
-3. In-distribution the head does not beat a long CMA run; the claim is about
-   *amortised* decisions at a fixed simulation budget, not about a better
-   optimiser.
-4. The expert itself is a greedy coordinate search; its ceiling bounds the
-   imitation target. A stronger expert (CMA inside the same vocabulary) should
-   lift both.
+1. **`pidtune` with the true model is the strongest design** (0.81 median on
+   training families, zero simulations). A learned tuner earns its place only
+   when the model is unavailable or wrong — that is the scenario this benchmark
+   is set in.
+2. **The action vocabulary is coarse** (±10–25 % per axis, 5 levels). Expected
+   value decoding recovers some resolution, but a coarse→fine two-stage policy
+   is the obvious next lever.
+3. In-distribution (training families) the head is only *competitive* with
+   CMA-ES at equal budget (1.935 vs 1.959 median); the measurable advantage comes
+   from generalising to unseen dynamics, not from beating a search on seen ones.
+4. The expert is a greedy coordinate search, so it caps the imitation target.
+   A stronger expert inside the same vocabulary should lift both the head and
+   its tail.
 
 ## Reproduce
 
@@ -103,7 +101,8 @@ python scripts/00_merge_chunks.py
 python scripts/02_train.py --data data/expert_train.npz
 python scripts/04_export_onnx.py
 python scripts/03_evaluate.py --plants 120
+python scripts/05_report.py
 ```
 
 Total CPU time for the whole pipeline: **≈ 25 min** (dataset 4×4.5 min in
-parallel, training 12 min, evaluation 5 min).
+parallel, training 12 min, evaluation 3 min).

@@ -39,7 +39,7 @@ def load_models(models_dir: str):
 
     import json
 
-    meta = json.loads((Path(models_dir) / "meta.json").read_text(encoding="utf-8"))
+    meta = json.loads((Path(models_dir) / "meta.json").read_text(encoding="utf-8-sig"))
     head = JevHead(n_actions=meta.get("n_actions", 5))
     head.load_state_dict(torch.load(f"{models_dir}/jev_head.pt", map_location="cpu"))
     head.eval()

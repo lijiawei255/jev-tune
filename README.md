@@ -25,6 +25,22 @@ proposes the next gain step in **< 1 ms**, generalises to plants it never saw,
 and stops early because `score` is calibrated. The comparison that matters is
 therefore *simulations required to reach a target response*, not raw latency.
 
+## Results (measured on this Windows CPU)
+
+| KPI | measured | target |
+| :--- | ---: | ---: |
+| decision latency (ONNX Runtime, 1 thread, batch 1) | **0.19 ms** p50 / 0.24 ms p99 | < 1 ms |
+| calibration (ECE after temperature fit) | **0.017 – 0.021** | ≤ 0.05 |
+| held-out family, 20 simulations vs 240-sim CMA reference | **1.46×** the reference cost | ≤ 1.5× |
+| held-out final cost vs CMA-ES at the same 20-sim budget | **0.333 vs 0.998** (3.0×) | better |
+
+On the held-out two-mass resonance family the head reaches a median cost of
+0.333 against 0.207 for a 240-simulation CMA-ES — 12× fewer simulations — and
+beats CMA-ES (0.998), simplex (1.250) and relay autotune (0.900) at the same
+20-simulation budget. It does not dominate: Bayesian optimisation has a lighter
+tail (p90 0.855 vs 1.438). Full numbers, caveats and reproduction commands:
+[`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md).
+
 ## Install
 
 ```powershell

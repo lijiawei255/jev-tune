@@ -78,7 +78,7 @@ def fopdt_pade_tf(k, tau, delay):
     for i in range(n):
         L = max(delay[i], 1e-3)
         num[i] = np.concatenate([[0.0], k[i] * np.array([-L / 2.0, 1.0])])
-        den[i] = np.concatenate([[0.0], np.convolve([tau[i], 1.0], [L / 2.0, 1.0])])
+        den[i] = np.convolve([tau[i], 1.0], [L / 2.0, 1.0])
     return num, den
 
 

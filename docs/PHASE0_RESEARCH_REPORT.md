@@ -416,7 +416,6 @@ pip install "C:\Program Files\MATLAB\R2024b\extern\engines\python"  # matlab.eng
 | E15 | **本机实测**：Simulink 逐次运行开销 | `research/bench/bench_run.m` + `bench_log_1s.txt` / `bench_log_15s.txt` |
 
 ## 附录 B：本机 benchmark 复现
-
 ```powershell
 # 1) 复制模型到 ASCII 路径（Simulink 要求文件名为合法标识符）
 Copy-Item "...\model_workspace\motor_valve_model.slx" "research\bench\_tmp\jevbench_model.slx"
@@ -426,3 +425,17 @@ Copy-Item "...\model_workspace\motor_valve_model.slx" "research\bench\_tmp\jevbe
 ```
 
 > 原始日志：`research/bench/bench_log_1s.txt`、`bench_log_15s.txt`（每次运行的逐次耗时都在里面）。
+
+---
+
+## 附录 C：Step 1–2 实测增补（2026-10-22）
+
+本报告写于 Phase 0 结束时。后续实现与实测出现了三个需要更新的数字，详见 `docs/STEP1_RESULTS.md`。
+
+| 项目 | Phase 0 的判断 | Step 1–2 实测 |
+| :--- | :--- | :--- |
+| 决策延迟 | 数值原生头 `<1 ms`（推断） | **0.186 ms（p50）/ 0.237 ms（p99）**，ONNX Runtime 单线程，与 PyTorch 差 2.3e-5 |
+| 概率校准 | "必须重拟温度，目标 ECE ≤0.05"（预判 Laya 式过度自信） | 本项目的头出厂 ECE 仅 **0.025–0.033**，温度拟合后 **0.017–0.021**（T≈0.93） |
+| 经典基线强度 | 估计 Z-N 是主要对手 | **MATLAB `pidtune`（模型已知、0 次仿真）median J=0.81** 远强于 Z-N（2.9），因此"模型未知/模型失配"才是学习型调参的正当场景，评估必须同时给出 `identify+pidtune`（2 次仿真） |
+
+另：`Von` 的缺失与 `Laya` 的 CPU 延迟结论不变；本机 `matlab.engine` 无法构建（MathWorks 的 setup.py 校验失败），已改为 `matlab -batch` + MAT 文件交换，效果等价且更稳。
