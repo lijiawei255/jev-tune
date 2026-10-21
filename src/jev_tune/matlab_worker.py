@@ -82,6 +82,10 @@ class MatlabWorker:
     def run(self, cfg: dict) -> dict:
         if not self._ready:
             self.start()
+        # keep the compiled model between jobs and share one scratch folder
+        cfg = dict(cfg)
+        cfg.setdefault("keep_loaded", True)
+        cfg.setdefault("work_dir", str(self.queue_dir / "work"))
         job_id = uuid.uuid4().hex[:8]
         job_path = self.queue_dir / f"job_{job_id}.json"
         res_path = self.queue_dir / f"res_{job_id}.json"

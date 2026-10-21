@@ -265,3 +265,5 @@ research/sim_tune/
 research/sim_json/
 research/sim_batch_*/
 research/sim_w*/
+research/sim_reuse/
+research/demo_model/

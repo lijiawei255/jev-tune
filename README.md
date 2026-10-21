@@ -138,22 +138,22 @@ measurement is blunt about the conditions:
 | how you run it | per 20-experiment job |
 | :--- | ---: |
 | agent in the loop (LLM 3 s/turn) | 60 s |
-| **one CLI process per job** | **122 s** ← startup (50 s) + compile (10 s) dominate |
-| warm MATLAB worker | 15 s |
-| warm worker, model already compiled | **~2 s** |
+| **one CLI process per job** | **122 s** ← 50 s startup + 28 s setup + 40 s Kp sweep |
+| warm worker (model and sweep cached) | **8.8 s** |
+| long-lived MATLAB session | **2.7 s** |
 
 So the advantage is **not** "the model is fast"; it is "keep MATLAB warm and
-stop recompiling". The MCP server and `jev-tune batch` use a persistent worker
-for exactly this reason.
+stop recompiling". The MCP server and `jev-tune batch` do exactly that; the
+first job in a session still pays ~77 s.
 
-| jobs | agent in the loop | one process each | warm worker | warm + compiled |
-| ---: | ---: | ---: | ---: | ---: |
-| 100 | 1.7 h | 3.4 h | 25 min | **3.3 min** |
-| 1 000 | 17 h | 34 h | 4.2 h | **33 min** |
+| jobs | agent in the loop | one process each | warm worker |
+| ---: | ---: | ---: | ---: |
+| 100 | 1.7 h | 3.4 h | **15 min** |
+| 1 000 | 17 h | 34 h | **2.5 h** |
 
-All numbers measured or extrapolated from measurements on this machine; the
-LLM latency is an assumption. Details, the blocking/concurrency trade-off and
-the remaining work: [`docs/SCALE.md`](docs/SCALE.md).
+Measured on this machine; the LLM latency is the only assumption. The
+breakdown, the blocking/concurrency trade-off and the version matrix:
+[`docs/SCALE.md`](docs/SCALE.md).
 
 ## Benchmarks
 

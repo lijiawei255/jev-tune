@@ -30,11 +30,8 @@ mcfg = rmfield_safe(mcfg, {'model', 'work_dir', 'iters', 'stop_time', 'step_gain
 
 t0 = tic;
 try
-    if isempty(stopTime)
-        load_system(cfg.model);
-        stopTime = str2double(get_param(bdroot_name(cfg.model), 'StopTime'));
-        close_system(bdroot_name(cfg.model), 0);
-    end
+    % stopTime stays empty on purpose: jev_tune_model reads it from the model
+    % it has already loaded, so this wrapper never pays a second load_system
     R = jev_tune_model(cfg.model, workDir, iters, stopTime, stepGain, mcfg);
     out = struct();
     out.ok = true;
@@ -48,14 +45,22 @@ try
     out.zn_start = R.gzn(:).';
     out.n_rollbacks = R.n_rollbacks;
     out.n_experiments = numel(R.hist);
+    out.warnings = {};
+    if isfield(R, 'stopTime') && abs(R.stopTime - 10) / 10 > 0.5
+        out.warnings{end+1} = sprintf(['stopTime %.2f s is far from the 10 s training horizon; ' ...
+            'the response features may be out of distribution (retrain or rescale the metrics)'], R.stopTime);
+    end
+    if isfield(R, 'timings'), out.timings = R.timings; end
     out.history = history_struct(R.hist);
     out.wall_s = toc(t0);
+    if isfield(R, 'timings'), out.timings = R.timings; end
 catch err
     out = struct();
     out.ok = false;
     out.error = err.message;
     out.identifier = err.identifier;
     out.wall_s = toc(t0);
+    if isfield(R, 'timings'), out.timings = R.timings; end
 end
 
 % write-then-rename so a client never reads a half-written file
