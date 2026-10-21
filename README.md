@@ -26,7 +26,9 @@ A 200 KB model reads the step response and returns one bounded gain step in
 cost after N experiments, from one run of `scripts/12_make_race.py`. The right
 panel asks the question that matters — how long until the controller is usable
 (J ≤ 0.6) — at the measured 0.4 s per experiment on the motor-valve benchmark model. The only
-assumption in the figure is the hatched row: one 3 s LLM turn per experiment.*
+assumption in the figure is the hatched row: one 3 s LLM turn per experiment.
+Hand tuning has no curve on purpose — it produces a single gain set after hours
+of iteration, not a series of experiments.*
 
 ![tuning a real Simulink DC motor](assets/tuning.gif)
 
