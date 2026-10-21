@@ -1,5 +1,15 @@
 # jev-tune
 
+[![tests](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml/badge.svg)](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)](pyproject.toml)
+[![MATLAB](https://img.shields.io/badge/MATLAB-R2019a%2B-orange)](docs/SCALE.md)
+[![decision latency](https://img.shields.io/badge/decision-0.19%20ms-brightgreen)](docs/STEP1_RESULTS.md)
+[![model size](https://img.shields.io/badge/model-200%20KB-lightgrey)](docs/STEP1_RESULTS.md)
+[![platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](#install)
+[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![ä¸­æ–‡](https://img.shields.io/badge/README-ç®€ä½“ä¸­æ–‡-red)](README.zh-CN.md)
+
 **PID autotuning where each decision is a typed judgement, not a paragraph.**
 A 200 KB model reads the step response and returns one bounded gain step in
 **0.19 ms on a laptop CPU** â€” no autoregressive LLM, no cloud, no GPU.
@@ -216,6 +226,56 @@ docs/            research report, architecture, step results
 assets/          the GIF and figures used above
 ```
 
+## Contributing
+
+Issues and PRs are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md); the
+ground rules are short: **numbers, not adjectives**, never regress the benchmark
+silently, and keep the `choice` / `score` / `noul` contract.
+
+The gaps where help is most useful right now:
+
+| Area | What it needs |
+| :--- | :--- |
+| Objective presets | tracking / disturbance-rejection metrics beside the step cost |
+| Concurrent workers | N MATLAB workers for large batches |
+| Dead-band feature | a descriptor that tells "chattering" from "too much gain" |
+| More plant families | anything with published dynamics the zoo lacks |
+| Translations | we have English and ç®€ä½“ä¸­æ–‡ |
+
+Good first issues are labelled on GitHub.
+
+## Citation
+
+```bibtex
+@software{li2026jevtune,
+  author = {Li, Jiawei},
+  title  = {jev-tune: System-1 typed decisions for PID autotuning},
+  year   = {2026},
+  url    = {https://github.com/lijiawei255/jev-tune},
+  license = {MIT}
+}
+```
+
+There is also a [`CITATION.cff`](CITATION.cff) if your tool reads it.
+
+## Acknowledgements and scope
+
+* The animated demo and the numbers in
+  [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) come from running this tuner
+  against the **motor-valve benchmark (reference) motor-valve benchmark motor model**. That model is benchmark's
+  material: it is **not** redistributed here, and the figures show our own
+  plotted output only. This is a personal side project, not benchmark material, and it
+  is not endorsed by the reference benchmark.
+* **Jev** (TypeSafe AI) and **Laya** (Convai Innovations) inspired the interface
+  this project implements. There is no affiliation, endorsement or sponsorship.
+* **MATLAB** / **Simulink** are trademarks of The MathWorks, Inc.
+* Which third-party code is used, what is deliberately absent, and under which
+  licences: [`NOTICE.md`](NOTICE.md).
+
 ## Licence
 
-MIT Â© JIAWEI LI
+MIT Â© JIAWEI LI â€” see [`LICENSE`](LICENSE).
+
+---
+
+ÔÄ¶ÁÆäËûÓïÑÔ£º[¼òÌåÖÐÎÄ](README.zh-CN.md)

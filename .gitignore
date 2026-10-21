@@ -249,11 +249,19 @@ data/*
 !data/.gitkeep
 models/*
 !models/.gitkeep
+# the shipped head is small (~600 KB) and makes a fresh clone runnable
+!models/jev_head.pt
+!models/jev_head.onnx
+!models/jev_head_weights.mat
+!models/meta.json
+!models/calibration.json
+# specialists are per-project artefacts, not part of the release
+models/specialized/
 research/bench/_tmp/
 research/**/*.log
 *.npz
-*.pt
-*.onnx
+# trained artefacts elsewhere stay local; the shipped head is whitelisted above
+/models/specialized/*.pt
 
 
 # MATLAB engine sources (MathWorks proprietary, never commit)
