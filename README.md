@@ -36,7 +36,7 @@ experiments (~0.55 s of simulation); the stall detector stopped the loop at nine
 | **What it does** | picks the next PID gain step from the response it just measured |
 | **How fast** | **0.19 ms** per decision (ONNX, 1 CPU thread) vs **236–276 ms** for a hosted Jev call and seconds for an LLM agent |
 | **How few experiments** | **5 experiments** (0.55 s of simulation) cut a real Simulink motor loop's cost by **52 %** |
-| **How it generalises** | on a plant family it never saw, **0.57** median cost vs **1.91** for CMA-ES at the same 20-simulation budget |
+| **How it generalises** | on a plant family it never saw, **0.47** median cost vs **1.81** for CMA-ES at the same 20-simulation budget |
 
 ![before and after](assets/before_after.png)
 
@@ -185,12 +185,12 @@ Target = 1.05 × a 240-simulation CMA-ES reference.
 
 | method | final cost (median) | p90 | × reference | sims/plant |
 | :--- | ---: | ---: | ---: | ---: |
-| **Jev head** | **0.569** | 2.911 | **1.52** | 20 |
-| Bayesian optimisation | 0.581 | **1.516** | 1.58 | 20 |
-| identify → `pidtune` | 0.747 | 1.712 | 1.84 | 2 |
-| relay autotune | 0.905 | 0.934 | 2.34 | 2 |
-| CMA-ES | 1.905 | 2.770 | 3.92 | 18 |
-| Ziegler-Nichols | 2.501 | 3.158 | 6.06 | 1 |
+| **Jev head** | **0.468** | 1.037 | **1.29** | 20 |
+| Bayesian optimisation | 0.567 | 1.510 | 1.56 | 20 |
+| identify → `pidtune` | 0.742 | 1.705 | 1.91 | 2 |
+| relay autotune | 0.906 | **0.935** | 2.36 | 2 |
+| CMA-ES | 1.813 | 2.618 | 3.75 | 18 |
+| Ziegler-Nichols | 2.322 | 3.082 | 5.74 | 1 |
 
 **Real Simulink model (motor-valve benchmark DC motor)**
 
@@ -226,6 +226,21 @@ docs/            research report, architecture, step results
 assets/          the GIF and figures used above
 ```
 
+## Is it for my problem?
+
+| your task | fit |
+| :--- | :--- |
+| SISO PID loop, step response, model available in Simulink or as a transfer function | **out of the box** |
+| masked `PID Controller` block instead of three gain blocks | out of the box (one flag) |
+| dead band, inverse response, or a plant unlike the training zoo | one specialist run, ~2 min |
+| tracking / disturbance-rejection objective | metrics + retrain (the policy is objective-specific) |
+| cascade, MIMO, non-PID controllers, hardware in the loop | outside the current design |
+
+On 200 plants measured zero-shot, **none ended worse than the Z-N starting
+point** — the returned gains are always the best set actually measured, and a
+deterministic gate rolls back if a step explodes. Full scope, the robustness
+table and per-task effort estimates: [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md).
+
 ## Documentation languages
 
 Everything a human reads is available in **English and 简体中文** in the same
@@ -243,6 +258,7 @@ language switcher at the top. That applies to this README
 | [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md) | ten out-of-zoo scenarios, and exactly where it fails |
 | [`docs/SCALE.md`](docs/SCALE.md) | throughput economics, concurrency, MATLAB versions |
 | [`docs/SPECIALIZE.md`](docs/SPECIALIZE.md) | the per-project fine-tune path |
+| [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md) | what fits, what does not, and how much work each gap is |
 
 ## Contributing
 

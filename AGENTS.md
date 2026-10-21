@@ -95,6 +95,13 @@ So: for more than a couple of jobs use `jev-tune batch --jobs jobs.json`
 Tools: `tune_status`, `tune_probe_matlab`, `tune_simulink`, `tune_demo`.
 `tune_simulink` reuses a warm MATLAB; do not spawn one per call.
 
+## Before pointing it at a user's model
+
+Read `docs/APPLICABILITY.md`. Cascade, MIMO, non-PID controllers and hardware
+in the loop are outside the design; tracking/disturbance objectives need new
+metrics and a retrain. The tuner never returns a gain set worse than the one
+it started from, and `scripts/11_robustness.py` reproduces that claim.
+
 ## Rules for automation
 
 * Never edit `data/`, `models/`, `assets/` by hand; regenerate them.
@@ -120,4 +127,5 @@ same file, with a language switcher at the top (`README` has a separate
 | `docs/STEP4_RESULTS.md` | real Simulink model: 5 experiments, cost 1.24 → 0.60 |
 | `docs/GENERALIZATION.md` | ten out-of-zoo scenarios, where it fails and why |
 | `docs/SCALE.md` | throughput economics, concurrency, version matrix |
+| `docs/APPLICABILITY.md` | what fits, the no-regression evidence, per-task effort |
 | `research/results/*.json` | raw evaluation output |

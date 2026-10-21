@@ -101,7 +101,8 @@ def main():
     head, value = load_models(args.models)
     t = time.perf_counter()
     hr = evaluate_head(
-        head, plants, gzn, ku, tu, iters=args.iters, value=value, seed=args.seed
+        head, plants, gzn, ku, tu, iters=args.iters, value=None,
+        use_value_filter=False, seed=args.seed,
     )
     results.append(hr)
     print(f"  {'jev_head':12s} {hr.wall_s:6.1f}s  J median={np.median(hr.best_j):.3f}")

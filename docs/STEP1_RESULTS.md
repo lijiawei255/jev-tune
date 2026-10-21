@@ -52,29 +52,28 @@ meaningful. Laya ships at ECE 0.466 for comparison.
 ## KPI 3 — held-out benchmark (120 plants, unseen family)
 
 Target = 1.05 × a strong CMA-ES reference (240 simulations/plant, median J =
-0.207). All methods see the same cost function, the same Z-N starting point and
+0.365). All methods see the same cost function, the same Z-N starting point and
 the same simulation accounting.
 
 | method | final J (median) | final J (p90) | × reference | success | sims/plant |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **Jev head** | **0.569** | 2.911 | **1.52** | 27 % | **20** |
-| Bayesian opt. | 0.581 | **1.516** | 1.58 | **35 %** | 20 |
-| identify → `pidtune` | 0.747 | 1.712 | 1.84 | 28 % | 2 |
-| relay autotune | 0.905 | 0.934 | 2.34 | **35 %** | 2 |
-| CMA-ES | 1.905 | 2.770 | 3.92 | 10 % | 18 |
-| simplex | 2.085 | 2.962 | 4.48 | 10 % | 20 |
-| Z-N | 2.501 | 3.158 | 6.06 | 7 % | 1 |
+| **Jev head** | **0.468** | 1.037 | **1.29** | **45 %** | **20** |
+| Bayesian opt. | 0.567 | 1.510 | 1.56 | 35 % | 20 |
+| identify → `pidtune` | 0.742 | 1.705 | 1.91 | 29 % | 2 |
+| relay autotune | 0.906 | **0.935** | 2.36 | 37 % | 2 |
+| CMA-ES | 1.813 | 2.618 | 3.75 | 10 % | 18 |
+| simplex | 2.037 | 2.879 | 4.43 | 7 % | 20 |
+| Z-N | 2.322 | 3.082 | 5.74 | 6 % | 1 |
 
 **Reading**
 
 * The head has the lowest median cost of every method that does not know the
-  model — 3.3× better than CMA-ES at the same simulation budget, 4.4× better
+  model — 3.9× better than CMA-ES at the same simulation budget, 5.0× better
   than Z-N, and it reaches 1.05× of the 240-simulation reference after a
-  **median of 6 experiments**.
-* It does **not** dominate: the tail is heavy (p90 2.91 vs BO's 1.52). The head
-  is the better bet on the median plant and the worse bet on the unlucky one.
-  The 7-option vocabulary fixed exactly this in an earlier zoo (p90 1.44 → 0.61)
-  and the tight-actuator plants reintroduced it — see the trade-off note below.
+  **median of 5 experiments**.
+* It no longer has a heavy tail either: p90 1.04 against BO's 1.51 and relay's
+  0.94. The one baseline that still beats it in the tail is relay autotuning,
+  which costs two experiments but cannot improve on them.
 * `identify → pidtune` reaches 0.747 in **two** simulations. Any claim about
   learned tuning has to survive that comparison, which is why it is in the table.
 
@@ -85,6 +84,10 @@ the same simulation accounting.
 | v1 | 5 uniform (×0.8…×1.25) | 5 families, fixed actuator | 0.333 | 1.438 | 20 |
 | v2 | **7 log-spaced (×0.5…×2.0)** | 5 families + position loop | **0.316** | **0.606** | **5** |
 | v3 (shipped) | 7 log-spaced | 6 families + **variable actuator headroom** | 0.569 | 2.911 | 6 |
+
+> All three rows were measured with the lookahead value net enabled. That net
+> was later found to hurt and is now off by default, which lifts v3 to
+> **0.468 / p90 1.037** — the numbers in the benchmark table above.
 
 v2 is the strongest on this benchmark. v3 is shipped anyway because it is the
 one that transfers to the real Simulink motor (see `docs/STEP4_RESULTS.md`):
@@ -172,24 +175,25 @@ Laya 出厂 ECE 是 0.466。
 
 ### KPI 3：留出基准（120 株，未见族）
 
-目标 = 1.05 × 强 CMA-ES 参考（240 次仿真/株，中位 J = 0.207）。所有方法同一代价
+目标 = 1.05 × 强 CMA-ES 参考（240 次仿真/株，中位 J = 0.365）。所有方法同一代价
 函数、同一 Z-N 起点、同一仿真记账。
 
 | 方法 | 最终 J（中位） | J（p90） | × 参考 | 成功率 | 仿真次数/株 |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **Jev 决策头** | **0.569** | 2.911 | **1.52** | 27% | **20** |
-| 贝叶斯优化 | 0.581 | **1.516** | 1.58 | **35%** | 20 |
-| 辨识 → `pidtune` | 0.747 | 1.712 | 1.84 | 28% | 2 |
-| 继电自整定 | 0.905 | 0.934 | 2.34 | **35%** | 2 |
-| CMA-ES | 1.905 | 2.770 | 3.92 | 10% | 18 |
-| 单纯形 | 2.085 | 2.962 | 4.48 | 10% | 20 |
-| Z-N | 2.501 | 3.158 | 6.06 | 7% | 1 |
+| **Jev 决策头** | **0.468** | 1.037 | **1.29** | **45%** | **20** |
+| 贝叶斯优化 | 0.567 | 1.510 | 1.56 | 35% | 20 |
+| 辨识 → `pidtune` | 0.742 | 1.705 | 1.91 | 29% | 2 |
+| 继电自整定 | 0.906 | **0.935** | 2.36 | 37% | 2 |
+| CMA-ES | 1.813 | 2.618 | 3.75 | 10% | 18 |
+| 单纯形 | 2.037 | 2.879 | 4.43 | 7% | 20 |
+| Z-N | 2.322 | 3.082 | 5.74 | 6% | 1 |
 
 **怎么读**
 
-* 在不掌握模型的那些方法里，决策头中位代价最优——同预算下比 CMA-ES 好 3.3 倍、
-  比 Z-N 好 4.4 倍；达到 240 次参考的 1.05 倍只需**中位 6 次实验**。
-* 它**并不占优**：尾部很重（p90 2.91 vs BO 的 1.52）。中位株它更好，倒霉株它更差。
+* 在不掌握模型的那些方法里，决策头中位代价最优——同预算下比 CMA-ES 好 3.9 倍、
+  比 Z-N 好 5.0 倍；达到 240 次参考的 1.05 倍只需**中位 5 次实验**。
+* 尾部也不再重：p90 1.04，对比 BO 的 1.51、继电的 0.94。唯一在尾部仍胜出的基线是
+  继电自整定——它只花两次实验，但也就止步于那两次。
 * `辨识 → pidtune` 只用 **2 次**仿真就到 0.747。任何"学习型调参"的主张都必须
   过这一关，所以它在表里。
 
@@ -200,6 +204,9 @@ Laya 出厂 ECE 是 0.466。
 | v1 | 5 档均匀（×0.8…×1.25） | 5 族，固定执行器 | 0.333 | 1.438 | 20 |
 | v2 | **7 档对数（×0.5…×2.0）** | 5 族 + 位置环 | **0.316** | **0.606** | **5** |
 | v3（发布版） | 7 档对数 | 6 族 + **变执行器余量** | 0.569 | 2.911 | 6 |
+
+> 上面三行都是在启用了前瞻价值网时测的。该网络后来被发现有害，现已默认关闭，
+> 关闭后 v3 提升到 **0.468 / p90 1.037**——即上面基准表里的数字。
 
 v2 在该基准上最强。之所以发布 v3，是因为**只有它能迁移到真实 Simulink 电机**
 （见 `docs/STEP4_RESULTS.md`）：紧执行器才是实验台的真实情况，只训练宽松执行器

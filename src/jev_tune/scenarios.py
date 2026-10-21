@@ -157,15 +157,36 @@ def variants(name: str, n: int = 4, seed: int = 0) -> PlantSet:
 
 
 def _stack(plants) -> PlantSet:
+    # scenarios of different orders have different coefficient widths: pad to
+    # a common length before concatenating (highest power first, so pad left)
+    nd = max(p.num.shape[1] for p in plants)
+    def _pad(a):
+        if a.shape[1] == nd:
+            return a
+        return np.concatenate([np.zeros((a.shape[0], nd - a.shape[1])), a], axis=1)
+
+    # state-space realisations also differ in order
+    ns = max(p.a.shape[1] for p in plants)
+    def _grow(a, n):
+        out = np.zeros((a.shape[0], n, n))
+        k = a.shape[1]
+        out[:, :k, :k] = a
+        return out
+
+    def _padv(v, n):
+        out = np.zeros((v.shape[0], n))
+        out[:, : v.shape[1]] = v
+        return out
+
     return PlantSet(
         n=sum(p.n for p in plants),
         family=[f for p in plants for f in p.family],
-        num=np.concatenate([p.num for p in plants]),
-        den=np.concatenate([p.den for p in plants]),
+        num=np.concatenate([_pad(p.num) for p in plants]),
+        den=np.concatenate([_pad(p.den) for p in plants]),
         delay_s=np.concatenate([p.delay_s for p in plants]),
-        a=np.concatenate([p.a for p in plants]),
-        b=np.concatenate([p.b for p in plants]),
-        c=np.concatenate([p.c for p in plants]),
+        a=np.concatenate([_grow(p.a, ns) for p in plants]),
+        b=np.concatenate([_padv(p.b, ns) for p in plants]),
+        c=np.concatenate([_padv(p.c, ns) for p in plants]),
         d=np.concatenate([p.d for p in plants]),
         u_max=np.concatenate([p.u_max for p in plants]),
         u_min=np.concatenate([p.u_min for p in plants]),

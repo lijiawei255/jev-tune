@@ -23,6 +23,7 @@ class HeadResult:
     history: np.ndarray
     eval_axis: np.ndarray
     stop_iter: np.ndarray
+    rollbacks: np.ndarray | None = None
     wall_s: float = 0.0
 
     def sims_to_target(self, target: np.ndarray) -> np.ndarray:
@@ -40,7 +41,7 @@ def _propose(
     space: ActionSpace,
     *,
     use_expectation: bool = True,
-    use_value_filter: bool = True,
+    use_value_filter: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     f = torch.as_tensor(feats, dtype=torch.float32)
     c = torch.as_tensor(curves, dtype=torch.float32)
@@ -55,8 +56,9 @@ def _propose(
     if not (use_value_filter and value is not None):
         return np.clip(step_exp, -space.max_step, space.max_step), score_p, noul
 
-    # (b) one-step lookahead: value head is trained on single-axis probes, so
-    #     score each axis independently over the same five actions
+    # (b) one-step lookahead.  Measured to *hurt* on held-out plants
+    #     (p90 1.04 -> 2.89): the net is trained on single-axis probes but this
+    #     arbitration scores combined multi-axis steps.  Off by default.
     N = f.shape[0]
     deltas = space.deltas
     pred = np.zeros((N, 3, space.k))
@@ -91,8 +93,10 @@ def evaluate_head(
     init_scale: float = 0.0,
     seed: int = 0,
     use_expectation: bool = True,
-    use_value_filter: bool = True,
+    use_value_filter: bool = False,
     early_stop: bool = True,
+    safety_gate: bool = True,
+    max_rollbacks: int = 4,
 ) -> HeadResult:
     import time
 
@@ -108,6 +112,8 @@ def evaluate_head(
     best_gains = gains.copy()
     done = np.zeros(n, dtype=bool)
     stop_iter = np.full(n, iters, dtype=int)
+    rollbacks = np.zeros(n, dtype=int)
+    n_recalled = 0
 
     hist = []
     for k in range(iters):
@@ -141,6 +147,21 @@ def evaluate_head(
             use_value_filter=use_value_filter,
         )
 
+        # deterministic veto: if the loop is clearly worse than the best gain
+        # set we have seen, retreat instead of trusting the head.  This mirrors
+        # jev_tune_model.m so the Python benchmark and the Simulink loop behave
+        # the same way when a step would blow the loop up.
+        if safety_gate:
+            blowing = j > np.maximum(3.0 * best_cost + 1.0, 8.0)
+            blowing &= rollbacks < max_rollbacks
+            blowing &= ~done
+            if blowing.any():
+                gains = np.where(blowing[:, None], np.maximum(best_gains * 0.6, 1e-4), gains)
+                rollbacks = rollbacks + blowing.astype(int)
+                n_recalled += int(blowing.sum())
+                prev_action = np.where(blowing[:, None], 0.0, prev_action)
+                continue
+
         if early_stop:
             converged = (np.argmax(score_p, axis=1) == 4) & (noul > 0.9)
             stop_iter = np.where(converged & ~done, k, stop_iter)
@@ -162,6 +183,7 @@ def evaluate_head(
         history=np.column_stack(hist),
         eval_axis=np.arange(1, iters + 1, dtype=float),
         stop_iter=stop_iter,
+        rollbacks=rollbacks,
         wall_s=time.perf_counter() - t0,
     )
 
