@@ -34,7 +34,8 @@ def train_head(
     ds = TensorDataset(feats, curves, choice, score, noul)
     dl = DataLoader(ds, batch_size=batch, shuffle=True, drop_last=True)
 
-    model = JevHead(n_feats=feats.shape[1], n_curve=curves.shape[-1])
+    n_actions = int(max(5, data.choice.max() + 1))
+    model = JevHead(n_feats=feats.shape[1], n_curve=curves.shape[-1], n_actions=n_actions)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)
     ce = nn.CrossEntropyLoss()
@@ -50,7 +51,7 @@ def train_head(
             opt.zero_grad()
             loss.backward()
             opt.step()
-            tot += float(loss) * len(f)
+            tot += loss.item() * len(f)
             n += len(f)
         sched.step()
         if verbose and (ep % 10 == 0 or ep == epochs - 1):
@@ -74,7 +75,7 @@ def train_value(
     idx = data.act_state
     feats = _to_t(data.feats[idx])
     delta = _to_t(data.act_delta)
-    y = _to_t(np.minimum(data.act_cost, 20.0))
+    y = _to_t(np.log1p(np.minimum(data.act_cost, 20.0)))
 
     ds = TensorDataset(feats, delta, y)
     dl = DataLoader(ds, batch_size=batch, shuffle=True, drop_last=True)
@@ -91,7 +92,7 @@ def train_value(
             opt.zero_grad()
             loss.backward()
             opt.step()
-            tot += float(loss) * len(f)
+            tot += loss.item() * len(f)
             n += len(f)
         if verbose and (ep % 10 == 0 or ep == epochs - 1):
             print(f"  value epoch {ep:3d}  mse {tot / max(n, 1):.4f}")

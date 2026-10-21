@@ -255,3 +255,7 @@ research/**/*.log
 *.pt
 *.onnx
 
+
+# MATLAB engine sources (MathWorks proprietary, never commit)
+research/_matlabengine*/
+models_smoke/

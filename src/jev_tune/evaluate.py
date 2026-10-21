@@ -20,9 +20,9 @@ class HeadResult:
     name: str
     gains: np.ndarray
     best_j: np.ndarray
-    history: np.ndarray  # (N, iters) best-so-far after each simulation
-    eval_axis: np.ndarray  # iterations 1..iters
-    stop_iter: np.ndarray  # iteration at which the head declared convergence
+    history: np.ndarray
+    eval_axis: np.ndarray
+    stop_iter: np.ndarray
     wall_s: float = 0.0
 
     def sims_to_target(self, target: np.ndarray) -> np.ndarray:
@@ -49,33 +49,33 @@ def _propose(
     score_p = softmax(out["score"].numpy(), axis=-1)
     noul = torch.sigmoid(out["noul"]).numpy()
 
-    step = decode_choice(choice_p, space, use_expectation=use_expectation)
+    # (a) Jev-format decode: expected step, shrunk by the distribution variance
+    step_exp = decode_choice(choice_p, space, use_expectation=use_expectation)
 
-    if use_value_filter and value is not None:
-        # candidate set: top-2 classes per axis -> 8 combinations
-        top2 = np.argsort(-choice_p, axis=-1)[:, :, :2]  # (N,3,2)
-        deltas = space.deltas
-        combos = np.stack(
-            np.meshgrid([0, 1], [0, 1], [0, 1], indexing="ij"), axis=-1
-        ).reshape(-1, 3)  # (8,3) indices into top2
-        N = f.shape[0]
-        cand = np.zeros((N, len(combos), 3))
-        for j, combo in enumerate(combos):
-            for axis in range(3):
-                cand[:, j, axis] = deltas[top2[:, axis, combo[axis]]]
-        # value head scoring
-        flat = torch.as_tensor(cand.reshape(-1, 3), dtype=torch.float32)
-        f_rep = f.repeat_interleave(len(combos), dim=0)
-        pred = value(f_rep, flat).numpy().reshape(N, len(combos))
-        pred = np.where(np.isfinite(pred), pred, 1e6)
-        best = np.argmin(pred, axis=1)
-        cand_step = cand[np.arange(N), best]
-        # blend: trust the learned step when its predicted cost is not worse
-        improve = pred[np.arange(N), best] < pred[:, len(combos) // 2]
-        step = np.where(improve[:, None], cand_step, step)
+    if not (use_value_filter and value is not None):
+        return np.clip(step_exp, -space.max_step, space.max_step), score_p, noul
 
-    step = np.clip(step, -space.max_step, space.max_step)
-    return step, score_p, noul
+    # (b) one-step lookahead: value head is trained on single-axis probes, so
+    #     score each axis independently over the same five actions
+    N = f.shape[0]
+    deltas = space.deltas
+    pred = np.zeros((N, 3, space.k))
+    for axis in range(3):
+        for k in range(space.k):
+            d = torch.zeros(N, 3)
+            d[:, axis] = float(deltas[k])
+            pred[:, axis, k] = value(f, d).numpy()
+    step_val = deltas[np.argmin(pred, axis=2)]  # (N,3)
+
+    # (c) arbitration: whichever of {model step, greedy step, hold} looks best
+    cands = np.stack([step_exp, step_val, np.zeros_like(step_exp)], axis=1)  # (N,3,3)
+    flat_d = torch.as_tensor(cands.reshape(-1, 3), dtype=torch.float32)
+    f_rep = f.repeat_interleave(3, dim=0)
+    scores = value(f_rep, flat_d).numpy().reshape(N, 3)
+    pick = np.argmin(scores, axis=1)
+    step = cands[np.arange(N), pick]
+
+    return np.clip(step, -space.max_step, space.max_step), score_p, noul
 
 
 def evaluate_head(
@@ -88,7 +88,7 @@ def evaluate_head(
     iters: int = 20,
     space: ActionSpace | None = None,
     value: ValueNet | None = None,
-    init_scale: float = 0.25,
+    init_scale: float = 0.0,
     seed: int = 0,
     use_expectation: bool = True,
     use_value_filter: bool = True,
@@ -143,8 +143,7 @@ def evaluate_head(
 
         if early_stop:
             converged = (np.argmax(score_p, axis=1) == 4) & (noul > 0.9)
-            newly = converged & ~done
-            stop_iter = np.where(newly, k, stop_iter)
+            stop_iter = np.where(converged & ~done, k, stop_iter)
             done |= converged
 
         step = np.where(done[:, None], 0.0, step)

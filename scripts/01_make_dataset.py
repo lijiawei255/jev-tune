@@ -15,8 +15,7 @@ from jev_tune.plants import sample_plants
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--plants", type=int, default=2000)
-    ap.add_argument("--gens", type=int, default=24)
-    ap.add_argument("--lam", type=int, default=6)
+    ap.add_argument("--steps", type=int, default=24)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--out", default="data/expert_train.npz")
     args = ap.parse_args()
@@ -29,7 +28,7 @@ def main():
     )
 
     data, best_g, best_j, gzn = generate(
-        plants, gens=args.gens, lam=args.lam, seed=args.seed
+        plants, steps=args.steps, seed=args.seed
     )
     dt = time.perf_counter() - t0
 
@@ -53,7 +52,7 @@ def main():
         tu=np.asarray(getattr(data, "tu", np.zeros(plants.n))),
     )
 
-    sims = plants.n * args.gens * (1 + args.lam)
+    sims = plants.n * args.steps * 16
     print(
         f"[data] {len(data.feats):,} states, {len(data.act_state):,} lookahead samples"
     )
@@ -68,3 +67,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

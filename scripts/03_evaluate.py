@@ -23,6 +23,8 @@ from jev_tune.baselines import (
     zn_gains,
 )
 from jev_tune.evaluate import evaluate_head
+from jev_tune.identified import run_identify_pidtune
+from jev_tune.matlab_baseline import matlab_available, run_pidtune
 from jev_tune.model import JevHead, ValueNet
 from jev_tune.plants import (
     HELDOUT_FAMILIES,
@@ -35,7 +37,10 @@ from jev_tune.plants import (
 def load_models(models_dir: str):
     import torch
 
-    head = JevHead()
+    import json
+
+    meta = json.loads((Path(models_dir) / "meta.json").read_text(encoding="utf-8"))
+    head = JevHead(n_actions=meta.get("n_actions", 5))
     head.load_state_dict(torch.load(f"{models_dir}/jev_head.pt", map_location="cpu"))
     head.eval()
     value = ValueNet()
@@ -82,9 +87,10 @@ def main():
     for name, fn in (
         ("zn", lambda: run_zn(plants)),
         ("relay_zn", lambda: run_relay(plants)),
-        ("simplex", lambda: run_simplex(plants, x0, budget=48)),
-        ("cmaes", lambda: run_cmaes(plants, x0, budget=96)),
-        ("bo", lambda: run_bo(plants, x0, budget=28)),
+        ("simplex", lambda: run_simplex(plants, x0, budget=20)),
+        ("cmaes", lambda: run_cmaes(plants, x0, budget=18, lam=6)),
+        ("bo", lambda: run_bo(plants, x0, budget=20, n_init=6)),
+        ("identify+pidtune", lambda: run_identify_pidtune(plants)),
     ):
         t = time.perf_counter()
         r = fn()
@@ -145,6 +151,21 @@ def main():
         "reference_j_median": float(np.median(j_ref)),
         "rows": rows,
     }
+
+    fam_arr = np.array(plants.family)
+    payload["per_family"] = {}
+    for fam in sorted(set(plants.family)):
+        m = fam_arr == fam
+        payload["per_family"][fam] = {
+            r.name: {
+                "ratio_to_ref": float(
+                    np.median(r.best_j[m] / np.maximum(j_ref[m], 1e-6))
+                ),
+                "success_rate": float(np.mean(r.best_j[m] <= target[m])),
+            }
+            for r in results
+        }
+
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(f"\n[eval] wrote {out}")
 

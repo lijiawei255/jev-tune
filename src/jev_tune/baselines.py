@@ -84,14 +84,18 @@ def run_relay(
     n = plants.n
     nsteps = int(horizon / ts)
     x = np.zeros((n, plants.a.shape[1]))
-    y = np.zeros(n)
+    d_steps = np.clip(np.round(plants.delay_s / ts).astype(int), 0, nsteps - 1)
+    dmax = int(d_steps.max())
+    hist = np.zeros((n, dmax + 1))
+    rows = np.arange(n)
     d = 0.05 * (plants.u_max - plants.u_min)
     u = np.full(n, d)
     prev_sign = np.sign(u)
     flips, flip_y = [], []
 
     for k in range(nsteps):
-        y = x @ plants.c.T + plants.d * u
+        u_del = hist[rows, dmax - d_steps]
+        y = np.einsum("ni,ni->n", x, plants.c) + plants.d * u_del
         u = np.where(y > 0.5, -d, d)
         s = np.sign(u)
         changed = s != prev_sign
@@ -99,7 +103,9 @@ def run_relay(
             flips.append(np.where(changed, k * ts, np.nan))
             flip_y.append(np.where(changed, y, np.nan))
         prev_sign = s
-        x = np.einsum("nij,nj->ni", plants.a, x) + plants.b[:, None] * u[:, None]
+        x = np.einsum("nij,nj->ni", plants.a, x) + plants.b * u_del[:, None]
+        hist = np.roll(hist, -1, axis=1)
+        hist[:, -1] = u
 
     ku = np.full(n, np.nan)
     tu = np.full(n, np.nan)
@@ -114,7 +120,7 @@ def run_relay(
                 amp = 0.5 * (np.nanmax(yy[-4:]) - np.nanmin(yy[-4:]))
                 if period > 1e-6 and amp > 1e-9:
                     tu[i] = period
-                    ku[i] = 4 * d / (np.pi * amp)
+                    ku[i] = 4 * d[i] / (np.pi * amp)
     bad = ~np.isfinite(ku) | ~np.isfinite(tu)
     ku = np.where(bad, 1.0, ku)
     tu = np.where(bad, 1.0, tu)

@@ -1,14 +1,14 @@
-"""Expert rollout generation.
+"""Expert rollout generation: a coordinate line search over the action vocabulary.
 
-A batched CMA-ES plays the role of the expert tuner.  For every plant it walks
-a gain trajectory and, at each step, records:
+Earlier versions used a CMA-ES walk, but its annealed step size made 80 % of the
+labels "hold", which is a useless thing to imitate.  The expert here evaluates
+**every action in the vocabulary the decoder can actually emit** (three axes x
+five multiplicative steps), so the imitation target is well posed and the
+one-step lookahead data is exactly the candidate set used at inference.
 
-* the state (metrics + traces)
-* the six candidate steps it evaluated and the cost each produced
-  (this is the one-step lookahead training data for the value head)
-* the best candidate (imitation label for the Choice heads)
-* whether the best candidate kept the loop healthy (Noul label)
-* the current cost bucket (Score label)
+Per plant and per step: 15 single-axis probes + 1 combined probe = 16
+simulations.  The combined probe doubles as the next state, so a 20-step
+trajectory costs 321 simulations.
 """
 
 from __future__ import annotations
@@ -17,7 +17,6 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from .baselines import _DiagCMA, LOG_HI, LOG_LO
 from .decode import ActionSpace
 from .metrics import DIVERGED_J, cost_from_metrics
 from .plants import PlantSet, simulate, ultimate_gain
@@ -35,20 +34,19 @@ FAMILY_TO_ID = {
 
 @dataclass
 class ExpertData:
-    feats: np.ndarray  # (M,20)
-    curves: np.ndarray  # (M,2,64)
-    choice: np.ndarray  # (M,3) class per axis
-    score: np.ndarray  # (M,) 0..4
-    noul: np.ndarray  # (M,)
-    cost: np.ndarray  # (M,)
-    # one-step lookahead: (M, A, 20+2*64) is too big; store state index + action
-    act_state: np.ndarray  # (K,) index into feats
-    act_delta: np.ndarray  # (K,3) actual log10 step taken
-    act_cost: np.ndarray  # (K,) cost after that step
-    act_best: np.ndarray  # (K,) 1 if this action ended up being the expert's pick
+    feats: np.ndarray
+    curves: np.ndarray
+    choice: np.ndarray
+    score: np.ndarray
+    noul: np.ndarray
+    cost: np.ndarray
+    act_state: np.ndarray
+    act_delta: np.ndarray
+    act_cost: np.ndarray
+    act_best: np.ndarray
 
 
-def _eval_with_traces(plants: PlantSet, gains: np.ndarray):
+def _sim(plants: PlantSet, gains: np.ndarray):
     res = simulate(plants, gains)
     j = cost_from_metrics(res["metrics"], y_curve=res["y_curve"])
     return res, j
@@ -57,59 +55,48 @@ def _eval_with_traces(plants: PlantSet, gains: np.ndarray):
 def generate(
     plants: PlantSet,
     *,
-    gens: int = 40,
-    lam: int = 8,
+    steps: int = 20,
     seed: int = 0,
-    init_scale: float = 0.0,
-    sigma0: float = 0.12,
     space: ActionSpace | None = None,
-    keep_act: bool = True,
+    init_scale: float = 0.0,
+    verbose: bool = True,
 ):
-    rng = np.random.default_rng(seed)
     space = space or ActionSpace()
+    rng = np.random.default_rng(seed)
     n = plants.n
     idx = np.arange(n)
 
     ku, tu = ultimate_gain(plants)
     gzn = np.column_stack([0.6 * ku, 1.2 * ku / tu, 0.075 * ku * tu])
-    g0 = gzn * (10 ** rng.normal(0, init_scale, size=(n, 3)))
-    g0 = np.clip(g0, 10**LOG_LO, 10**LOG_HI)
-
-    opt = _DiagCMA(n, np.log10(g0), sigma=sigma0)
+    gains = np.clip(gzn * (10 ** rng.normal(0, init_scale, size=(n, 3))), 1e-4, 1e3)
 
     out = {
-        "feats": [],
-        "curves": [],
-        "choice": [],
-        "score": [],
-        "noul": [],
-        "cost": [],
-        "act_state": [] if keep_act else None,
-        "act_delta": [] if keep_act else None,
-        "act_cost": [] if keep_act else None,
-        "act_best": [] if keep_act else None,
-        "gains": [],
-        "ku": ku,
-        "tu": tu,
-        "gzn": gzn,
+        k: []
+        for k in (
+            "feats",
+            "curves",
+            "choice",
+            "score",
+            "noul",
+            "cost",
+            "act_state",
+            "act_delta",
+            "act_cost",
+            "act_best",
+        )
     }
 
     prev_action = np.zeros((n, 3))
     prev_cost = np.zeros(n)
-    best_cost = np.full(n, np.inf)
-    best_gains = g0.copy()
 
-    for t in range(gens):
-        mean_log = np.clip(opt.mean, LOG_LO, LOG_HI)
-        mean_g = 10**mean_log
+    res, j_now = _sim(plants, gains)
 
-        # --- state at the current mean
-        res, j_now = _eval_with_traces(plants, mean_g)
+    for t in range(steps):
         feats, curves = build_state(
             res["metrics"],
             res["y_curve"],
             res["u_curve"],
-            mean_g,
+            gains,
             gzn,
             ku,
             tu,
@@ -119,56 +106,72 @@ def generate(
             iteration=np.full(n, t, dtype=float),
         )
 
-        # --- candidate steps around the mean
-        cand = opt.ask(lam, rng)  # (lam,n,3)
-        cand_g = 10 ** np.clip(cand, LOG_LO, LOG_HI)
-        flat = plants.take(np.tile(idx, lam))
-        res_c, j_c = _eval_with_traces(flat, cand_g.reshape(-1, 3))
-        j_c = j_c.reshape(lam, n)
+        # --- 15 single-axis probes (axis-major, so reshape is trivial)
+        probe_gains = []
+        probe_delta = []
+        for axis in range(3):
+            for k in range(space.k):
+                g = gains.copy()
+                g[:, axis] *= space.multipliers[k]
+                probe_gains.append(g)
+                d = np.zeros(3)
+                d[axis] = space.deltas[k]
+                probe_delta.append(d)
+        probe_gains = np.concatenate(probe_gains)  # (15n, 3)
+        flat = plants.take(np.tile(idx, 3 * space.k))
+        _, j_probe = _sim(flat, probe_gains)
+        j_probe = j_probe.reshape(3, space.k, n)  # (axis, bin, plant)
 
-        best_k = np.argmin(j_c, axis=0)
-        best_delta = cand[best_k, idx, :] - mean_log
-        best_j = j_c[best_k, idx]
+        best_bin = np.argmin(j_probe, axis=1)  # (3, n)
+        combined = gains * (10 ** space.deltas[best_bin].T)  # (n,3)
 
-        # --- labels
-        deltas = space.deltas
-        cls = np.argmin(np.abs(best_delta[:, :, None] - deltas[None, None, :]), axis=2)
+        # --- combined probe: the next state, and the Noul label
+        res_next, j_next = _sim(plants, combined)
 
-        # score: current cost bucket (0 worst .. 4 best)
+        unstable = (
+            (~np.isfinite(j_next))
+            | (j_next >= 0.5 * DIVERGED_J)
+            | (np.abs(res_next["metrics"][:, 3]) > 0.6)
+            | (res_next["metrics"][:, 7] > 0.9)
+        )
+        cheap_enough = j_next < np.maximum(j_now * 1.5, j_now + 0.5)
+        noul = (~unstable & cheap_enough).astype(np.float32)
+
         edges = np.array([0.8, 1.5, 3.0, 6.0])
         score = np.digitize(np.minimum(j_now, 20.0), edges)
 
-        # noul: "the chosen step keeps the loop healthy"
-        unstable = (
-            (best_j >= 0.5 * DIVERGED_J)
-            | (np.abs(res_c["metrics"][:, 3]).reshape(lam, n)[best_k, idx] > 0.6)
-            | (res_c["metrics"][:, 7].reshape(lam, n)[best_k, idx] > 0.85)
-            | (~np.isfinite(best_j))
-        )
-        noul = (~unstable).astype(np.float32)
-
         out["feats"].append(feats)
         out["curves"].append(curves)
-        out["choice"].append(cls.astype(np.int64))
+        out["choice"].append(best_bin.T.astype(np.int64))
         out["score"].append(score.astype(np.int64))
         out["noul"].append(noul)
         out["cost"].append(j_now.astype(np.float32))
-        out["gains"].append(mean_g.astype(np.float32))
 
-        if keep_act:
-            for k in range(lam):
-                out["act_state"].append(np.arange(t * n, (t + 1) * n))
-                out["act_delta"].append(cand_g[k] / mean_g)  # ratio, logged below
-                out["act_cost"].append(j_c[k])
-                out["act_best"].append((best_k == k).astype(np.int8))
+        state_idx = np.arange(t * n, (t + 1) * n)
+        for a in range(3):
+            for k in range(space.k):
+                out["act_state"].append(state_idx)
+                d = np.zeros((n, 3))
+                d[:, a] = space.deltas[k]
+                out["act_delta"].append(d)
+                out["act_cost"].append(j_probe[a, k])
+                out["act_best"].append((best_bin[a] == k).astype(np.int8))
 
-        # --- advance
-        opt.tell(cand, j_c)
-        prev_action = best_delta
+        if verbose and (t % 5 == 0 or t == steps - 1):
+            print(
+                f"    step {t + 1}/{steps}  J median {np.median(j_now):.3f}", flush=True
+            )
+
+        # --- advance: keep the better of (current, combined)
+        better = j_next < j_now
+        gains = np.where(better[:, None], combined, gains)
+        prev_action = np.where(better[:, None], space.deltas[best_bin].T, 0.0)
         prev_cost = j_now
-        upd = best_j < best_cost
-        best_cost = np.where(upd, best_j, best_cost)
-        best_gains = np.where(upd[:, None], cand_g[best_k, idx], best_gains)
+        res = res_next if better.all() else res
+        if not better.all():
+            res, j_now = _sim(plants, gains)
+        else:
+            j_now = j_next
 
     data = ExpertData(
         feats=np.concatenate(out["feats"]),
@@ -177,18 +180,14 @@ def generate(
         score=np.concatenate(out["score"]),
         noul=np.concatenate(out["noul"]),
         cost=np.concatenate(out["cost"]),
-        act_state=np.concatenate(out["act_state"])
-        if keep_act
-        else np.zeros(0, np.int64),
-        act_delta=np.log10(np.concatenate(out["act_delta"]))
-        if keep_act
-        else np.zeros((0, 3)),
-        act_cost=np.concatenate(out["act_cost"]) if keep_act else np.zeros(0),
-        act_best=np.concatenate(out["act_best"]) if keep_act else np.zeros(0, np.int8),
+        act_state=np.concatenate(out["act_state"]),
+        act_delta=np.concatenate(out["act_delta"]),
+        act_cost=np.concatenate(out["act_cost"]),
+        act_best=np.concatenate(out["act_best"]),
     )
     data.ku = ku
     data.tu = tu
-    return data, best_gains, best_cost, gzn
+    return data, gains, j_now, gzn
 
 
 __all__ = ["ExpertData", "generate", "FAMILY_TO_ID"]
