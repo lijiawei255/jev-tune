@@ -7,6 +7,7 @@ pass must be well under a millisecond of pure inference on a laptop CPU.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 import time
 
 import numpy as np
@@ -34,7 +35,10 @@ def main():
     ap.add_argument("--reps", type=int, default=2000)
     args = ap.parse_args()
 
-    model = JevHead()
+    import json
+
+    meta = json.loads((Path(args.models) / "meta.json").read_text(encoding="utf-8-sig"))
+    model = JevHead(n_actions=meta.get("n_actions", 5))
     model.load_state_dict(torch.load(f"{args.models}/jev_head.pt", map_location="cpu"))
     model.eval()
     wrapper = _Export(model).eval()

@@ -8,7 +8,7 @@ A 200 KB model reads the step response and returns one bounded gain step in
 
 *Every frame above is one real closed-loop experiment on the motor-valve benchmark motor-valve benchmark
 DC-motor model in Simulink. The tuner is choosing `Kp`, `Ki`, `Kd` itself; the
-right panel is the cost it is minimising. Eight experiments took ~0.9 s of
+right panel is the cost it is minimising. Five experiments took ~0.55 s of
 simulation.*
 
 ---
@@ -19,12 +19,12 @@ simulation.*
 | :--- | :--- |
 | **What it does** | picks the next PID gain step from the response it just measured |
 | **How fast** | **0.19 ms** per decision (ONNX, 1 CPU thread) vs **236–276 ms** for a hosted Jev call and seconds for an LLM agent |
-| **How few experiments** | **8 experiments** cut the cost of a real Simulink motor loop by **48 %** |
-| **How it generalises** | on a plant family it never saw, **0.33** median cost vs **1.00** for CMA-ES at the same 20-simulation budget |
+| **How few experiments** | **5 experiments** cut the cost of a real Simulink motor loop by **52 %** |
+| **How it generalises** | on a plant family it never saw, **0.57** median cost vs **1.91** for CMA-ES at the same 20-simulation budget |
 
 ![before and after](assets/before_after.png)
 
-*Same plant, three gain sets. Grey: the Ziegler-Nichols start. Blue: after eight
+*Same plant, three gain sets. Grey: the Ziegler-Nichols start. Blue: after five
 experiments. Dashed: the lab's hand-tuned solution.*
 
 ---
@@ -116,19 +116,19 @@ Target = 1.05 × a 240-simulation CMA-ES reference.
 
 | method | final cost (median) | p90 | × reference | sims/plant |
 | :--- | ---: | ---: | ---: | ---: |
-| **Jev head** | **0.333** | 1.438 | **1.46** | 20 |
-| Bayesian optimisation | 0.393 | **0.855** | 1.99 | 20 |
-| identify → `pidtune` | 0.505 | 0.938 | 2.87 | 2 |
-| relay autotune | 0.900 | 0.933 | 4.33 | 2 |
-| CMA-ES | 0.998 | 2.156 | 4.45 | 18 |
-| Ziegler-Nichols | 1.953 | 3.404 | 8.37 | 1 |
+| **Jev head** | **0.569** | 2.911 | **1.52** | 20 |
+| Bayesian optimisation | 0.581 | **1.516** | 1.58 | 20 |
+| identify → `pidtune` | 0.747 | 1.712 | 1.84 | 2 |
+| relay autotune | 0.905 | 0.934 | 2.34 | 2 |
+| CMA-ES | 1.905 | 2.770 | 3.92 | 18 |
+| Ziegler-Nichols | 2.501 | 3.158 | 6.06 | 1 |
 
 **Real Simulink model (motor-valve benchmark DC motor)**
 
 | gain set | Kp | Ki | Kd | cost |
 | :--- | ---: | ---: | ---: | ---: |
 | Z-N start | 240 | 1160 | 12.4 | 1.238 |
-| **Jev head, 8 experiments** | 223 | 293 | 15.0 | **0.639** |
+| **Jev head, 5 experiments** | 90.7 | 160.9 | 15.5 | **0.598** |
 | human hand-tuned | 280 | 300 | 30.0 | 0.393 |
 
 Full numbers, caveats and reproduction: [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md),

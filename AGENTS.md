@@ -43,7 +43,7 @@ python -m jev_tune.cli demo --plants 12 --json
 `demo` prints, for held-out plants the model never saw:
 
 ```json
-{"cost_median": {"jev_head": 0.236, "cmaes_18sims": 1.424, "zn": 2.185}}
+{"cost_median": {"jev_head": 0.24, "cmaes_18sims": 1.42, "zn": 2.19}}
 ```
 
 Lower is better. That is the whole claim of the project, end to end, in ~20 s.
@@ -94,6 +94,6 @@ Scope blocks named `Scope-*`. See `docs/STEP4_RESULTS.md`.
 | file | content |
 | :--- | :--- |
 | `docs/STEP1_RESULTS.md` | latency, calibration, held-out benchmark table |
-| `docs/STEP4_RESULTS.md` | real Simulink model: 8 experiments, cost 1.24 → 0.64 |
+| `docs/STEP4_RESULTS.md` | real Simulink model: 5 experiments, cost 1.24 → 0.60 |
 | `research/results/eval_heldout_120.json` | raw evaluation output |
 | `assets/` | the demo GIF and figures used in the README |

@@ -1,7 +1,7 @@
 # Step 4 — real Simulink model, no Python at runtime
 
 > Plant: the motor-valve benchmark DC-motor position loop (`motor_valve_model.slx`,
-> Simscape Multibody butterfly valve, variable-step solver).
+> Simscape Multibody butterfly valve, variable-step solver, 30° = 0.5236 rad step).
 > Machine: Windows, MATLAB R2024b, CPU only.
 
 ## Why the bridge is built this way
@@ -13,8 +13,8 @@ Measured earlier on the same model (`research/bench/`):
 | normal (recompile every run) | 869 ms |
 | **Fast Restart** | **111 ms** (StopTime = 15 s), 40 ms at StopTime = 1 s |
 
-So a tuning loop that recompiles is 8–19× slower than the decision itself. The
-bridge therefore:
+A loop that recompiles is 8–19× slower than the decision itself. The bridge
+therefore:
 
 1. copies the model to a scratch directory and enables **Fast Restart**
    (compile once, then only tunable gains change),
@@ -24,62 +24,89 @@ bridge therefore:
 3. keeps a deterministic safety gate: the best gain set seen so far is always
    returned, and a blow-up triggers `best × 0.6` instead of trusting `noul`.
 
-Parity of the MATLAB forward pass against PyTorch: **max |Δ| = 2.3e-05** (same
-as the ONNX export).
+Parity of the MATLAB forward pass against PyTorch: **max |Δ| = 6.1e-05**.
 
-## Result on the real model
+## Result
 
-Reference step 30° = 0.5236 rad. Ultimate gain found by the Kp sweep: Ku ≈ 400,
-Tu ≈ 0.414 s → Ziegler-Nichols start `[Kp, Ki, Kd] = [240, 1160, 12.4]`.
+Reference step 0.5236 rad. Ultimate gain from the Kp sweep: Ku ≈ 400, Tu ≈
+0.414 s → Ziegler-Nichols start `[Kp, Ki, Kd] = [240, 1160, 12.4]`.
 
-| gain set | Kp | Ki | Kd | cost J |
-| :--- | ---: | ---: | ---: | ---: |
-| lab Z-N (their Ku = 278) | 167 | 673 | 10.4 | 1.290 |
-| our Z-N start | 240 | 1160 | 12.4 | 1.238 |
-| **Jev head, after 8 experiments** | **223** | **293** | **15.0** | **0.639** |
-| human hand-tuned (lab solution) | 280 | 300 | 30.0 | 0.393 |
+| gain set | Kp | Ki | Kd | cost J | experiments |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| lab Z-N (their Ku = 278) | 167 | 673 | 10.4 | 1.290 | — |
+| our Z-N start | 240 | 1160 | 12.4 | 1.238 | 0 |
+| **Jev head (shipped)** | **90.7** | **160.9** | **15.5** | **0.598** | **5** |
+| human hand-tuned (lab solution) | 280 | 300 | 30.0 | 0.393 | hours |
 
-**−48 % cost in 8 closed-loop experiments.** At 111 ms per Fast Restart run that
-is **≈ 0.9 s of simulation** — and the head landed on `Ki = 293` against the
-human's `Ki = 300`, i.e. it found the right structure, but under-shot `Kp`/`Kd`
-and stopped one step short of the human's tuning.
-
-Convergence (cost at each experiment):
+**−52 % cost in five closed-loop experiments** ≈ 0.55 s of simulation at 111 ms
+per run.
 
 ```
-1.238 → 1.085 → 0.886 → 0.700 → 0.670 → 0.657 → 0.645 → 0.639  (early stop)
+cost: 1.238 → 0.631 → 0.601 → 0.613 → 0.598   (early stop after 5)
+gains: [240 1160 12.4] → [185 594 18.7] → [144 303 16.9] → [109 299 17.7] → [90.7 161 15.5]
 ```
 
 The GIF in `assets/tuning.gif` is this run: every frame is one experiment, with
 the gains the head chose and the response it produced.
 
-## Honest reading
+## What the plant actually wants (one-at-a-time sensitivity)
 
-* The head beats the Z-N start decisively and recovers the integral gain almost
-  exactly, but it does **not** reach the human's hand-tuned set. The remaining
-  gap is `Kp` (+25 %) and `Kd` (×2), which the head stops short of because its
-  action vocabulary is coarse and its training zoo has no position-loop plant.
-* `noul` fired no rollback here (the trajectory stayed healthy); the safety gate
-  exists for the cases where it does not.
-* A model-based `pidtune` would beat all of the above if the transfer function
-  were known — it is not, which is the whole point.
+`Kp = 280, Ki = 300`, sweeping Kd:
+
+| Kd | 5 | 10 | 20 | **30** | 45 | 60 |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| J | 1.45 | 0.92 | 0.54 | **0.39** | 0.51 | 0.60 |
+
+and sweeping Kp at `Ki = 300, Kd = 30`:
+
+| Kp | 150 | 200 | 240 | **280** | 320 | 400 |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| J | 0.54 | 0.47 | 0.43 | **0.39** | 0.39 | 0.41 |
+
+So this plant wants **2.4× the Z-N derivative gain** and a fairly wide Kp
+plateau. The head found a different but valid point: much lower Kp/Ki, Kd 15.5.
+It reached 0.598, i.e. **1.5× the hand-tuned cost** — good for five experiments,
+not equal to a human who can iterate for hours.
+
+## The regression that is worth recording
+
+An intermediate model (7-option vocabulary **without** actuator-saturation
+plants in the zoo) *increased* Kd's error instead of decreasing it:
+
+| model | Kd chosen | cost |
+| :--- | ---: | ---: |
+| intermediate (v2) | 12.4 → 6.2 | **1.238 (no improvement)** |
+| shipped (v3) | 12.4 → 15.5 | 0.598 |
+
+Diagnosis: v2's zoo only had generous actuators, so the expert never had to use
+derivative action for damping — every plant could be fixed by backing off the
+proportional gain. The lab motor cannot (it saturates), which is why adding
+tight-actuator plants (headroom 1.0 / 1.6 / 2.5) fixed the transfer, at the cost
+of a heavier tail on the synthetic benchmark.
+
+That trade-off is the honest state of the project: **the model that transfers to
+the real plant is not the model that wins the synthetic benchmark.**
 
 ## Reproduce
 
 ```matlab
 addpath('matlab');
-R = jev_tune_model('...\motor_valve_model.slx', 'research/sim_tune', 20, 10, 2.5);
+R = jev_tune_model('...\motor_valve_model.slx', 'research/sim_tune', 20, 10, 1.0);
+% iters=20 (early stop at 5), stopTime=10 s, stepGain=1.0
 ```
 
-Then (Python, optional) rebuild the demo assets:
+Then rebuild the demo assets:
 
 ```bash
 matlab -batch "addpath('matlab'); save_demo_traces"
 python scripts/07_make_demo.py
 ```
 
-## Next lever
+## Next levers
 
-Widen the action vocabulary to a two-stage coarse→fine set (e.g. ×0.5/×0.7/×0.9
-then ×0.95/×1.0/×1.05) and add an integrating third-order family to the training
-zoo. Both are dataset-and-retrain changes, ≈30 min of CPU each.
+1. Add a **decay-ratio** feature (successive peak ratio) so the head can tell
+   "growing oscillation → back off" from "decaying but overshooting → add
+   damping". That is the single feature the failure analysis points at.
+2. Mixture of two heads (generous vs tight actuator) selected by the measured
+   saturation fraction — recovers v2's tail without losing v3's transfer.
+3. Both are dataset-and-retrain changes, ≈30 min of CPU each.

@@ -24,7 +24,10 @@ def main():
     ap.add_argument("--out", default="models/jev_head_weights.mat")
     args = ap.parse_args()
 
-    model = JevHead()
+    import json
+
+    meta = json.loads((Path(args.models) / "meta.json").read_text(encoding="utf-8-sig"))
+    model = JevHead(n_actions=meta.get("n_actions", 5))
     model.load_state_dict(torch.load(f"{args.models}/jev_head.pt", map_location="cpu"))
     model.eval()
     sd = model.state_dict()

@@ -3,7 +3,12 @@
 import numpy as np
 import pytest
 
-from jev_tune.decode import ActionSpace, apply_step, decode_choice, interval_refine
+from jev_tune.decode import (
+    ActionSpace,
+    apply_step,
+    decode_choice,
+    interval_refine,
+)
 from jev_tune.primitives import Choice, Noul, Option, Score, softmax
 
 
@@ -27,11 +32,18 @@ def test_choice_expectation_and_variance():
     assert c.variance() == pytest.approx(0.01)
 
 
+def test_vocabulary_is_symmetric_and_ordered():
+    d = ActionSpace().deltas
+    assert len(d) == ActionSpace().k
+    assert np.all(np.diff(d) > 0), "options must be ordered"
+    assert abs(d[0] + d[-1]) < 1e-9, "vocabulary must be symmetric in log space"
+    assert d[len(d) // 2] == pytest.approx(0.0), "one option must be 'hold'"
+
+
 def test_decode_clips_to_trust_region():
     space = ActionSpace()
-    probs = np.tile(
-        np.array([1.0, 0, 0, 0, 0]), (1, 3, 1)
-    )  # always the biggest step down
+    probs = np.zeros((1, 3, space.k))
+    probs[:, :, 0] = 1.0  # always the biggest step down
     step = decode_choice(probs, space)
     assert step.shape == (1, 3)
     assert np.all(np.abs(step) <= space.max_step + 1e-12)
@@ -39,8 +51,9 @@ def test_decode_clips_to_trust_region():
 
 def test_variance_shrinks_step():
     space = ActionSpace()
-    confident = np.tile(np.array([0, 0, 0, 0, 1.0]), (1, 3, 1))
-    uncertain = np.tile(np.full(5, 0.2), (1, 3, 1))
+    confident = np.zeros((1, 3, space.k))
+    confident[:, :, -1] = 1.0
+    uncertain = np.tile(np.full(space.k, 1.0 / space.k), (1, 3, 1))
     s_conf = decode_choice(confident, space)[0]
     s_unc = decode_choice(uncertain, space)[0]
     assert np.all(np.abs(s_unc) <= np.abs(s_conf) + 1e-12)

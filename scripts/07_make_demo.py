@@ -131,13 +131,13 @@ def make_gif(S, R, out: Path, interval_ms: int = 550):
     print(f"[demo] wrote {out}")
 
 
-def make_before_after(S, out: Path):
+def make_before_after(S, out: Path, n_exp: int = 0):
     fig, (ax, axb) = plt.subplots(
         1, 2, figsize=(9.6, 3.6), gridspec_kw={"width_ratios": [2.3, 1]}
     )
     styles = {
         "zn": ("start — Ziegler-Nichols", MUTED, 1.4),
-        "head": ("after 8 experiments — Jev head", ACCENT, 2.2),
+        "head": (f"after {n_exp or 8} experiments — Jev head", ACCENT, 2.2),
         "human": ("human hand-tuned (reference)", INK, 1.4),
     }
     for rec in S:
@@ -169,7 +169,7 @@ def make_before_after(S, out: Path):
         axb.text(v + 0.02, i, f"{v:.2f}", va="center", fontsize=8.5)
     axb.set_xlim(0, max(vals) * 1.28)
     axb.set_xlabel("cost J")
-    axb.set_title("cost after 8 experiments", fontsize=10, loc="left")
+    axb.set_title(f"cost after {n_exp or 8} experiments", fontsize=10, loc="left")
     for s in ("top", "right"):
         axb.spines[s].set_visible(False)
     fig.tight_layout()
@@ -206,7 +206,8 @@ def main():
     S, R = load(args.mat)
     out = Path(args.out)
     make_gif(S, R, out / "tuning.gif")
-    make_before_after(S, out / "before_after.png")
+    n_exp = int(np.argmin([float(h.J) for h in R.hist])) + 1
+    make_before_after(S, out / "before_after.png", n_exp)
     make_convergence(R, out / "convergence.png")
 
 

@@ -7,41 +7,41 @@
 
 | Component | What it is |
 | :--- | :--- |
-| Plant zoo | 5 training families (FOPDT, SOPDT, 3rd-order + RHP zero, integrating, PMSM speed loop) + 1 **held-out** family (two-mass resonance) |
-| Expert | coordinate line search over the same 3×5 action vocabulary the decoder emits (16 sims/step) |
-| Dataset | 2 000 plants × 20 steps = 40 000 states, 600 000 one-step lookahead rows |
-| Head | 1D-CNN over the traces + MLP over 20 features → 3×`choice(5)` + `score(5)` + `noul`, 165 KB as ONNX |
+| Plant zoo | 6 training families (FOPDT, SOPDT, 3rd-order + RHP zero, integrating, PMSM speed loop, type-1 position loop) with **per-plant actuator headroom** (1.0 / 1.6 / 2.5 × unit command) + 1 **held-out** family (two-mass resonance) |
+| Expert | coordinate line search over the same 3×7 action vocabulary the decoder emits (22 sims/step) |
+| Dataset | 2 000 plants × 20 steps = 40 000 states, 630 000 one-step lookahead rows |
+| Head | 1D-CNN over the traces + MLP over 20 features → 3×`choice(7)` + `score(5)` + `noul`, 168 KB as ONNX |
 | Value net | (state, action) → predicted cost, 26 KB, used as a one-step lookahead filter |
 | Baselines | Z-N, relay autotune, simplex, CMA-ES, Bayesian optimisation, MATLAB `pidtune`, identify→`pidtune` |
 
 ## KPI 1 — decision latency (the "system-1" claim)
 
-ONNX Runtime, 1 thread, batch 1, 3 000 repetitions:
+ONNX Runtime, 1 thread, batch 1, 2 000 repetitions:
 
 | backend | p50 | p95 | p99 | size |
 | :--- | ---: | ---: | ---: | ---: |
-| ONNX Runtime (CPU) | **0.186 ms** | 0.214 ms | 0.237 ms | 165 KB |
-| PyTorch eager (CPU) | 2.392 ms | — | — | 203 KB |
+| ONNX Runtime (CPU) | **0.188 ms** | 0.233 ms | 0.503 ms | 168 KB |
+| PyTorch eager (CPU) | 1.668 ms | — | — | 206 KB |
 
-Parity between the ONNX graph and PyTorch: max abs difference **2.3e-05**.
-Target was "decision < 1 ms"; measured **0.19 ms**, i.e. ~5× inside budget.
+Parity between the ONNX graph and PyTorch: max abs difference **7.6e-06**.
+Target was "decision < 1 ms"; measured **0.19 ms**, ~5× inside budget.
 
 Full iteration on the lab model: decision 0.19 ms + Simulink Fast Restart run
-**40 ms** (StopTime = 1 s, measured in `research/bench/`) + IPC ≈ **< 50 ms**.
-Without Fast Restart the same model costs 763 ms per run, so the bridge — not
+**111 ms** (StopTime = 10 s, measured in `research/bench/`) ≈ 0.11 s.
+Without Fast Restart the same model costs 869 ms per run, so the bridge — not
 the model — would dominate.
 
 ## KPI 2 — calibration
 
 Temperature fitted on a 10 % held-out split of the rollouts:
 
-| axis | val accuracy (5-way) | ECE before | ECE after | fitted T |
+| axis | val accuracy (7-way) | ECE before | ECE after | fitted T |
 | :--- | ---: | ---: | ---: | ---: |
-| Kp step | 0.602 | 0.025 | **0.017** | 0.94 |
-| Ki step | 0.677 | 0.033 | **0.021** | 0.93 |
-| Kd step | 0.662 | 0.029 | **0.016** | 0.92 |
-| `score` | 0.993 | — | — | — |
-| `noul` | 0.986 | — | — | — |
+| Kp step | 0.666 | 0.033 | **0.031** | 1.00 |
+| Ki step | 0.690 | 0.030 | **0.011** | 0.92 |
+| Kd step | 0.678 | 0.021 | **0.020** | 0.96 |
+| `score` | 0.994 | — | — | — |
+| `noul` | 0.969 | — | — | — |
 
 ECE ≈ 0.02 is what makes `score`-based early stopping and `noul`-based gating
 meaningful. Laya ships at ECE 0.466 for comparison.
@@ -54,55 +54,67 @@ the same simulation accounting.
 
 | method | final J (median) | final J (p90) | × reference | success | sims/plant |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| **jev head** | **0.333** | 1.438 | **1.46** | 12 % | **20** |
-| Bayesian opt. | 0.393 | **0.855** | 1.99 | **23 %** | 20 |
-| identify → `pidtune` | 0.505 | 0.938 | 2.87 | 17 % | 2 |
-| relay autotune | 0.900 | 0.933 | 4.33 | 12 % | 2 |
-| CMA-ES | 0.998 | 2.156 | 4.45 | 2 % | 18 |
-| simplex | 1.250 | 2.266 | 5.12 | 0 % | 20 |
-| Z-N | 1.953 | 3.404 | 8.37 | 0 % | 1 |
+| **Jev head** | **0.569** | 2.911 | **1.52** | 27 % | **20** |
+| Bayesian opt. | 0.581 | **1.516** | 1.58 | **35 %** | 20 |
+| identify → `pidtune` | 0.747 | 1.712 | 1.84 | 28 % | 2 |
+| relay autotune | 0.905 | 0.934 | 2.34 | **35 %** | 2 |
+| CMA-ES | 1.905 | 2.770 | 3.92 | 10 % | 18 |
+| simplex | 2.085 | 2.962 | 4.48 | 10 % | 20 |
+| Z-N | 2.501 | 3.158 | 6.06 | 7 % | 1 |
 
 **Reading**
 
-* The head has the **lowest median cost of every method that does not know the
-  model** — 3.0× better than CMA-ES at the same 20-simulation budget, and
-  1.46× the cost of a 240-simulation reference using 12× fewer simulations.
-* It does **not** dominate: the tail is heavy (p90 1.44 vs BO's 0.86), so the
-  fraction of plants that land inside 5 % of the reference is 12 % versus 23 %
-  for Bayesian optimisation. The head is the better bet on the median plant and
-  the worse bet on the unlucky one.
-* `identify → pidtune` is remarkable: two simulations, 0.505. Any claim about
-  learned tuning has to survive that comparison, which is exactly why it is in
-  the table.
+* The head has the lowest median cost of every method that does not know the
+  model — 3.3× better than CMA-ES at the same simulation budget, 4.4× better
+  than Z-N, and it reaches 1.05× of the 240-simulation reference after a
+  **median of 6 experiments**.
+* It does **not** dominate: the tail is heavy (p90 2.91 vs BO's 1.52). The head
+  is the better bet on the median plant and the worse bet on the unlucky one.
+  The 7-option vocabulary fixed exactly this in an earlier zoo (p90 1.44 → 0.61)
+  and the tight-actuator plants reintroduced it — see the trade-off note below.
+* `identify → pidtune` reaches 0.747 in **two** simulations. Any claim about
+  learned tuning has to survive that comparison, which is why it is in the table.
+
+## The vocabulary + zoo changes (what the two levers actually did)
+
+| iteration | vocabulary | zoo | head median | head p90 | sims to target |
+| :--- | :--- | :--- | ---: | ---: | ---: |
+| v1 | 5 uniform (×0.8…×1.25) | 5 families, fixed actuator | 0.333 | 1.438 | 20 |
+| v2 | **7 log-spaced (×0.5…×2.0)** | 5 families + position loop | **0.316** | **0.606** | **5** |
+| v3 (shipped) | 7 log-spaced | 6 families + **variable actuator headroom** | 0.569 | 2.911 | 6 |
+
+v2 is the strongest on this benchmark. v3 is shipped anyway because it is the
+one that transfers to the real Simulink motor (see `docs/STEP4_RESULTS.md`):
+tight actuators are what the lab plant actually has, and training only on
+generous ones produced a policy that could not tune it. The benchmark numbers
+across rows are **not** directly comparable — v3's zoo is harder for every
+method (Z-N 1.95 → 2.50, BO 0.39 → 0.58).
 
 ## Honest caveats
 
 1. **`pidtune` with the true model is the strongest design** (0.81 median on
    training families, zero simulations). A learned tuner earns its place only
-   when the model is unavailable or wrong — that is the scenario this benchmark
-   is set in.
-2. **The action vocabulary is coarse** (±10–25 % per axis, 5 levels). Expected
-   value decoding recovers some resolution, but a coarse→fine two-stage policy
-   is the obvious next lever.
-3. In-distribution (training families) the head is only *competitive* with
-   CMA-ES at equal budget (1.935 vs 1.959 median); the measurable advantage comes
-   from generalising to unseen dynamics, not from beating a search on seen ones.
+   when the model is unavailable or wrong — the scenario this benchmark uses.
+2. **The tail is the weak spot.** v2 fixed it on its zoo; v3 (shipped) traded it
+   for transfer. A mixture-of-experts or a two-stage vocabulary with an explicit
+   saturation-aware feature is the next lever.
+3. In-distribution the head is only *competitive* with CMA-ES at equal budget;
+   the measurable advantage is generalisation to unseen dynamics.
 4. The expert is a greedy coordinate search, so it caps the imitation target.
-   A stronger expert inside the same vocabulary should lift both the head and
-   its tail.
 
 ## Reproduce
 
 ```powershell
 conda activate jev-tune
 $env:PYTHONPATH="src"
-python scripts/01_make_dataset.py --plants 500 --steps 20 --seed 0 --out data/g_0.npz   # x4 seeds
+python scripts/01_make_dataset.py --plants 500 --steps 20 --seed 0 --out data/k_0.npz   # x4 seeds
 python scripts/00_merge_chunks.py
 python scripts/02_train.py --data data/expert_train.npz
 python scripts/04_export_onnx.py
+python scripts/06_export_weights_mat.py
 python scripts/03_evaluate.py --plants 120
 python scripts/05_report.py
 ```
 
-Total CPU time for the whole pipeline: **≈ 25 min** (dataset 4×4.5 min in
-parallel, training 12 min, evaluation 3 min).
+Total CPU time for the whole pipeline: **≈ 30 min** (dataset 4×5 min in
+parallel, training 15 min, evaluation 4 min).

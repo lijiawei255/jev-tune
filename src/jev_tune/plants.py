@@ -15,7 +15,14 @@ from scipy import signal
 # Plant sampling
 # --------------------------------------------------------------------------- #
 
-TRAIN_FAMILIES = ("fopdt", "sopdt", "third_rhp", "integrating", "pmsm_speed")
+TRAIN_FAMILIES = (
+    "fopdt",
+    "sopdt",
+    "third_rhp",
+    "integrating",
+    "pmsm_speed",
+    "position_loop",
+)
 HELDOUT_FAMILIES = ("two_mass",)
 
 # actuator range: unit DC gain plants need u_ss = 1 for a unit step, so 2.5x
@@ -49,6 +56,14 @@ def _tf(family: str, p: dict):
             np.array([p["K"]]),
             np.array([te * tm, te + tm, 1.0, 0.0]),
         )
+    if family == "position_loop":
+        # type-1 3rd order: current loop (fast) -> speed loop (slow) -> 1/s.
+        # This is the shape of the motor-valve benchmark motor: K / (s (T1 s + 1)(T2 s + 1)).
+        t1, t2 = p["tau_c"], p["tau_s"]
+        return (
+            np.array([p["K"]]),
+            np.convolve(np.array([t1, 1.0, 0.0]), np.array([t2, 1.0])),
+        )
     if family == "two_mass":
         # two-mass resonance: K * wa^2 / ((s^2+2 z1 w1 s+w1^2)(s^2+2 za wa s+wa^2))
         w1, z1, wa, za = p["w1"], p["z1"], p["wa"], p["za"]
@@ -75,7 +90,7 @@ def _normalize_gain(num: np.ndarray, den: np.ndarray):
 
 def _dominant_time(p: dict) -> float:
     """Dominant time constant of a sampled plant (used to size the delay)."""
-    for key in ("T", "tau_m"):
+    for key in ("T", "tau_m", "tau_s"):
         if key in p:
             return float(p[key])
     for key in ("wn", "w1"):
@@ -115,6 +130,12 @@ def _sample_params(family: str, rng: np.random.Generator, heldout: bool) -> dict
             "K": s(0.2, 3.0),
             "tau_e": l(0.0008, 0.01),
             "tau_m": l(0.02, 0.6) * hi,
+        }
+    if family == "position_loop":
+        return {
+            "K": s(0.3, 3.0),
+            "tau_c": l(0.003, 0.03),  # current/torque loop
+            "tau_s": l(0.05, 0.6) * hi,  # speed loop + mechanics
         }
     if family == "two_mass":
         return {
@@ -204,6 +225,11 @@ def sample_plants(
         # the ultimate gain stays in a physically meaningful range
         delays.append(0.0015 + rng.uniform(0.03, 0.15) * _dominant_time(p))
 
+    # actuator headroom: a tight limit saturates the proportional action, so
+    # derivative damping becomes the binding knob (this is the regime where a
+    # real position loop like the motor-valve benchmark motor lives)
+    u_max = rng.choice(np.array([1.0, 1.6, 2.5]), size=n, p=[0.33, 0.34, 0.33])
+
     nd = max(len(x) for x in den_list)
     num_mat = np.zeros((n, nd))
     den_mat = np.zeros((n, nd))
@@ -248,7 +274,7 @@ def sample_plants(
         b=b,
         c=c,
         d=d,
-        u_max=np.full(n, _U_RANGE[1]),
+        u_max=u_max,
         u_min=np.full(n, _U_RANGE[0]),
         params=params,
     )

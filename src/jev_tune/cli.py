@@ -33,6 +33,19 @@ def _has(mod: str) -> bool:
         return False
 
 
+def _n_actions(models_dir: Path) -> int:
+    """Read the action-vocabulary size recorded at training time."""
+    meta = models_dir / "meta.json"
+    if meta.is_file():
+        try:
+            return int(
+                json.loads(meta.read_text(encoding="utf-8-sig")).get("n_actions", 5)
+            )
+        except Exception:
+            pass
+    return 5
+
+
 def cmd_status(args) -> int:
     info = {
         "python": sys.version.split()[0],
@@ -109,7 +122,7 @@ def cmd_demo(args) -> int:
     ku, tu = ultimate_gain(plants)
     gzn = np.column_stack([0.6 * ku, 1.2 * ku / tu, 0.075 * ku * tu])
 
-    head = JevHead()
+    head = JevHead(n_actions=_n_actions(weights.parent))
     head.load_state_dict(torch.load(weights, map_location="cpu"))
     head.eval()
 

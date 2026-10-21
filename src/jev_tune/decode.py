@@ -16,13 +16,22 @@ import numpy as np
 
 from .primitives import Choice, Option, softmax
 
-DEFAULT_MULTIPLIERS = (0.80, 0.90, 1.00, 1.10, 1.25)
+DEFAULT_MULTIPLIERS = (0.50, 0.70, 0.87, 1.00, 1.15, 1.43, 2.00)
+"""Coarse-to-fine vocabulary: ~15 % steps near unity, up to 2x far away.
+
+A 5-point uniform grid (+-10/25 %) needed ~50 iterations to walk a gain that
+was 4x off.  Log-spacing the same number of options keeps the fine resolution
+where it matters (near convergence) while allowing a single decisive move when
+the plant is badly detuned.
+"""
+
+LEGACY_MULTIPLIERS = (0.80, 0.90, 1.00, 1.10, 1.25)
 
 
 @dataclass
 class ActionSpace:
     multipliers: tuple[float, ...] = DEFAULT_MULTIPLIERS
-    max_step: float = 0.20  # hard cap on |dlog10 K| per iteration
+    max_step: float = 0.32  # hard cap on |dlog10 K| per iteration (~2x)
 
     @property
     def deltas(self) -> np.ndarray:
@@ -111,4 +120,5 @@ __all__ = [
     "interval_refine",
     "apply_step",
     "DEFAULT_MULTIPLIERS",
+    "LEGACY_MULTIPLIERS",
 ]

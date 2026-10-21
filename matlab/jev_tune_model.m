@@ -133,14 +133,14 @@ for it = 0:iters-1
     out = jev_head_forward(W, feats, curves);
 
     step = zeros(1, 3);
-    mult = [0.80, 0.90, 1.00, 1.10, 1.25];
+    mult = [0.50, 0.70, 0.87, 1.00, 1.15, 1.43, 2.00];
     d = log10(mult);
     for ax = 1:3
         p = softmax_local(out.choice(:, ax, 1)).';
         mu = p * d.';
         v = max(p * (d.^2).' - mu^2, 0);
         gate = 1 / (1 + v / var(d));
-        step(ax) = min(max(stepGain * mu * gate, -0.2), 0.2);
+        step(ax) = min(max(stepGain * mu * gate, -0.32), 0.32);
     end
 
     hist(end+1).gains = gains; hist(end).M = M; hist(end).J = J; %#ok<AGROW>

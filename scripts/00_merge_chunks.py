@@ -26,10 +26,10 @@ def main():
         "--chunks",
         nargs="+",
         default=[
-            "data/g_0.npz",
-            "data/g_1.npz",
-            "data/g_2.npz",
-            "data/g_3.npz",
+            "data/k_0.npz",
+            "data/k_1.npz",
+            "data/k_2.npz",
+            "data/k_3.npz",
         ],
     )
     ap.add_argument("--out", default="data/expert_train.npz")
@@ -62,3 +62,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
