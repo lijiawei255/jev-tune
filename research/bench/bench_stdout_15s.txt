@@ -1,0 +1,29 @@
+
+Simulink Agentic Toolkit - Installation Check
+===============================================
+
+Prerequisites
+  ? MATLAB 24.2.0.2923080 (R2024b) Update 6
+  ? Simulink installed and licensed
+
+MATLAB Environment
+  ? All 9 tool entry points on path
+  ? Package resolution correct (+sage, +mbd inside SATK)
+
+MCP Server
+  ? matlab-mcp-server.exe found: C:\Users\public-user\.matlab\agentic-toolkits\bin\matlab-mcp-server.exe
+
+MCP Connectivity
+  ? shareMATLABSession available (MATLAB-side MCP components installed)
+  ? MATLAB connector running (port 31516)
+
+===============================================
+Result: PASS
+
+model=jevbench_model stopTime=15 solver=VariableStepAuto
+cold_ms=9367.9
+normal_ms=[960 1112 782 869 620] median=868.8
+fr_first_ms=521.9
+fr_ms=[319 91 88 111 241] median=111.0
+speedup=7.83
+fr_simin_ms=[430 150 138 114 201] median=150.4

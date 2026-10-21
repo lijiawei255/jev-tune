@@ -1,0 +1,7 @@
+model=jevbench_model stopTime=1 solver=VariableStepAuto
+cold_ms=10117.8
+normal_ms=[1009 979 662 763 549] median=762.8
+fr_first_ms=625.5
+fr_ms=[388 40 36 40 44] median=40.3
+speedup=18.93
+fr_simin_ms=[416 102 75 53 144] median=102.3

@@ -1,0 +1,20 @@
+# Core
+numpy>=1.26
+scipy>=1.11
+pandas>=2.1
+matplotlib>=3.8
+scikit-learn>=1.4
+pyyaml>=6.0
+
+# Model / runtime
+torch>=2.4            # CPU wheel: pip install torch --index-url https://download.pytorch.org/whl/cpu
+onnx>=1.16
+onnxruntime>=1.18
+
+# Dev
+pytest>=8.0
+
+# Optional (Step 4): MATLAB bridge, must match the local MATLAB release
+#   pip install "C:\Program Files\MATLAB\R2024b\extern\engines\python"
+# Optional (Track B): Laya / Jev-compatible backend
+#   pip install "laya[onnx]"
