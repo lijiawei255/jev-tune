@@ -8,8 +8,8 @@ A 200 KB model reads the step response and returns one bounded gain step in
 
 *Every frame above is one real closed-loop experiment on the motor-valve benchmark motor-valve benchmark
 DC-motor model in Simulink. The tuner is choosing `Kp`, `Ki`, `Kd` itself; the
-right panel is the cost it is minimising. Five experiments took ~0.55 s of
-simulation.*
+right panel is the cost it is minimising. The best gains appeared after five
+experiments (~0.55 s of simulation); the stall detector stopped the loop at nine.*
 
 ---
 
@@ -19,7 +19,7 @@ simulation.*
 | :--- | :--- |
 | **What it does** | picks the next PID gain step from the response it just measured |
 | **How fast** | **0.19 ms** per decision (ONNX, 1 CPU thread) vs **236–276 ms** for a hosted Jev call and seconds for an LLM agent |
-| **How few experiments** | **5 experiments** cut the cost of a real Simulink motor loop by **52 %** |
+| **How few experiments** | **5 experiments** (0.55 s of simulation) cut a real Simulink motor loop's cost by **52 %** |
 | **How it generalises** | on a plant family it never saw, **0.57** median cost vs **1.91** for CMA-ES at the same 20-simulation budget |
 
 ![before and after](assets/before_after.png)
@@ -128,7 +128,7 @@ Target = 1.05 × a 240-simulation CMA-ES reference.
 | gain set | Kp | Ki | Kd | cost |
 | :--- | ---: | ---: | ---: | ---: |
 | Z-N start | 240 | 1160 | 12.4 | 1.238 |
-| **Jev head, 5 experiments** | 90.7 | 160.9 | 15.5 | **0.598** |
+| **Jev head (best at experiment 5)** | 90.7 | 160.9 | 15.5 | **0.598** |
 | human hand-tuned | 280 | 300 | 30.0 | 0.393 |
 
 Full numbers, caveats and reproduction: [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md),

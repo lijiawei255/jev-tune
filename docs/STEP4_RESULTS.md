@@ -35,11 +35,11 @@ Reference step 0.5236 rad. Ultimate gain from the Kp sweep: Ku ≈ 400, Tu ≈
 | :--- | ---: | ---: | ---: | ---: | ---: |
 | lab Z-N (their Ku = 278) | 167 | 673 | 10.4 | 1.290 | — |
 | our Z-N start | 240 | 1160 | 12.4 | 1.238 | 0 |
-| **Jev head (shipped)** | **90.7** | **160.9** | **15.5** | **0.598** | **5** |
+| **Jev head (shipped, best at exp. 5)** | **90.7** | **160.9** | **15.5** | **0.598** | **5 / 9** |
 | human hand-tuned (lab solution) | 280 | 300 | 30.0 | 0.393 | hours |
 
-**−52 % cost in five closed-loop experiments** ≈ 0.55 s of simulation at 111 ms
-per run.
+**−52 % cost, best found at experiment five** ≈ 0.55 s of simulation at 111 ms
+per run. The stall detector stopped the loop at experiment nine.
 
 ```
 cost: 1.238 → 0.631 → 0.601 → 0.613 → 0.598   (early stop after 5)
