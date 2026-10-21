@@ -263,3 +263,5 @@ models_smoke/
 # scratch used to run the Simulink bridge (regenerated on demand)
 research/sim_tune/
 research/sim_json/
+research/sim_batch_*/
+research/sim_w*/

@@ -150,7 +150,8 @@ def _probe() -> dict:
 
 
 def _tune_simulink(args: dict) -> dict:
-    from .matlab_runner import run_job
+    # keep MATLAB warm: a cold start is ~50 s and would dominate the run
+    from .matlab_worker import tune_with_worker
 
     model = args.get("model")
     if not model:
@@ -174,7 +175,7 @@ def _tune_simulink(args: dict) -> dict:
     ):
         if key in args and args[key] not in (None, ""):
             cfg[key] = args[key]
-    return run_job(cfg)
+    return tune_with_worker(cfg, timeout=float(args.get("timeout", 300)))
 
 
 def _tune_demo(args: dict) -> dict:

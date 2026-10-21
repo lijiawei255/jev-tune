@@ -130,19 +130,30 @@ More detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
-## Where the speed actually pays off
+## Where the speed actually pays off — and where it does not
 
-The decision inside the loop is what the agent no longer has to do. On one
-plant that is "merely convenient"; the gap opens with **N plants × M
-experiments**:
+The decision inside the loop is what the agent no longer has to do. But the
+measurement is blunt about the conditions:
 
-| plants | agent in the loop (LLM 3 s) | jev-tune | LLM calls |
-| ---: | ---: | ---: | ---: |
-| 1 | 62 s | ~2.3 s | 20 → 1 |
-| 100 | 1.7 h | ~4 min | 2 000 → 100 |
-| 1 000 | **17.2 h** | **~39 min** | 20 000 → 1 000 |
+| how you run it | per 20-experiment job |
+| :--- | ---: |
+| agent in the loop (LLM 3 s/turn) | 60 s |
+| **one CLI process per job** | **122 s** ← startup (50 s) + compile (10 s) dominate |
+| warm MATLAB worker | 15 s |
+| warm worker, model already compiled | **~2 s** |
 
-Assumptions and the concurrency/licence trade-off: [`docs/SCALE.md`](docs/SCALE.md).
+So the advantage is **not** "the model is fast"; it is "keep MATLAB warm and
+stop recompiling". The MCP server and `jev-tune batch` use a persistent worker
+for exactly this reason.
+
+| jobs | agent in the loop | one process each | warm worker | warm + compiled |
+| ---: | ---: | ---: | ---: | ---: |
+| 100 | 1.7 h | 3.4 h | 25 min | **3.3 min** |
+| 1 000 | 17 h | 34 h | 4.2 h | **33 min** |
+
+All numbers measured or extrapolated from measurements on this machine; the
+LLM latency is an assumption. Details, the blocking/concurrency trade-off and
+the remaining work: [`docs/SCALE.md`](docs/SCALE.md).
 
 ## Benchmarks
 

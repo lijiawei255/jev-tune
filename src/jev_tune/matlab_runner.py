@@ -158,6 +158,33 @@ def run_job(cfg: dict, *, timeout: int = 900) -> dict:
         return result
 
 
+def run_batch(jobs: list[dict], *, timeout: int = 3600) -> list[dict]:
+    """Run many jobs in a single MATLAB process (one cold start, not N)."""
+    info = find_matlab()
+    if not info.ok:
+        return [{"ok": False, "error": "MATLAB not found; set MATLAB_EXE"}]
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        jobs_file = tmp_path / "jobs.json"
+        out_file = tmp_path / "results.jsonl"
+        jobs_file.write_text(json.dumps(jobs), encoding="utf-8")
+        code = (
+            f"addpath('{MATLAB_DIR.as_posix()}'); "
+            f"jev_tune_batch('{jobs_file.as_posix()}','{out_file.as_posix()}');"
+        )
+        proc = run_matlab(code, timeout=timeout, matlab=info)
+        if not out_file.is_file():
+            return [{
+                "ok": False,
+                "error": "batch produced no results",
+                "stderr": proc.stderr[-2000:],
+            }]
+        results = [json.loads(line) for line in out_file.read_text(encoding="utf-8").splitlines() if line.strip()]
+    for r in results:
+        r.setdefault("matlab", str(info.executable))
+    return results
+
+
 def probe(*, timeout: int = 180) -> dict:
     info = find_matlab()
     if not info.ok:

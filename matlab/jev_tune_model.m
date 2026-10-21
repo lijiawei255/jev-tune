@@ -96,6 +96,7 @@ fprintf('[jev] reference step = %.4f\n', refCmd);
 
 apply = @(g) set_gains(mdlName, g, cfg);
 runOnce = @() run_and_extract(mdlName, stopTime, cfg);
+sweepOnce = @() run_and_extract(mdlName, min(stopTime, 4), cfg);
 
 % ---------------------------------------------------------------- Ku / Tu
 kpGrid = logspace(log10(0.5), log10(400), 7);
@@ -103,7 +104,7 @@ oscScore = zeros(size(kpGrid));
 tuGuess = nan(size(kpGrid));
 for i = 1:numel(kpGrid)
     apply([kpGrid(i), 0, 0]);
-    [t, y, ~] = runOnce();
+    [t, y, ~] = sweepOnce();
     [oscScore(i), tuGuess(i)] = oscillation_score(t, y);
 end
 ok = find(oscScore >= 3, 1, 'last');

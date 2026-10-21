@@ -58,12 +58,15 @@ catch err
     out.wall_s = toc(t0);
 end
 
-fid = fopen(outPath, 'w');
+% write-then-rename so a client never reads a half-written file
+tmpPath = [outPath '.tmp'];
+fid = fopen(tmpPath, 'w');
 if fid < 0
-    error('jev:io', 'cannot write %s', outPath);
+    error('jev:io', 'cannot write %s', tmpPath);
 end
 fwrite(fid, jsonencode(out), 'char');
 fclose(fid);
+movefile(tmpPath, outPath, 'f');
 end
 
 % --------------------------------------------------------------------------- %

@@ -204,6 +204,32 @@ def cmd_matlab(args) -> int:
     return 0 if result.get("ok") else 2
 
 
+def cmd_batch(args) -> int:
+    """Run a queue of tuning jobs in one MATLAB process."""
+    from .matlab_runner import run_batch
+
+    jobs = json.loads(Path(args.jobs).read_text(encoding="utf-8-sig"))
+    if isinstance(jobs, dict):
+        jobs = [jobs]
+    for job in jobs:
+        job.setdefault("iters", args.iters)
+        job.setdefault("step_gain", args.step_gain)
+    results = run_batch(jobs, timeout=args.timeout)
+
+    if args.json:
+        print(json.dumps(results, indent=2, ensure_ascii=False))
+    else:
+        ok = sum(1 for r in results if r.get("ok"))
+        print(f"{ok}/{len(results)} jobs succeeded")
+        for r in results:
+            if r.get("ok"):
+                print(f"  [{r.get('index', '?')}] {Path(r.get('model', '')).name:<28} "
+                      f"J={r.get('final_J', float('nan')):.3f}  {r.get('job_wall_s', 0):.1f}s")
+            else:
+                print(f"  [{r.get('index', '?')}] FAILED: {r.get('error')}")
+    return 0 if any(r.get("ok") for r in results) else 2
+
+
 def cmd_check(args) -> int:
     """Fast self-test: analytic closed loop, decoding contract, ONNX parity."""
     import subprocess
@@ -246,6 +272,14 @@ def build_parser() -> argparse.ArgumentParser:
     m.add_argument("--probe", action="store_true", help="only report the MATLAB capability")
     m.add_argument("--json", action="store_true")
     m.set_defaults(func=cmd_matlab)
+
+    b = sub.add_parser("batch", help="run a queue of Simulink jobs in one MATLAB process")
+    b.add_argument("--jobs", required=True, help="JSON file with a list of job objects")
+    b.add_argument("--iters", type=int, default=20)
+    b.add_argument("--step-gain", dest="step_gain", type=float, default=1.0)
+    b.add_argument("--timeout", type=int, default=3600)
+    b.add_argument("--json", action="store_true")
+    b.set_defaults(func=cmd_batch)
 
     c = sub.add_parser("check", help="run the test suite")
     c.add_argument("--json", action="store_true")
