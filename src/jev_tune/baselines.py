@@ -321,6 +321,48 @@ def run_bo(
     )
 
 
+def run_grid(
+    plants: PlantSet,
+    x0: np.ndarray,
+    *,
+    kp: tuple[float, ...] = (0.4, 0.7, 1.0, 1.4, 2.0),
+    ki: tuple[float, ...] = (0.25, 0.5, 1.0, 2.0, 4.0),
+    kd: tuple[float, ...] = (0.25, 0.5, 1.0, 2.0, 4.0),
+    batch: int = 25,
+) -> BaselineResult:
+    """Brute-force log-spaced grid around Z-N -- the "linear sweep" baseline.
+
+    This is what people do when they have no model and no policy: multiply each
+    gain through a fixed set of factors and keep the best.  Cost is the full
+    grid, 125 simulations for the default 5x5x5.
+    """
+    n = plants.n
+    grid = np.array(np.meshgrid(kp, ki, kd, indexing="ij")).reshape(3, -1).T
+    total = grid.shape[0]
+
+    history, axis_ = [], []
+    best = np.full(n, np.inf)
+    evals = 0
+    for start in range(0, total, batch):
+        chunk = grid[start : start + batch]
+        m = chunk.shape[0]
+        flat = plants.take(np.tile(np.arange(n), m))
+        gains = (x0[None, :, :] * chunk[:, None, :]).reshape(-1, 3)
+        j = _eval(flat, gains).reshape(m, n)
+        evals += m
+        best = np.minimum(best, j.min(axis=0))
+        history.append(best.copy())
+        axis_.append(float(evals))
+
+    return BaselineResult(
+        name="grid_sweep",
+        gains=x0.copy(),
+        best_j=best,
+        history=np.column_stack(history),
+        eval_axis=np.asarray(axis_),
+    )
+
+
 __all__ = [
     "BaselineResult",
     "zn_gains",
@@ -329,4 +371,5 @@ __all__ = [
     "run_simplex",
     "run_cmaes",
     "run_bo",
+    "run_grid",
 ]

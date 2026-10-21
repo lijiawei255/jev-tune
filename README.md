@@ -20,6 +20,14 @@ A 200 KB model reads the step response and returns one bounded gain step in
 > 200 KB numeric head trained in this repo; Laya is only useful as an
 > optional text backend.
 
+![seven methods racing on the same plants](assets/race.gif)
+
+*Seven ways to tune the same 40 unseen plants. **Every curve is measured**: median
+cost after N experiments, from one run of `scripts/12_make_race.py`. The right
+panel asks the question that matters — how long until the controller is usable
+(J ≤ 0.6) — at the measured 0.4 s per experiment on the motor-valve benchmark model. The only
+assumption in the figure is the hatched row: one 3 s LLM turn per experiment.*
+
 ![tuning a real Simulink DC motor](assets/tuning.gif)
 
 *Every frame above is one real closed-loop experiment on the motor-valve benchmark motor-valve benchmark
