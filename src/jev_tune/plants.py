@@ -163,6 +163,8 @@ class PlantSet:
     d: np.ndarray  # (n,)
     u_max: np.ndarray  # (n,)
     u_min: np.ndarray  # (n,)
+    noise_sigma: np.ndarray | None = None  # measurement noise (std, output units)
+    dead_zone: np.ndarray | None = None  # actuator dead zone (input units)
     params: list[dict] = field(default_factory=list)
 
     def subset(self, idx) -> "PlantSet":
@@ -179,6 +181,8 @@ class PlantSet:
             d=self.d[idx],
             u_max=self.u_max[idx],
             u_min=self.u_min[idx],
+            noise_sigma=None if self.noise_sigma is None else self.noise_sigma[idx],
+            dead_zone=None if self.dead_zone is None else self.dead_zone[idx],
             params=[self.params[i] for i in idx],
         )
 
@@ -197,6 +201,8 @@ class PlantSet:
             d=self.d[idx],
             u_max=self.u_max[idx],
             u_min=self.u_min[idx],
+            noise_sigma=None if self.noise_sigma is None else self.noise_sigma[idx],
+            dead_zone=None if self.dead_zone is None else self.dead_zone[idx],
             params=[self.params[i] for i in idx],
         )
 
@@ -410,11 +416,27 @@ def simulate(
     r = ref
     band = 0.02 * abs(r)
 
+    # real sensors are noisy and real valves have a dead band; both are opt-in
+    noise = (
+        np.zeros(N)
+        if plants.noise_sigma is None
+        else np.asarray(plants.noise_sigma, float)
+    )
+    dz = (
+        np.zeros(N) if plants.dead_zone is None else np.asarray(plants.dead_zone, float)
+    )
+    rng = np.random.default_rng(12345)
+    has_noise = bool(np.any(noise > 0))
+
     for k in range(nsteps):
-        # newest sample lives at the last column -> a delay of d steps reads
-        # index dmax - d (d = 0 means "this step's input")
-        u_del = hist[rows, dmax - d_steps]
+        # buffer layout: hist[:, j] holds u[k-1-dmax+j], so a transport delay of
+        # d steps is at index dmax+1-d (clipped: the plant already carries one
+        # sample of delay through the ZOH state update)
+        u_del = hist[rows, np.clip(dmax + 1 - d_steps, 0, dmax)]
         y = np.einsum("ni,ni->n", x, c) + d * u_del
+        if has_noise:
+            y = y + noise * rng.standard_normal(N)
+            y_curve_noise_flag = True
 
         e = r - y
         integ = np.clip(integ + e * ts, -ilim, ilim)
@@ -425,6 +447,8 @@ def simulate(
         y_prev = y
 
         u_raw = kp * e + ki * integ + kd * df
+        if np.any(dz > 0):
+            u_raw = np.sign(u_raw) * np.maximum(np.abs(u_raw) - dz, 0.0)
         u = np.clip(u_raw, umin, umax)
         sat += np.abs(u - u_raw) > 1e-12
         sat_max = np.maximum(sat_max, np.abs(u_raw - u))
@@ -494,3 +518,43 @@ def gains_to_params(gains: np.ndarray) -> np.ndarray:
     """Clip to the admissible box and return as float array."""
     g = np.asarray(gains, dtype=float)
     return np.clip(g, 1e-6, 1e3)
+
+
+def make_plant(
+    num,
+    den,
+    *,
+    delay_s: float = 0.0,
+    u_max: float = 2.5,
+    u_min: float = -2.5,
+    noise_sigma: float = 0.0,
+    dead_zone: float = 0.0,
+    name: str = "custom",
+    ts: float = 5e-3,
+) -> "PlantSet":
+    """Build a one-plant PlantSet from raw transfer-function coefficients."""
+    num = np.atleast_1d(np.asarray(num, dtype=float))
+    den = np.atleast_1d(np.asarray(den, dtype=float))
+    a_c, b_c, c_c, d_c = signal.tf2ss(num, den)
+    ad, bd, cd, dd, _ = signal.cont2discrete((a_c, b_c, c_c, d_c), ts, method="zoh")
+    nd = max(len(num), len(den))
+    num_p = np.zeros((1, nd))
+    den_p = np.zeros((1, nd))
+    num_p[0, nd - len(num) :] = num
+    den_p[0, nd - len(den) :] = den
+    return PlantSet(
+        n=1,
+        family=[name],
+        num=num_p,
+        den=den_p,
+        delay_s=np.array([delay_s]),
+        a=np.atleast_2d(ad)[None],
+        b=np.asarray(bd).reshape(1, -1),
+        c=np.asarray(cd).reshape(1, -1),
+        d=np.array([float(np.asarray(dd).reshape(-1)[0])]),
+        u_max=np.array([u_max]),
+        u_min=np.array([u_min]),
+        noise_sigma=np.array([noise_sigma]),
+        dead_zone=np.array([dead_zone]),
+        params=[{}],
+    )
