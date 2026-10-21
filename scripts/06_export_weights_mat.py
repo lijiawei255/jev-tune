@@ -22,13 +22,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--models", default="models")
     ap.add_argument("--out", default="models/jev_head_weights.mat")
+    ap.add_argument("--weights", default="jev_head.pt", help="checkpoint file name")
     args = ap.parse_args()
 
     import json
 
     meta = json.loads((Path(args.models) / "meta.json").read_text(encoding="utf-8-sig"))
     model = JevHead(n_actions=meta.get("n_actions", 5))
-    model.load_state_dict(torch.load(f"{args.models}/jev_head.pt", map_location="cpu"))
+    model.load_state_dict(torch.load(f"{args.models}/{args.weights}", map_location="cpu"))
     model.eval()
     sd = model.state_dict()
 

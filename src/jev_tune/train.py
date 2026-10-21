@@ -23,7 +23,9 @@ def train_head(
     lr: float = 2e-3,
     seed: int = 0,
     verbose: bool = True,
+    model: JevHead | None = None,
 ) -> JevHead:
+    """Train (or fine-tune, when `model` is given) the decision head."""
     torch.manual_seed(seed)
     feats, curves = _to_t(data.feats), _to_t(data.curves)
     choice, score, noul = (
@@ -35,7 +37,8 @@ def train_head(
     dl = DataLoader(ds, batch_size=batch, shuffle=True, drop_last=True)
 
     n_actions = int(max(5, data.choice.max() + 1))
-    model = JevHead(n_feats=feats.shape[1], n_curve=curves.shape[-1], n_actions=n_actions)
+    if model is None:
+        model = JevHead(n_feats=feats.shape[1], n_curve=curves.shape[-1], n_actions=n_actions)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=epochs)
     ce = nn.CrossEntropyLoss()

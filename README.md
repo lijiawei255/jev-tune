@@ -52,6 +52,19 @@ across a whole family of plants, so a new plant needs no re-tuning of the tuner.
 amortised: one forward pass, and it already beats CMA-ES by 3× on the same
 simulation budget — it just does not beat BO's tail, and the benchmark says so.
 
+**When your plant is outside the training zoo** the head is not magic: it fails
+on dead bands, inverse response and open-loop unstable plants (documented in
+[`docs/GENERALIZATION.md`](docs/GENERALIZATION.md)). The supported answer is a
+**specialist** — one command, ~1.5 min of CPU:
+
+```bash
+python scripts/10_specialize.py --scenario valve_dead_zone --name valve
+```
+
+Measured on a family the head had never seen: median cost **2.242 → 1.152
+(−49 %)** over 30 held-out jitters. Details:
+[`docs/SPECIALIZE.md`](docs/SPECIALIZE.md).
+
 ---
 
 ## Try it
@@ -197,7 +210,8 @@ src/jev_tune/
   cli.py         status / demo / check
 matlab/          Fast Restart bridge + hand-written MATLAB forward pass
 scripts/         00 dataset, 01 chunks, 02 train, 03 evaluate, 04 onnx,
-                 05 report, 06 matlab weights, 07 demo assets
+                 05 report, 06 matlab weights, 07 demo assets,
+                 08 generalisation, 09 figure, 10 specialize
 docs/            research report, architecture, step results
 assets/          the GIF and figures used above
 ```

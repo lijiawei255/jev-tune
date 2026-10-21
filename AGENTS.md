@@ -47,7 +47,6 @@ python -m jev_tune.cli matlab --probe --json   # MATLAB release and capabilities
 ```bash
 python -m jev_tune.cli matlab --model C:/path/Model.slx --json
 ```
-
 Options that matter when the model is not the reference one:
 
 | flag | when |
@@ -60,6 +59,21 @@ Options that matter when the model is not the reference one:
 
 A JSON `warnings` array is returned when the setup is far from the training
 distribution (e.g. `StopTime` far from 10 s).
+
+## Specialise on one plant family
+
+The shipped head is zero-shot. When a project sits outside the training zoo
+(dead band, inverse response, unstable plant), fine-tune a specialist instead of
+hoping:
+
+```bash
+python scripts/10_specialize.py --spec plant.json --name myplant
+# plant.json: {"num":[1], "den":[0.5,1,0], "delay_s":0.05, "u_max":1.6}
+python scripts/10_specialize.py --scenario valve_dead_zone --name valve
+```
+
+It jitters the plant, runs the expert on a small zoo, fine-tunes for a few
+epochs (~1–3 min CPU) and reports zero-shot vs specialised on held-out jitters.
 
 ## Throughput (read before running many jobs)
 

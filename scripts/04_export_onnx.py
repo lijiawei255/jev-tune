@@ -32,6 +32,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--models", default="models")
     ap.add_argument("--out", default="models/jev_head.onnx")
+    ap.add_argument("--weights", default="jev_head.pt", help="checkpoint file name")
     ap.add_argument("--reps", type=int, default=2000)
     args = ap.parse_args()
 
@@ -39,7 +40,7 @@ def main():
 
     meta = json.loads((Path(args.models) / "meta.json").read_text(encoding="utf-8-sig"))
     model = JevHead(n_actions=meta.get("n_actions", 5))
-    model.load_state_dict(torch.load(f"{args.models}/jev_head.pt", map_location="cpu"))
+    model.load_state_dict(torch.load(f"{args.models}/{args.weights}", map_location="cpu"))
     model.eval()
     wrapper = _Export(model).eval()
 
