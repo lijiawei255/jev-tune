@@ -163,6 +163,47 @@ def cmd_demo(args) -> int:
     return 0
 
 
+def cmd_matlab(args) -> int:
+    """Run one Simulink tuning job (or probe MATLAB) and print JSON."""
+    from .matlab_runner import probe, run_job
+
+    if args.probe:
+        result = probe()
+    else:
+        if not args.model:
+            print("--model is required (or pass --probe)", file=sys.stderr)
+            return 2
+        cfg = {
+            "model": args.model,
+            "iters": args.iters,
+            "step_gain": args.step_gain,
+        }
+        for key in ("stop_time", "work_dir", "kp_block", "ki_block", "kd_block",
+                    "measure_scope", "input_scope", "ref_source", "u_max"):
+            value = getattr(args, key, None)
+            if value is not None:
+                cfg[key] = value
+        result = run_job(cfg, timeout=args.timeout)
+
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    else:
+        if not result.get("ok"):
+            print(f"error: {result.get('error')}")
+        elif "release" in result:
+            print(f"MATLAB {result['release']}  batch={result['supports_batch']}  "
+                  f"pidtune={result['has_pid_tune']}  at {result['matlab']}")
+        else:
+            print(f"model      {result.get('model')}")
+            print(f"gains      {[round(x, 4) for x in result.get('final_gains', [])]}")
+            print(f"cost       {result.get('final_J'):.3f}  "
+                  f"(start {result.get('history', [{}])[0].get('J', float('nan')):.3f})")
+            print(f"experiments {result.get('n_experiments')}  "
+                  f"rollbacks {result.get('n_rollbacks')}  "
+                  f"wall {result.get('wall_s', 0):.1f} s")
+    return 0 if result.get("ok") else 2
+
+
 def cmd_check(args) -> int:
     """Fast self-test: analytic closed loop, decoding contract, ONNX parity."""
     import subprocess
@@ -187,6 +228,24 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--seed", type=int, default=0)
     d.add_argument("--json", action="store_true")
     d.set_defaults(func=cmd_demo)
+
+    m = sub.add_parser("matlab", help="tune a Simulink model (or probe MATLAB)")
+    m.add_argument("--model", help="absolute path to a .slx / .mdl")
+    m.add_argument("--iters", type=int, default=20)
+    m.add_argument("--stop-time", dest="stop_time", type=float)
+    m.add_argument("--step-gain", dest="step_gain", type=float, default=1.0)
+    m.add_argument("--work-dir", dest="work_dir")
+    m.add_argument("--kp-block", dest="kp_block")
+    m.add_argument("--ki-block", dest="ki_block")
+    m.add_argument("--kd-block", dest="kd_block")
+    m.add_argument("--measure-scope", dest="measure_scope")
+    m.add_argument("--input-scope", dest="input_scope")
+    m.add_argument("--ref-source", dest="ref_source")
+    m.add_argument("--u-max", dest="u_max", type=float)
+    m.add_argument("--timeout", type=int, default=900)
+    m.add_argument("--probe", action="store_true", help="only report the MATLAB capability")
+    m.add_argument("--json", action="store_true")
+    m.set_defaults(func=cmd_matlab)
 
     c = sub.add_parser("check", help="run the test suite")
     c.add_argument("--json", action="store_true")

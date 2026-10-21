@@ -4,6 +4,12 @@
 A 200 KB model reads the step response and returns one bounded gain step in
 **0.19 ms on a laptop CPU** — no autoregressive LLM, no cloud, no GPU.
 
+> **What "Jev" means here.** It uses the *Jev interface* — the three typed
+> primitives `choice` / `score` / `noul` with calibrated probabilities — not
+> the hosted Jev model or Laya's 421 M text encoder. The runtime policy is a
+> 200 KB numeric head trained in this repo; Laya is only useful as an
+> optional text backend.
+
 ![tuning a real Simulink DC motor](assets/tuning.gif)
 
 *Every frame above is one real closed-loop experiment on the motor-valve benchmark motor-valve benchmark
@@ -66,10 +72,25 @@ Point your assistant at [`AGENTS.md`](AGENTS.md). The short form:
 ```bash
 bash scripts/agent_setup.sh            # idempotent, no prompts
 python -m jev_tune.cli status --json   # exit 0 = ready, 2 = exact fix printed
-python -m jev_tune.cli demo --json     # machine-readable result
+python -m jev_tune.cli matlab --model YourModel.slx --json   # tune it
 ```
 
-Every script is non-interactive, seeded, and writes JSON on request.
+Or register the MCP server so the agent can call it as a tool:
+
+```jsonc
+{ "mcpServers": { "jev-tune": { "command": "jev-tune-mcp" } } }
+```
+
+Tools exposed: `tune_status`, `tune_probe_matlab`, `tune_simulink`, `tune_demo`.
+`tune_simulink` takes the model path and returns the final gains, the cost at
+every experiment, and rollback count — one tool call instead of twenty.
+
+![agent in the loop vs agent as supervisor](assets/agent_vs_head.png)
+
+*Per-iteration numbers are measured (0.111 s simulation, 0.19 ms decision);
+the LLM latency is an assumption and labelled as such. Where the 10–90× comes
+from, and how it scales to hundreds of plants:
+[`docs/SCALE.md`](docs/SCALE.md).*
 
 ### On your own Simulink model
 
@@ -108,6 +129,20 @@ plant / Simulink  ──►  response (t, y, u)
 More detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
+
+## Where the speed actually pays off
+
+The decision inside the loop is what the agent no longer has to do. On one
+plant that is "merely convenient"; the gap opens with **N plants × M
+experiments**:
+
+| plants | agent in the loop (LLM 3 s) | jev-tune | LLM calls |
+| ---: | ---: | ---: | ---: |
+| 1 | 62 s | ~2.3 s | 20 → 1 |
+| 100 | 1.7 h | ~4 min | 2 000 → 100 |
+| 1 000 | **17.2 h** | **~39 min** | 20 000 → 1 000 |
+
+Assumptions and the concurrency/licence trade-off: [`docs/SCALE.md`](docs/SCALE.md).
 
 ## Benchmarks
 

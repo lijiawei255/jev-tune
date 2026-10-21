@@ -23,6 +23,7 @@ onnx = ["onnx>=1.16", "onnxruntime>=1.18"]
 
 [project.scripts]
 jev-tune = "jev_tune.cli:main"
+jev-tune-mcp = "jev_tune.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

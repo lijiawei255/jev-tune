@@ -1,4 +1,4 @@
-function R = jev_tune_model(mdlPath, workDir, iters, stopTime, stepGain)
+function R = jev_tune_model(mdlPath, workDir, iters, stopTime, stepGain, cfg)
 %JEV_TUNE_MODEL  Tune a Simulink PID loop with the Jev decision head.
 %
 %   R = jev_tune_model(mdlPath, workDir, iters, stopTime)
@@ -15,8 +15,30 @@ function R = jev_tune_model(mdlPath, workDir, iters, stopTime, stepGain)
 
 if nargin < 3 || isempty(iters), iters = 20; end
 if nargin < 4 || isempty(stopTime), stopTime = 10; end
-if nargin < 5 || isempty(stepGain), stepGain = 2.0; end
+if nargin < 5 || isempty(stepGain), stepGain = 1.0; end
+if nargin < 6 || isempty(cfg), cfg = struct(); end
+cfg = with_defaults(cfg);
 if nargin < 2 || isempty(workDir), workDir = tempdir; end
+
+% ---------------------------------------------------------------- config
+% Block and scope names are project conventions, not part of the method, so
+% they are configurable: pass cfg.kp_block = 'MyController/Kp' etc.
+function cfg = with_defaults(cfg)
+defaults = struct( ...
+    'kp_block', 'Gain_Kp', ...
+    'ki_block', 'Gain_Ki', ...
+    'kd_block', 'Gain_Kd', ...
+    'measure_scope', 'Scope_Position', ...
+    'input_scope', 'Scope_Current', ...
+    'ref_source', 'auto', ...      % 'auto' = Step x Deg2Rad blocks, or a number
+    'u_max', [], ...               % actuator limit for the saturation feature
+    'step_blocks', {{'Step'}}, ...
+    'scale_block', 'Deg2Rad');
+f = fieldnames(defaults);
+for i = 1:numel(f)
+    if ~isfield(cfg, f{i}), cfg.(f{i}) = defaults.(f{i}); end
+end
+end
 
 here = fileparts(mfilename('fullpath'));
 addpath(here);
@@ -54,19 +76,26 @@ end
 
 % ---------------------------------------------------------------- reference
 refCmd = 1.0;
-try
-    amp = str2num(get_param([mdlName '/Step'], 'After')); %#ok<ST2NM>
-    gsc = str2num(get_param([mdlName '/Deg2Rad'], 'Gain')); %#ok<ST2NM>
-    if isfinite(amp) && isfinite(gsc) && abs(amp * gsc) > 1e-9
-        refCmd = abs(amp * gsc);
+if isnumeric(cfg.ref_source) && isscalar(cfg.ref_source) && isfinite(cfg.ref_source)
+    refCmd = abs(cfg.ref_source);
+else
+    try
+        amp = str2num(get_param([mdlName '/' cfg.step_blocks{1}], 'After')); %#ok<ST2NM>
+        gsc = 1.0;
+        if ~isempty(cfg.scale_block)
+            gsc = str2num(get_param([mdlName '/' cfg.scale_block], 'Gain')); %#ok<ST2NM>
+        end
+        if isfinite(amp) && isfinite(gsc) && abs(amp * gsc) > 1e-9
+            refCmd = abs(amp * gsc);
+        end
+    catch
+        warning('jev:ref', 'could not infer the reference; pass cfg.ref_source');
     end
-catch
 end
 fprintf('[jev] reference step = %.4f\n', refCmd);
 
-gainBlk = @(n) [mdlName '/' n];
-apply = @(g) set_gains(mdlName, g);
-runOnce = @() run_and_extract(mdlName, stopTime);
+apply = @(g) set_gains(mdlName, g, cfg);
+runOnce = @() run_and_extract(mdlName, stopTime, cfg);
 
 % ---------------------------------------------------------------- Ku / Tu
 kpGrid = logspace(log10(0.5), log10(400), 7);
@@ -99,7 +128,7 @@ hist = struct('gains', {}, 'M', {}, 'J', {}, 't', {}, 'y', {}, 'u', {}, 'step', 
 for it = 0:iters-1
     apply(gains);
     [t, y, u] = runOnce();
-    M = jev_metrics(t, y, u, refCmd, stopTime, []);
+    M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
     J = jev_cost(M, stopTime, refCmd);
 
     if J < bestJ - 1e-3
@@ -158,7 +187,7 @@ end
 % ---------------------------------------------------------------- finish
 apply(bestGains);
 [t, y, u] = runOnce();
-M = jev_metrics(t, y, u, refCmd, stopTime, []);
+M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
 J = jev_cost(M, stopTime, refCmd);
 if J < bestJ
     % we re-ran the best gains, so `gains` already equals bestGains
@@ -179,16 +208,16 @@ fprintf('[jev] saved %s\n', fullfile(workDir, 'tune_result.mat'));
 end
 
 % --------------------------------------------------------------------------- %
-function set_gains(mdlName, g)
-set_param([mdlName '/Gain_Kp'], 'Gain', num2str(g(1)));
-set_param([mdlName '/Gain_Ki'], 'Gain', num2str(g(2)));
-set_param([mdlName '/Gain_Kd'], 'Gain', num2str(g(3)));
+function set_gains(mdlName, g, cfg)
+set_param([mdlName '/' cfg.kp_block], 'Gain', num2str(g(1)));
+set_param([mdlName '/' cfg.ki_block], 'Gain', num2str(g(2)));
+set_param([mdlName '/' cfg.kd_block], 'Gain', num2str(g(3)));
 end
 
-function [t, y, u] = run_and_extract(mdlName, stopTime)
+function [t, y, u] = run_and_extract(mdlName, stopTime, cfg)
 out = sim(mdlName, 'StopTime', num2str(stopTime));
-[t, y] = pick_signal(out, 'Scope_Position');
-[~, u] = pick_signal(out, 'Scope_Current');
+[t, y] = pick_signal(out, cfg.measure_scope);
+[~, u] = pick_signal(out, cfg.input_scope);
 if isempty(u), u = zeros(size(t)); end
 end
 
