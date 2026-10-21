@@ -18,8 +18,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pandas>=2.1", "matplotlib>=3.8"]
+dev = ["pytest>=8.0", "pandas>=2.1", "matplotlib>=3.8", "pillow>=10.0"]
 onnx = ["onnx>=1.16", "onnxruntime>=1.18"]
+
+[project.scripts]
+jev-tune = "jev_tune.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

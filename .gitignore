@@ -259,3 +259,6 @@ research/**/*.log
 # MATLAB engine sources (MathWorks proprietary, never commit)
 research/_matlabengine*/
 models_smoke/
+
+# scratch used to run the Simulink bridge (regenerated on demand)
+research/sim_tune/

@@ -1,99 +1,161 @@
 # jev-tune
 
-System-1 (Jev-style) decision heads for control-parameter autotuning — on CPU,
-without any autoregressive decoding.
+**PID autotuning where each decision is a typed judgement, not a paragraph.**
+A 200 KB model reads the step response and returns one bounded gain step in
+**0.19 ms on a laptop CPU** — no autoregressive LLM, no cloud, no GPU.
 
-A tuner built this way does not write text. It reads the closed-loop response,
-asks three typed questions, and returns one bounded gain step in a single
-forward pass:
+![tuning a real Simulink DC motor](assets/tuning.gif)
 
-| Jev primitive | Question it answers | Used for |
-| :--- | :--- | :--- |
-| `choice` × 3 | "Which multiplicative step should Kp / Ki / Kd take?" | the gain update |
-| `score` | "How good is the current response, on a 5-level rubric?" | early stopping |
-| `noul` | "Will this step keep the loop healthy?" | safety gate |
+*Every frame above is one real closed-loop experiment on the motor-valve benchmark motor-valve benchmark
+DC-motor model in Simulink. The tuner is choosing `Kp`, `Ki`, `Kd` itself; the
+right panel is the cost it is minimising. Eight experiments took ~0.9 s of
+simulation.*
 
-Everything downstream consumes only those primitives, so the backend is
-swappable: a 1M-parameter numeric head (milliseconds on CPU) or a Jev-compatible
-text model such as [Laya](https://github.com/NandhaKishorM/laya).
+---
 
-## Why not just Bayesian optimisation
+## The 15-second version
 
-For one known plant, classical optimisers are excellent. A decision head earns
-its keep when it is **amortised**: trained once on a family of plants, it
-proposes the next gain step in **< 1 ms**, generalises to plants it never saw,
-and stops early because `score` is calibrated. The comparison that matters is
-therefore *simulations required to reach a target response*, not raw latency.
+| | |
+| :--- | :--- |
+| **What it does** | picks the next PID gain step from the response it just measured |
+| **How fast** | **0.19 ms** per decision (ONNX, 1 CPU thread) vs **236–276 ms** for a hosted Jev call and seconds for an LLM agent |
+| **How few experiments** | **8 experiments** cut the cost of a real Simulink motor loop by **48 %** |
+| **How it generalises** | on a plant family it never saw, **0.33** median cost vs **1.00** for CMA-ES at the same 20-simulation budget |
 
-## Results (measured on this Windows CPU)
+![before and after](assets/before_after.png)
 
-| KPI | measured | target |
-| :--- | ---: | ---: |
-| decision latency (ONNX Runtime, 1 thread, batch 1) | **0.19 ms** p50 / 0.24 ms p99 | < 1 ms |
-| calibration (ECE after temperature fit) | **0.017 – 0.021** | ≤ 0.05 |
-| held-out family, 20 simulations vs 240-sim CMA reference | **1.46×** the reference cost | ≤ 1.5× |
-| held-out final cost vs CMA-ES at the same 20-sim budget | **0.333 vs 0.998** (3.0×) | better |
+*Same plant, three gain sets. Grey: the Ziegler-Nichols start. Blue: after eight
+experiments. Dashed: the lab's hand-tuned solution.*
 
-On the held-out two-mass resonance family the head reaches a median cost of
-0.333 against 0.207 for a 240-simulation CMA-ES — 12× fewer simulations — and
-beats CMA-ES (0.998), simplex (1.250) and relay autotune (0.900) at the same
-20-simulation budget. It does not dominate: Bayesian optimisation has a lighter
-tail (p90 0.855 vs 1.438). Full numbers, caveats and reproduction commands:
-[`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md).
+---
 
-## Install
+## Why this is different
 
-```powershell
-conda create -n jev-tune python=3.12 -y
-conda activate jev-tune
+**vs. LLM-agent tuning.** An agent loop ("read the plot → write a paragraph →
+parse the answer") costs seconds per iteration, and the number is buried in
+prose. Here the model emits three Jev primitives — `choice` for the step,
+`score` for "how good is this response", `noul` for "is this step safe" — so the
+decision is a probability vector you can threshold, log and calibrate. Measured
+ECE after temperature fitting: **0.02**.
+
+**vs. classical autotune.** Ziegler-Nichols and relay autotuning give you one
+shot with no feedback. This keeps iterating, and it learns the *policy* once
+across a whole family of plants, so a new plant needs no re-tuning of the tuner.
+
+**vs. Bayesian optimisation.** BO re-fits a surrogate at every step. This is
+amortised: one forward pass, and it already beats CMA-ES by 3× on the same
+simulation budget — it just does not beat BO's tail, and the benchmark says so.
+
+---
+
+## Try it
+
+### Human
+
+```bash
+conda create -n jev-tune python=3.12 -y && conda activate jev-tune
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -e .
+jev-tune demo            # 12 held-out plants, head vs CMA-ES vs Z-N, ~20 s
 ```
 
-## Run
+### Agent
 
-```powershell
-python scripts/01_make_dataset.py --plants 2000 --gens 60 --lam 8
-python scripts/02_train.py
-python scripts/03_evaluate.py --plants 120
+Point your assistant at [`AGENTS.md`](AGENTS.md). The short form:
+
+```bash
+bash scripts/agent_setup.sh            # idempotent, no prompts
+python -m jev_tune.cli status --json   # exit 0 = ready, 2 = exact fix printed
+python -m jev_tune.cli demo --json     # machine-readable result
 ```
 
-`01` samples a plant zoo (first-order + delay, second-order, third-order with an
-RHP zero, integrating, PMSM speed loop), lets a batched CMA-ES play expert tuner,
-and records every state/action/outcome. `02` fits the decision head plus a
-one-step lookahead net. `03` compares the head against Z-N, relay autotune,
-simplex, CMA-ES and Bayesian optimisation on **held-out families** (a two-mass
-resonant drive that appears nowhere in training).
+Every script is non-interactive, seeded, and writes JSON on request.
 
-## Layout
+### On your own Simulink model
+
+```matlab
+addpath('matlab');
+R = jev_tune_model('path/to/YourModel.slx', 'work_dir', 20, 10, 2.5);
+```
+
+Needs root-level `Gain_Kp`/`Gain_Ki`/`Gain_Kd` blocks and `Scope-*` blocks.
+Fast Restart is enabled for you; the decision runs in-process in MATLAB, with no
+Python dependency at runtime.
+
+---
+
+## How a step works
+
+```
+plant / Simulink  ──►  response (t, y, u)
+                          │
+                          ▼
+              20 features + 2×64 traces           ← overshoot, rise, settling,
+                          │                         IAE/ITAE, saturation, and
+                          ▼                         the previous action + its result
+        ┌─────────────────────────────────┐
+        │  decision head (~200 KB, ONNX)  │
+        │  choice ×3   score   noul       │
+        └────────────────┬────────────────┘
+                         ▼
+   expected-value decode + variance trust region      ← uncertain ⇒ small step
+                         ▼
+   deterministic safety gate (bounds, rollback)       ← `noul` is advice only
+                         ▼
+                 new Kp, Ki, Kd
+```
+
+More detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+---
+
+## Benchmarks
+
+**Held-out family (120 plants, two-mass resonance, never seen in training)**
+Target = 1.05 × a 240-simulation CMA-ES reference.
+
+| method | final cost (median) | p90 | × reference | sims/plant |
+| :--- | ---: | ---: | ---: | ---: |
+| **Jev head** | **0.333** | 1.438 | **1.46** | 20 |
+| Bayesian optimisation | 0.393 | **0.855** | 1.99 | 20 |
+| identify → `pidtune` | 0.505 | 0.938 | 2.87 | 2 |
+| relay autotune | 0.900 | 0.933 | 4.33 | 2 |
+| CMA-ES | 0.998 | 2.156 | 4.45 | 18 |
+| Ziegler-Nichols | 1.953 | 3.404 | 8.37 | 1 |
+
+**Real Simulink model (motor-valve benchmark DC motor)**
+
+| gain set | Kp | Ki | Kd | cost |
+| :--- | ---: | ---: | ---: | ---: |
+| Z-N start | 240 | 1160 | 12.4 | 1.238 |
+| **Jev head, 8 experiments** | 223 | 293 | 15.0 | **0.639** |
+| human hand-tuned | 280 | 300 | 30.0 | 0.393 |
+
+Full numbers, caveats and reproduction: [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md),
+[`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md).
+
+---
+
+## Repository layout
 
 ```
 src/jev_tune/
   plants.py      plant zoo + vectorised closed-loop simulation
-  metrics.py     metrics -> scalar cost
-  state.py       20 hand-crafted features + 2x64 resampled traces
-  primitives.py  Choice / Score / Noul
+  metrics.py     response -> scalar cost
+  state.py       20 features + 2x64 traces
+  primitives.py  Choice / Score / Noul   (the only output surface)
   decode.py      expected-value decode, trust region, interval refinement
+  model.py       the decision head and the lookahead value net
   baselines.py   Z-N, relay, simplex, CMA-ES, BO
-  expert.py      batched CMA-ES expert rollouts
-  model.py       decision head + lookahead value net
-  train.py       imitation + safety training
-  evaluate.py    closed-loop evaluation
+  identified.py  identify -> pidtune (the practitioner baseline)
+  cli.py         status / demo / check
+matlab/          Fast Restart bridge + hand-written MATLAB forward pass
+scripts/         00 dataset, 01 chunks, 02 train, 03 evaluate, 04 onnx,
+                 05 report, 06 matlab weights, 07 demo assets
+docs/            research report, architecture, step results
+assets/          the GIF and figures used above
 ```
 
-## Design notes
-
-* **Log-gain action space.** Steps act on `log10 K`, so one vocabulary
-  (`x0.80 ... x1.25`) covers gains spanning four decades.
-* **Expected-value decoding.** The `choice` distribution is still a `choice`,
-  but `E[Δ]` gives a continuous step and `Var[Δ]` sets the trust region: an
-  uncertain head automatically takes smaller steps.
-* **Safety is deterministic.** `noul` is advice; the hard bounds, the
-  divergence check and the rollback live in ordinary code.
-* **No setpoint kick.** The derivative acts on the measurement, as in any real
-  PID implementation, otherwise every plant would be scored by its own step
-  transient.
-
-## License
+## Licence
 
 MIT © JIAWEI LI

@@ -1,0 +1,253 @@
+function R = jev_tune_model(mdlPath, workDir, iters, stopTime, stepGain)
+%JEV_TUNE_MODEL  Tune a Simulink PID loop with the Jev decision head.
+%
+%   R = jev_tune_model(mdlPath, workDir, iters, stopTime)
+%
+%   Everything runs inside MATLAB: Simulink Fast Restart for the plant, a
+%   hand-written forward pass for the head (jev_head_forward), no Python and
+%   no IPC.
+%
+%   The loop is wrapped in a deterministic safety gate:
+%     * the best gain set seen so far is always remembered and returned;
+%     * if a step makes the cost blow up (unstable / saturated / diverged) the
+%       tuner rolls back to `best * 0.6` instead of trusting the head.  `noul`
+%       is advisory only -- the veto lives in ordinary code.
+
+if nargin < 3 || isempty(iters), iters = 20; end
+if nargin < 4 || isempty(stopTime), stopTime = 10; end
+if nargin < 5 || isempty(stepGain), stepGain = 2.0; end
+if nargin < 2 || isempty(workDir), workDir = tempdir; end
+
+here = fileparts(mfilename('fullpath'));
+addpath(here);
+thisDir = fileparts(here);
+W = load(fullfile(thisDir, 'models', 'jev_head_weights.mat'));
+
+% ---------------------------------------------------------------- model copy
+if ~isfolder(workDir), mkdir(workDir); end
+mdlName = 'jev_lab_model';
+dst = fullfile(workDir, [mdlName '.slx']);
+if isfile(dst), delete(dst); end
+copyfile(mdlPath, dst);
+srcDir = fileparts(mdlPath);
+if isfolder(fullfile(srcDir, 'images'))
+    copyfile(fullfile(srcDir, 'images'), fullfile(workDir, 'images'));
+end
+oldDir = pwd; cd(workDir);
+restoreDir = onCleanup(@() cd(oldDir));
+
+load_system(dst);
+cleanupModel = onCleanup(@() close_model(mdlName));
+
+try, set_param(mdlName, 'SimMechanicsOpenEditorOnUpdate', 'off'); catch, end
+set_param(mdlName, 'StopTime', num2str(stopTime));
+set_param(mdlName, 'FastRestart', 'on');
+warning('off', 'all');
+
+scopes = get_param(find_system(mdlName, 'SearchDepth', 1, 'BlockType', 'Scope'), 'Name');
+if ischar(scopes), scopes = {scopes}; end
+for k = 1:numel(scopes)
+    set_param([mdlName '/' scopes{k}], 'DataLogging', 'on', ...
+        'DataLoggingVariableName', strrep(scopes{k}, '-', '_'), ...
+        'DataLoggingSaveFormat', 'Dataset', 'DataLoggingLimitDataPoints', 'off');
+end
+
+% ---------------------------------------------------------------- reference
+refCmd = 1.0;
+try
+    amp = str2num(get_param([mdlName '/Step'], 'After')); %#ok<ST2NM>
+    gsc = str2num(get_param([mdlName '/Deg2Rad'], 'Gain')); %#ok<ST2NM>
+    if isfinite(amp) && isfinite(gsc) && abs(amp * gsc) > 1e-9
+        refCmd = abs(amp * gsc);
+    end
+catch
+end
+fprintf('[jev] reference step = %.4f\n', refCmd);
+
+gainBlk = @(n) [mdlName '/' n];
+apply = @(g) set_gains(mdlName, g);
+runOnce = @() run_and_extract(mdlName, stopTime);
+
+% ---------------------------------------------------------------- Ku / Tu
+kpGrid = logspace(log10(0.5), log10(400), 7);
+oscScore = zeros(size(kpGrid));
+tuGuess = nan(size(kpGrid));
+for i = 1:numel(kpGrid)
+    apply([kpGrid(i), 0, 0]);
+    [t, y, ~] = runOnce();
+    [oscScore(i), tuGuess(i)] = oscillation_score(t, y);
+end
+ok = find(oscScore >= 3, 1, 'last');
+if isempty(ok)
+    ku = kpGrid(end) * 0.5; tu = stopTime / 4;
+    fprintf('[jev] no sustained oscillation; Ku~%.3g Tu~%.3g\n', ku, tu);
+else
+    ku = kpGrid(ok); tu = tuGuess(ok);
+    fprintf('[jev] Ku~%.3g (grid point %d), Tu~%.3g s\n', ku, ok, tu);
+end
+gzn = [0.6 * ku, 1.2 * ku / tu, 0.075 * ku * tu];
+
+% ---------------------------------------------------------------- tuning loop
+gains = gzn;
+bestGains = gains; bestJ = inf; bestY = []; bestT = []; bestU = [];
+prevAction = zeros(1, 3);
+prevCost = 0;
+nRollbacks = 0;
+stall = 0;
+hist = struct('gains', {}, 'M', {}, 'J', {}, 't', {}, 'y', {}, 'u', {}, 'step', {}, 'event', {});
+
+for it = 0:iters-1
+    apply(gains);
+    [t, y, u] = runOnce();
+    M = jev_metrics(t, y, u, refCmd, stopTime, []);
+    J = jev_cost(M, stopTime, refCmd);
+
+    if J < bestJ - 1e-3
+        bestJ = J; bestGains = gains; bestY = y; bestT = t; bestU = u;
+        stall = 0;
+    else
+        stall = stall + 1;
+    end
+    if stall >= 5
+        fprintf('[jev] early stop: no improvement for 5 iterations\n');
+        break
+    end
+
+    % ---- deterministic safety gate (noul is advice, this is the veto)
+    event = "step";
+    if J > max(3 * bestJ + 1, 8) && nRollbacks < 4
+        gains = max(bestGains * 0.6, 1e-4);
+        nRollbacks = nRollbacks + 1;
+        event = "rollback";
+        fprintf('[jev] iter %2d  J=%.3f unstable -> rollback #%d to [%.3g %.3g %.3g]\n', ...
+            it, J, nRollbacks, gains(1), gains(2), gains(3));
+        hist(end+1).gains = gains; hist(end).M = M; hist(end).J = J; %#ok<AGROW>
+        hist(end).t = t; hist(end).y = y; hist(end).u = u;
+        hist(end).step = zeros(1, 3); hist(end).event = event;
+        prevAction = zeros(1, 3); prevCost = J;
+        continue
+    end
+
+    [feats, curves] = jev_state(M, t, y, u, gains, gzn, ku, tu, ...
+        prevAction, prevCost, J, it, stopTime, refCmd);
+    out = jev_head_forward(W, feats, curves);
+
+    step = zeros(1, 3);
+    mult = [0.80, 0.90, 1.00, 1.10, 1.25];
+    d = log10(mult);
+    for ax = 1:3
+        p = softmax_local(out.choice(:, ax, 1)).';
+        mu = p * d.';
+        v = max(p * (d.^2).' - mu^2, 0);
+        gate = 1 / (1 + v / var(d));
+        step(ax) = min(max(stepGain * mu * gate, -0.2), 0.2);
+    end
+
+    hist(end+1).gains = gains; hist(end).M = M; hist(end).J = J; %#ok<AGROW>
+    hist(end).t = t; hist(end).y = y; hist(end).u = u;
+    hist(end).step = step; hist(end).event = event;
+
+    fprintf('[jev] iter %2d  J=%.3f  gains=[%.3g %.3g %.3g]  step=[%+.3f %+.3f %+.3f]\n', ...
+        it, J, gains(1), gains(2), gains(3), step(1), step(2), step(3));
+
+    prevAction = step;
+    prevCost = J;
+    gains = min(max(gains .* (10 .^ step), 1e-4), 1e3);
+end
+
+% ---------------------------------------------------------------- finish
+apply(bestGains);
+[t, y, u] = runOnce();
+M = jev_metrics(t, y, u, refCmd, stopTime, []);
+J = jev_cost(M, stopTime, refCmd);
+if J < bestJ
+    % we re-ran the best gains, so `gains` already equals bestGains
+    bestJ = J; bestY = y; bestT = t; bestU = u;
+end
+hist(end+1).gains = bestGains; hist(end).M = M; hist(end).J = bestJ; %#ok<AGROW>
+hist(end).t = t; hist(end).y = y; hist(end).u = u;
+hist(end).step = zeros(1, 3); hist(end).event = "final";
+
+R = struct('model', mdlName, 'stopTime', stopTime, 'iters', iters, ...
+    'ku', ku, 'tu', tu, 'gzn', gzn, 'ref', refCmd, ...
+    'final_gains', bestGains, 'final_J', bestJ, 'n_rollbacks', nRollbacks, 'stepGain', stepGain, ...
+    'hist', hist, 'scopes', {scopes}, 'best_t', bestT, 'best_y', bestY, 'best_u', bestU);
+save(fullfile(workDir, 'tune_result.mat'), 'R');
+fprintf('[jev] done. best J=%.3f  gains=[%.4g %.4g %.4g}  rollbacks=%d\n', ...
+    bestJ, bestGains(1), bestGains(2), bestGains(3), nRollbacks);
+fprintf('[jev] saved %s\n', fullfile(workDir, 'tune_result.mat'));
+end
+
+% --------------------------------------------------------------------------- %
+function set_gains(mdlName, g)
+set_param([mdlName '/Gain_Kp'], 'Gain', num2str(g(1)));
+set_param([mdlName '/Gain_Ki'], 'Gain', num2str(g(2)));
+set_param([mdlName '/Gain_Kd'], 'Gain', num2str(g(3)));
+end
+
+function [t, y, u] = run_and_extract(mdlName, stopTime)
+out = sim(mdlName, 'StopTime', num2str(stopTime));
+[t, y] = pick_signal(out, 'Scope_Position');
+[~, u] = pick_signal(out, 'Scope_Current');
+if isempty(u), u = zeros(size(t)); end
+end
+
+function [t, y] = pick_signal(out, name)
+t = []; y = [];
+if isprop(out, name) || isfield(out, name)
+    ds = out.(name);
+    if isa(ds, 'Simulink.SimulationData.Dataset')
+        e = ds.getElement(1); y = e.Values.Data; t = e.Values.Time;
+    elseif isstruct(ds)
+        y = ds.signals.values; t = ds.time;
+    end
+end
+if isempty(t), return; end
+t = t(:); y = y(:, 1);
+end
+
+function [score, tu] = oscillation_score(t, y)
+y = y(:); n = numel(y);
+i0 = round(n * 0.4);
+tail = y(i0:end);
+if numel(tail) < 10, score = 0; tu = NaN; return; end
+s = sign(tail - mean(tail));
+cross = find(diff(s) ~= 0);
+score = numel(cross);
+if score >= 3
+    tt = t(i0 + cross);
+    tu = 2 * median(diff(tt));
+else
+    tu = NaN;
+end
+if ~isfinite(tu) || tu <= 0, tu = NaN; score = 0; end
+end
+
+function J = jev_cost(M, horizon, ref)
+os_ = min(max(M(1), 0), 2);
+ts_ = min(max(M(2), 0), 1);
+st_ = min(max(M(3) / horizon, 0), 1);
+ess_ = min(max(abs(M(4)), 0), 2);
+itae = min(max(M(6) / (max(ref, 1e-9) * horizon^2), 0), 3);
+sat_ = min(max(M(8), 0), 1);
+over_ = min(max(M(9), 0), 3);
+J = os_ + (0.5 * ts_ + st_) + 4 * ess_ + itae + sat_ + 0.5 * over_;
+end
+
+function p = softmax_local(z)
+z = z(:) - max(z);
+e = exp(z);
+p = e / sum(e);
+end
+
+function close_model(mdlName)
+try
+    bd = find_system('SearchDepth', 0, 'Type', 'block_diagram', 'Name', mdlName);
+    if ~isempty(bd)
+        try, set_param(mdlName, 'FastRestart', 'off'); catch, end
+        close_system(mdlName, 0);
+    end
+catch
+end
+end
+
