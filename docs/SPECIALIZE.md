@@ -1,3 +1,89 @@
+
+> [English](#specialist-fine-tuning-on-one-plant-family) · [简体中文](#每个项目先学一遍specialist-流程)
+
+# Specialist: fine-tuning on one plant family
+
+The shipped head is **zero-shot**: it works out of the box and does no
+adaptation. The price is that it only understands the dynamics in its training
+zoo (FOPDT, second order, delay, integrating, motor speed/position loops,
+two-mass resonance, and actuator-saturation variants).
+
+If a project falls outside that, the right move is not to force it — it is to
+train a specialist. Same pipeline, different data.
+
+## One command
+
+```bash
+# a named scenario
+python scripts/10_specialize.py --scenario valve_dead_zone --name valve
+
+# or describe your own plant
+# plant.json: {"num":[1], "den":[0.5,1,0], "delay_s":0.05, "u_max":1.6}
+python scripts/10_specialize.py --spec plant.json --name myplant
+```
+
+What it does:
+
+1. jitters the plant by ±20 % (gain, delay) to build ~120 siblings;
+2. holds out a quarter for validation, runs the expert on the rest
+   (coordinate line search, 22 simulations per step);
+3. fine-tunes **from the shipped weights** for 30 epochs (lr 1e-3);
+4. compares **zero-shot vs specialised** on the same held-out set and writes a
+   JSON report.
+
+**1–2 minutes of CPU**, no GPU, no data from the real plant.
+
+## Measured on the two scenarios the head was worst at
+
+30 held-out jitters (gain/delay ±20 %, never seen in training), 90 training,
+30 epochs, 1 260 states:
+
+| scenario | zero-shot J | specialist J | change | time |
+| :--- | ---: | ---: | ---: | ---: |
+| valve dead band (`valve_dead_zone`) | 2.242 | **1.152** | **−49 %** | 96 s |
+| inverse response (`inverse_response`) | 1.727 | **0.844** | **−51 %** | 104 s |
+
+Both were cases where zero-shot lost to the classical tuners. After
+specialising:
+
+* valve dead band: 1.15 vs relay autotuning's 0.86 (was 2.6× worse → now 1.3×);
+* inverse response: 0.84 vs CMA-ES's 1.95 (was 1.4× worse → now twice as good).
+
+The cost is **~100 s of CPU once**, not zero — but also not "redo the project".
+
+## What it cannot fix
+
+Open-loop unstable plants (inverted pendulum): the problem is the **starting
+point**, not the policy. Z-N returns an absurd Ku for an unstable plant, and
+every method (the specialist included) diverges from that start. A stronger
+policy does not help; what is missing is a "stabilise with PD first" cold-start
+step — a model-level gap, not a data-level one.
+
+## When it is worth it
+
+| situation | advice |
+| :--- | :--- |
+| plant inside the zoo (most servo / process loops) | use zero-shot |
+| clear structural difference (dead band, inverse response, unstable) | one specialist run, ~2 min |
+| dozens of identical machines | specialise once, reuse everywhere |
+| every unit differs | zero-shot + the safety gate, or one specialist per unit |
+
+## Not online learning
+
+This is **offline, one-time, per family** — not "each device learns while
+running":
+
+* no online weight updates (a fixed policy is what makes 0.19 ms possible);
+* no real-device data (the expert comes from search on simulated plants);
+* the output is a `.pt` + `.mat` you can copy to another machine.
+
+Learn once, reuse across the whole family — that is how it stays both fast and
+reproducible.
+
+---
+
+以下为中文全文。
+
 # "每个项目先学一遍"：specialist 流程
 
 出厂权重是**零样本**的：拿来就用，不做任何适配。代价是它只认识训练动物园里的

@@ -226,6 +226,24 @@ docs/            research report, architecture, step results
 assets/          the GIF and figures used above
 ```
 
+## Documentation languages
+
+Everything a human reads is available in **English and 简体中文** in the same
+file: the English text comes first, the Chinese translation follows under a
+language switcher at the top. That applies to this README
+([中文](README.zh-CN.md)), `NOTICE`, `CONTRIBUTING`, `SECURITY`,
+`CODE_OF_CONDUCT` and every file under `docs/`.
+
+| document | what it answers |
+| :--- | :--- |
+| [`docs/PHASE0_RESEARCH_REPORT.md`](docs/PHASE0_RESEARCH_REPORT.md) | what the ecosystem actually offers, and the CPU-latency reality check |
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | the `choice`/`score`/`noul` contract and one tuning iteration |
+| [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md) | latency, calibration, held-out benchmark |
+| [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) | the real Simulink model, and the regression that was worth recording |
+| [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md) | ten out-of-zoo scenarios, and exactly where it fails |
+| [`docs/SCALE.md`](docs/SCALE.md) | throughput economics, concurrency, MATLAB versions |
+| [`docs/SPECIALIZE.md`](docs/SPECIALIZE.md) | the per-project fine-tune path |
+
 ## Contributing
 
 Issues and PRs are welcome. Start with [`CONTRIBUTING.md`](CONTRIBUTING.md); the

@@ -1,5 +1,8 @@
 # Step 4 — real Simulink model, no Python at runtime
 
+> [English](#step-4--real-simulink-model-no-python-at-runtime) · [简体中文](#step-4-结果中文)
+
+
 > Plant: the motor-valve benchmark DC-motor position loop (`motor_valve_model.slx`,
 > Simscape Multibody butterfly valve, variable-step solver, 30° = 0.5236 rad step).
 > Machine: Windows, MATLAB R2024b, CPU only.
@@ -110,3 +113,108 @@ python scripts/07_make_demo.py
 2. Mixture of two heads (generous vs tight actuator) selected by the measured
    saturation fraction — recovers v2's tail without losing v3's transfer.
 3. Both are dataset-and-retrain changes, ≈30 min of CPU each.
+
+---
+
+## Step 4 结果（中文）
+
+> 被控对象：motor-valve benchmark 直流电机位置环（`motor_valve_model.slx`，Simscape
+> Multibody 蝶阀，变步长求解器，30° = 0.5236 rad 阶跃）。
+> 机器：Windows，MATLAB R2024b，纯 CPU。
+
+### 桥接为什么这么做
+
+同一模型上的实测（`research/bench/`）：
+
+| 模式 | 每次 |
+| :--- | ---: |
+| 普通（每次重编译） | 869 ms |
+| **Fast Restart** | **111 ms**（StopTime=15 s），StopTime=1 s 时 40 ms |
+
+重编译的循环比决策本身慢 8–19 倍。因此桥接：
+
+1. 把模型复制到临时目录并开启 **Fast Restart**（编译一次，之后只改可调增益）；
+2. 决策头**在 MATLAB 内运行**——`matlab/jev_head_forward.m` 是对导出权重的手写
+   前向，没有 Python、没有 ONNX Runtime，关键路径上**没有 IPC**；
+3. 保留确定性安全闸：始终返回历史最优增益，爆炸时回退 `best × 0.6`，而不是听
+   `noul` 的。
+
+MATLAB 前向与 PyTorch 的偏差：**6.1e-05**。
+
+### 结果
+
+参考阶跃 0.5236 rad。Kp 扫描得 Ku ≈ 400、Tu ≈ 0.414 s → Z-N 起点
+`[Kp, Ki, Kd] = [240, 1160, 12.4]`。
+
+| 增益组 | Kp | Ki | Kd | 代价 J | 实验次数 |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| 实验课 Z-N（他们的 Ku=278） | 167 | 673 | 10.4 | 1.290 | — |
+| 我们的 Z-N 起点 | 240 | 1160 | 12.4 | 1.238 | 0 |
+| **Jev 头（发布版，第 5 次找到）** | **90.7** | **160.9** | **15.5** | **0.598** | **5 / 9** |
+| 实验课人工调参 | 280 | 300 | 30.0 | 0.393 | 数小时 |
+
+**代价 −52%，最好的一组出现在第 5 次实验**，约 0.55 s 仿真（111 ms/次）。
+停滞检测在第 9 次停下。
+
+```
+代价: 1.238 → 0.631 → 0.601 → 0.613 → 0.598   （第 5 次后早停）
+增益: [240 1160 12.4] → [185 594 18.7] → [144 303 16.9] → [109 299 17.7] → [90.7 161 15.5]
+```
+
+`assets/tuning.gif` 就是这一轮：每一帧一次实验。
+
+### 被控对象真正想要什么（单变量敏感性）
+
+固定 `Kp = 280, Ki = 300`，扫 Kd：
+
+| Kd | 5 | 10 | 20 | **30** | 45 | 60 |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| J | 1.45 | 0.92 | 0.54 | **0.39** | 0.51 | 0.60 |
+
+固定 `Ki = 300, Kd = 30`，扫 Kp：
+
+| Kp | 150 | 200 | 240 | **280** | 320 | 400 |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| J | 1.54 | 0.47 | 0.43 | **0.39** | 0.39 | 0.41 |
+
+所以这个对象想要 **Z-N 微分增益的 2.4 倍**，Kp 则有一个很宽的平顶。决策头找到了
+另一个同样有效的点：Kp/Ki 更低、Kd 15.5。它到 0.598，即**人工代价的 1.5 倍**——
+对五次实验来说很好，但不等于一个能迭代几小时的人。
+
+### 一个值得记录的退步
+
+中间版本（7 档词表但动物园里**没有**执行器饱和对象）在 motor-valve benchmark 上把 Kd 越调越错：
+
+| 版本 | 选中的 Kd | 代价 |
+| :--- | ---: | ---: |
+| 中间版（v2） | 12.4 → 6.2 | **1.238（没有改善）** |
+| 发布版（v3） | 12.4 → 15.5 | 0.598 |
+
+诊断：v2 的动物园只有宽松执行器，专家从来不需要用微分来阻尼——每株都能靠退比例
+增益解决。实验台电机做不到（它会饱和），这就是加入紧执行器对象（余量 1.0 / 1.6 /
+2.5）修好了迁移、却让合成基准尾部变重的原因。
+
+这个取舍就是项目的诚实状态：**能迁移到真实对象的那一版，不是基准上最好看的那一版。**
+
+### 复现
+
+```matlab
+addpath('matlab');
+R = jev_tune_model('...\motor_valve_model.slx', 'research/sim_tune', 20, 10, 1.0);
+% iters=20（第 5 次后早停），stopTime=10 s，stepGain=1.0
+```
+
+重建演示素材：
+
+```bash
+matlab -batch "addpath('matlab'); save_demo_traces"
+python scripts/07_make_demo.py
+```
+
+### 下一步
+
+1. 加**衰减比**特征（相邻峰值比），让模型能区分"振荡在发散 → 退增益"和"振荡在
+   衰减但超调大 → 加阻尼"。这是失败分析唯一指向的特征。
+2. 两个头混合（宽松执行器 / 紧执行器），按实测饱和比例选择——拿回 v2 的尾部又不
+   丢 v3 的迁移。
+3. 两者都只是数据 + 重训的改动，各约 30 分钟 CPU。

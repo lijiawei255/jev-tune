@@ -1,4 +1,136 @@
-# 规模效应、并发与版本兼容
+
+> [English](#scale-concurrency-and-matlab-versions) · [简体中文](#规模效应并发与版本兼容)
+
+# Scale, concurrency and MATLAB versions
+
+Three questions that only show up when someone actually deploys this.
+
+> Every number below is measured on the reference machine (motor-valve benchmark model, 10 s
+> horizon, 20 experiments). Only "LLM turn = 3 s" is an assumption, and it is
+> labelled as such.
+
+## 1. Where the wall clock goes
+
+The tuner reports its own timing split (`result.timings`):
+
+| phase | first job (cold) | afterwards (warm) |
+| :--- | ---: | ---: |
+| `setup` (copy, load, compile, Fast Restart) | 27.9 s | **0.03 s** |
+| `sweep` (Kp sweep for Ku/Tu, 7 deliberately unstable runs) | 39.8 s | **0.002 s** (cached) |
+| `loop` (20 simulations + 20 decisions) | 8.4 s | 8.1 s |
+| `save` (.mat + JSON) | 0.1 s | 0.1 s |
+| **total** | **77 s** | **8.8 s** |
+
+Plus **MATLAB cold start ≈ 50 s** (measured here, with the installed connectors).
+
+Same task, four ways:
+
+| how | time | vs agent loop |
+| :--- | ---: | ---: |
+| agent in the loop (LLM 3 s/turn) | 60 s | 1× |
+| one CLI process per job | **122 s** | **slower** |
+| warm worker (after the first job) | **8.8 s** | **7×** |
+| long-lived MATLAB session | **2.7 s** | **22×** |
+
+**The scale effect is not automatic.** It comes from three things, all required:
+
+1. MATLAB stays resident (saves 50 s of startup);
+2. the compiled model is cached (saves 28 s of setup);
+3. Ku/Tu is cached (saves 40 s of sweeping).
+
+With all three: **20 experiments go from 60 s to 9 s**.
+
+### Across many jobs
+
+| jobs | agent loop | one process each | warm worker |
+| ---: | ---: | ---: | ---: |
+| 10 | 10 min | 20 min | 1.5 min |
+| 100 | 1.7 h | 3.4 h | 15 min |
+| 1 000 | 17 h | 34 h | 2.5 h |
+
+(Extrapolated at 8.8 s/job; real throughput is also bounded by how many MATLAB
+instances your licence allows.)
+
+## 2. Does a blocking MCP server eat the scale effect?
+
+**No — the bottleneck was never blocking.** It was startup, compilation and the
+Kp sweep.
+
+One job is 8.8 s, so 1 000 jobs serially = 2.5 h, still 7× faster than the
+agent loop. The real killer is "one MATLAB per job": 122 s each ⇒ 34 h, i.e.
+*slower* than the agent.
+
+What is implemented:
+
+1. **MCP `tune_simulink` uses a resident worker** (`matlab_worker.py`,
+   process-wide singleton) — MATLAB starts on the first call and is reused;
+2. **`jev-tune batch --jobs jobs.json`** — one process, a whole queue;
+3. **caching** — the compiled model and Ku/Tu persist for the session
+   (`keep_loaded`).
+
+For linear speed-up, start several worker processes (bounded by the licence).
+
+## 3. Operational trap: the Fast Restart modal dialog
+
+If a model is left initialised in Fast Restart, *any* `close_system` raises
+**"…initialized in Fast Restart. Do you want to exit Fast Restart and close the
+model?"** — and an unattended agent session hangs on it.
+
+Handled:
+
+* desktop sessions (`usejava('desktop')`) **never cache**, so interactive use
+  cannot leave that state behind;
+* every close path disables Fast Restart first;
+* `jev_close_all` closes everything without a prompt.
+
+## 4. MATLAB versions
+
+The original code hard-coded `C:\Program Files\MATLAB\R2024b` and assumed
+`matlab -batch`. Both are gone.
+
+**Discovery**: `MATLAB_EXE` → `PATH` → Windows registry → install scan → POSIX
+paths. **Launcher**: probes `matlab -help` for `-batch`, otherwise falls back to
+`-nodisplay -nosplash -r "…; exit"`.
+
+**Capability probe**: `jev-tune matlab --probe` (or the MCP tool
+`tune_probe_matlab`) reports release, Fast Restart, scope logging and pidtune.
+
+| feature | minimum release | note |
+| :--- | :--- | :--- |
+| Fast Restart | R2013b | without it every run recompiles, 8–19× slower |
+| Scope data logging | R2014a | otherwise use To Workspace |
+| `jsonencode/jsondecode` | R2016b | used by the bridge |
+| `-batch` | R2019a | falls back to `-r` below that |
+| head forward pass | any | plain matrix maths |
+
+**Verified on R2024b only**; older releases rely on the probe and the fallbacks
+and have not been tested one by one.
+
+## 5. Self-audit: where the code contradicted the product story
+
+| # | problem | impact | status |
+| :--- | :--- | :--- | :--- |
+| 1 | hard-coded MATLAB path | breaks on other releases | ✅ discovery |
+| 2 | hard-coded gain/scope names | cannot run someone else's model | ✅ `cfg.*_block` |
+| 3 | `-batch` assumed R2019a+ | fails on older releases | ✅ `-r` fallback |
+| 4 | one MATLAB per job | scale effect disappears | ✅ worker + batch |
+| 5 | recompile + Kp sweep per job | 8.1 of 8.8 s should be simulation | ✅ cached |
+| 6 | only three separate gain blocks | models with a `PID Controller` block unsupported | ✅ `cfg.controller='pid_block'` + second bench |
+| 7 | cost fixed to step-response metrics | tracking / disturbance projects unsupported | ⚠️ open (next) |
+| 8 | reference inferred from `Step × Deg2Rad` | wrong for other commands | ✅ `cfg.ref_source` |
+| 9 | training distribution is 10 s / 5 ms | features drift otherwise | ✅ `warnings` |
+| 10 | name `jev-tune` | mistaken for "the Jev model" | ✅ stated in README |
+| 11 | Fast Restart dialog | unattended sessions hang | ✅ desktop never caches + `jev_close_all` |
+
+**The only hard gap left is #7**: the tuner currently optimises step-response
+quality. Tracking or disturbance rejection needs new metrics and a retrain
+(specialist flow, ~30 min CPU).
+
+---
+
+以下为中文全文。
+
+## 规模效应、并发与版本兼容
 
 这份文档回答三个"真拿去用"才会冒出来的问题：
 

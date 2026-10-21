@@ -1,3 +1,59 @@
+
+> [English](#phase-0--research-and-verification-report-executive-summary) · [简体中文](#phase-0--调研验证与架构定稿报告)
+
+# Phase 0 — research and verification report (executive summary)
+
+> The full analysis below is written in Chinese. This summary carries the
+> verdict and every number that shaped the design.
+
+## Verdict on the original assumptions
+
+| # | assumption | finding | action taken |
+| :--- | :--- | :--- | :--- |
+| 1 | Laya is a usable open Jev replacement | **real** — 33.8k★, Apache-2.0, three checkpoints, ONNX + 6 language bindings, `laya.train.finetune` | kept as an optional text backend |
+| 2 | freeze the encoder, fine-tune a 26.5 M head | the head is indeed ≈26 M (421 − 395), but the **shipped checkpoint is fully fine-tuned**, not frozen | we train our own head instead |
+| 3 | **tens of milliseconds on Windows CPU** | **false for fp32/PyTorch**: 288–580 ms per decision. Only INT8 + short states reaches 28–90 ms | KPI changed to "INT8 ≤90 ms" and a numeric head was added |
+| 4 | `Von` as an alternative base | **no repository found** (GitHub + Exa) | removed from the options |
+| 5 | NumericJev / AnyJev as usable ideas | both real — NumericJev is now **JevNext** (K-ary interval tree, MAE 1.84 % vs 5.18 %); AnyJev adds rotation debiasing and a closed-form head | both inform the decoder |
+
+## The three findings that decided the architecture
+
+1. **The Simulink bottleneck is recompilation, not inference.** Measured on this
+   machine (motor-valve benchmark model): normal mode **763 ms** per run, Fast Restart **40 ms**
+   (18.9×) at StopTime = 1 s, **869 ms vs 111 ms** at 15 s, cold start 10.1 s.
+2. **A 421 M text encoder reading eight numbers is waste.** 395 M of it exists to
+   read human language; the control state is 15–25 numbers and a curve.
+3. **The ecosystem is empty for control.** No public project applies a
+   Jev/System-1 model to continuous parameter tuning — opportunity, but also no
+   evidence that it beats classical methods, hence the mandatory baselines.
+
+## CPU latency reality (the "millisecond" claim)
+
+| runtime | state length | per decision |
+| :--- | :--- | ---: |
+| Laya on a T4 GPU (fp32) | ~90 tok | 32.8–39.5 ms |
+| Laya, Ryzen 9 6900HX (fp32 CPU) | short | **329 ms** |
+| Laya, EPYC 4 cores (fp32) | 3 options | **580 ms** |
+| Laya, i9-14900HX | 71 / 261 / 927 tok | 50 / 307 / 1315 ms |
+| Laya + OpenVINO **INT8** (405 MB) | short | **40 ms** (28 ms in a demo) |
+| **this project's head** (ONNX, 1 thread) | 20 features + traces | **0.19 ms** |
+
+## What this project took from the research
+
+* the **interface** (`choice` / `score` / `noul`, calibrated probabilities),
+  not the model;
+* **expected-value decoding** with a variance-driven trust region;
+* the **NumericJev** interval-refinement idea, used only for the final ±10 %;
+* the rule that **`noul` is advice and the veto is deterministic**.
+
+The Chinese part below contains the full evidence table, sources, the Simulink
+measurement scripts, the plant-zoo rationale and the five decisions the author
+was asked to sign off.
+
+---
+
+以下为中文全文。
+
 # Phase 0 · 调研验证与架构定稿报告
 
 > 项目：jev-tune — System-1（Jev 范式）决策模型驱动的控制参数极速整定框架

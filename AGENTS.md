@@ -106,6 +106,12 @@ Tools: `tune_status`, `tune_probe_matlab`, `tune_simulink`, `tune_demo`.
   safely. Never call `close_system` on a Fast-Restart model directly.
 * Report numbers, not adjectives. If a baseline beats the head, say so.
 
+## Documentation languages
+
+Every human-facing document is bilingual: English first, then 简体中文 in the
+same file, with a language switcher at the top (`README` has a separate
+`README.zh-CN.md`). Keep that structure when you edit docs.
+
 ## Where the numbers come from
 
 | file | content |

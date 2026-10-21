@@ -1,5 +1,8 @@
 # Third-party notices and compliance
 
+> [English](#third-party-notices-and-compliance) · [简体中文](#第三方声明与合规)
+
+
 This repository is released under the MIT licence (see `LICENSE`). This file
 records what is **in** the repository, what is **not**, and which third-party
 licences apply to the things it depends on.
@@ -65,3 +68,65 @@ licences; this notice records the distribution inventory.
 
 MIT requires you to keep the copyright notice. It does not require you to
 redistribute your trained specialists, your plant models, or your results.
+
+---
+
+## 第三方声明与合规
+
+本仓库以 MIT 许可发布（见 `LICENSE`）。本文件说明：仓库里**有什么**、
+**特意没有什么**、以及依赖项各自适用什么许可。
+
+### 仓库里有什么
+
+| 内容 | 来源 | 许可 |
+| :--- | :--- | :--- |
+| `src/jev_tune/**`、`matlab/**`、`scripts/**`、`tests/**` | 本项目编写 | MIT |
+| `models/jev_head.pt`、`.onnx`、`_weights.mat`、`meta.json`、`calibration.json` | 本项目在合成对象上训练 | MIT |
+| `assets/*.png`、`assets/*.gif` | 用 matplotlib 绘制本项目仿真结果 | MIT |
+| `docs/**`、`README*`、`AGENTS.md` | 本项目编写 | MIT（文本） |
+| `research/results/*.json` | 本项目基准输出 | MIT |
+
+**没有**任何第三方源码、模型权重或数据集被打包进来。
+
+### 特意没有放进来（以及原因）
+
+| 内容 | 原因 |
+| :--- | :--- |
+| 外部电机阀门基准模型及几何 | 仅用于本地测量，不主张拥有转发许可；复现需自行提供有权使用的模型。 |
+| MATLAB / Simulink 引擎源码 | MathWorks 专有代码。MATLAB 侧只**调用**公开 API（`sim`、`set_param`、`pidtune`），未复制任何代码。 |
+| Jev / Laya 权重 | 运行时不使用。本项目实现的是**接口**，不是模型。 |
+| 数据集（`data/*.npz`） | 本地生成，可用 `scripts/01_make_dataset.py` 复现。 |
+
+### 运行时依赖（只要求安装，不转发）
+
+| 包 | 许可 |
+| :--- | :--- |
+| NumPy、SciPy、scikit-learn | BSD-3-Clause |
+| PyTorch | BSD-3-Clause |
+| Matplotlib | PSF 系（Matplotlib 许可） |
+| ONNX、ONNX Runtime | Apache-2.0 / MIT |
+| pytest | MIT |
+| MATLAB、Simulink、Control System Toolbox | 商业软件，由用户自行授权 |
+
+安装这些依赖不会改变本项目的许可，本项目也不会改变它们的许可。
+
+### 名称与商标
+
+* **Jev** 是 TypeSafe AI 的产品，**Laya** 是 Convai Innovations 的项目。本仓库与
+  二者**无隶属、无背书、无赞助关系**；名字只用于描述接口风格
+  （`choice` / `score` / `noul`）。
+* **MATLAB**、**Simulink** 是 The MathWorks, Inc. 的注册商标。本项目与 MathWorks
+  无隶属关系。
+
+### 证据边界
+
+电机阀门基准属于开发反馈/回归示例。其观察影响了后续合成动物园设计，包括执行器余量，
+不能称为从未用于开发的独立外测。公开训练数据生成程序使用合成对象。NPZ最终哈希
+证明文件身份，不是历史训练过程的完整因果记录。
+
+`README`与`docs/STEP4_RESULTS.md`中的响应图是本项目对已记录测量的自主绘图。
+这些绘图不主张外部模型的原创归属或转发权。依赖项保留自身许可，本声明记录分发清单。
+
+### 如果你要复用
+
+MIT 只要求保留版权声明；不要求你公开自己训练的专家权重、被控对象模型或实验数据。

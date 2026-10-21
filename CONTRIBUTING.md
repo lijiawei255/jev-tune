@@ -1,5 +1,8 @@
 # Contributing
 
+> [English](#contributing) · [简体中文](#参与贡献)
+
+
 Thanks for looking. This project is small and opinionated; the fastest way to
 get a change merged is to read the four rules below and then send something
 focused.
@@ -74,3 +77,74 @@ describe its dynamics or reproduce with `matlab/make_demo_model.m`.
 
 By opening a PR you agree that your contribution is licensed under the MIT
 licence of this repository. No contributor licence agreement is required.
+
+---
+
+## 参与贡献
+
+谢谢你看这里。项目不大、也有明确的主张；想让改动被合并，读下面四条然后发一个
+聚焦的 PR 就行。
+
+### 四条底线
+
+1. **用数字说话。** 任何关于速度或质量的结论都要有测量和复现命令。"更快"这种
+   说法一定会被要求给数据。
+2. **不要悄悄退化基准。** 改动影响 `scripts/03_evaluate.py` 或
+   `scripts/08_generalize.py` 时，PR 里要附修改前后的对照表。尾部变差可以接受，
+   但必须写出来。
+3. **保持决策契约。** 调参器输出的一切必须是 `choice`、`score` 或 `noul`
+   （`src/jev_tune/primitives.py`）。引入"直接回归增益"通道的 PR 会被拒绝——
+   那正是本项目要对照验证的东西。
+4. **`noul` 只作建议。** 硬限幅、回滚与安全否决都放在确定性代码里
+   （`evaluate.py`、`jev_tune_model.m`），不要搬进模型。
+
+### 环境准备
+
+```bash
+bash scripts/agent_setup.sh            # Windows 用 scripts/agent_setup.ps1
+python -m jev_tune.cli check           # pytest，必须全绿
+python -m jev_tune.cli demo --plants 12
+```
+
+MATLAB 相关工作需要 R2019a+ 与 Simulink；`jev-tune matlab --probe` 会告诉你当前
+版本支持什么。
+
+### 现在最需要帮忙的地方
+
+| 方向 | 需要什么 | 规模 |
+| :--- | :--- | :--- |
+| **目标函数预设** | 在阶跃指标之外，加跟踪 / 扰动抑制指标（见 `metrics.py`） | 中 |
+| **并发 worker** | 批量场景下并行跑 N 个 MATLAB（`matlab_worker.py`） | 中 |
+| **跨模型缓存** | 多个任务共用同一个 `.slx` 时复用已编译模型 | 小 |
+| **死区特征** | 区分"在死区里抖动"和"增益过大"的状态描述 | 小 |
+| **更多对象族** | 动物园里没有、且有公开动力学的对象（大延迟热过程、串级回路等） | 小 |
+| **文档与翻译** | 目前有英文和简体中文，其他语言欢迎 | 小 |
+| **第二份外部基准** | 用你的模型跑一遍并公开表格 | 中 |
+
+标注为 `good first issue` 的 issue 适合第一次参与。
+
+### 提交改动
+
+1. Fork，从 `main` 切分支（`feat/…`、`fix/…`、`docs/…`）。
+2. 保持 diff 聚焦；顺手重排格式会让 review 变慢。
+3. 改了 `src/` 下的代码就补一个测试。
+4. 跑 `python -m jev_tune.cli check`；改了调参器再跑
+   `python -m jev_tune.cli demo --plants 12`。
+5. 用 PR 模板提交，写清你测了什么、在什么机器上测的。
+
+提交信息：一行、祈使句、72 字符以内；正文说明**为什么**，并附上你声称的数字。
+
+### 报告问题
+
+用 issue 模板。让报告可行动的三件事：
+
+* 完整命令；
+* `--json` 输出；
+* 涉及 MATLAB 路径时，附上 MATLAB 版本和操作系统。
+
+**请不要**上传公司的 Simulink 模型。如果对象敏感，描述它的动力学，或用
+`matlab/make_demo_model.m` 复现。
+
+### 贡献的许可
+
+提交 PR 即表示你同意以本仓库的 MIT 许可发布你的贡献，无需签署额外协议。
