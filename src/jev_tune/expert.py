@@ -46,9 +46,9 @@ class ExpertData:
     act_best: np.ndarray
 
 
-def _sim(plants: PlantSet, gains: np.ndarray):
-    res = simulate(plants, gains)
-    j = cost_from_metrics(res["metrics"], y_curve=res["y_curve"])
+def _sim(plants: PlantSet, gains: np.ndarray, objective: str = "step", **sim_kwargs):
+    res = simulate(plants, gains, **sim_kwargs)
+    j = cost_from_metrics(res["metrics"], y_curve=res["y_curve"], objective=objective)
     return res, j
 
 
@@ -60,6 +60,8 @@ def generate(
     space: ActionSpace | None = None,
     init_scale: float = 0.0,
     verbose: bool = True,
+    objective: str = "step",
+    **sim_kwargs,
 ):
     space = space or ActionSpace()
     rng = np.random.default_rng(seed)
@@ -89,7 +91,7 @@ def generate(
     prev_action = np.zeros((n, 3))
     prev_cost = np.zeros(n)
 
-    res, j_now = _sim(plants, gains)
+    res, j_now = _sim(plants, gains, objective, **sim_kwargs)
 
     for t in range(steps):
         feats, curves = build_state(
@@ -119,14 +121,14 @@ def generate(
                 probe_delta.append(d)
         probe_gains = np.concatenate(probe_gains)  # (15n, 3)
         flat = plants.take(np.tile(idx, 3 * space.k))
-        _, j_probe = _sim(flat, probe_gains)
+        _, j_probe = _sim(flat, probe_gains, objective, **sim_kwargs)
         j_probe = j_probe.reshape(3, space.k, n)  # (axis, bin, plant)
 
         best_bin = np.argmin(j_probe, axis=1)  # (3, n)
         combined = gains * (10 ** space.deltas[best_bin].T)  # (n,3)
 
         # --- combined probe: the next state, and the Noul label
-        res_next, j_next = _sim(plants, combined)
+        res_next, j_next = _sim(plants, combined, objective, **sim_kwargs)
 
         unstable = (
             (~np.isfinite(j_next))
@@ -169,7 +171,7 @@ def generate(
         prev_cost = j_now
         res = res_next if better.all() else res
         if not better.all():
-            res, j_now = _sim(plants, gains)
+            res, j_now = _sim(plants, gains, objective, **sim_kwargs)
         else:
             j_now = j_next
 

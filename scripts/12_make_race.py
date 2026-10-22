@@ -187,7 +187,7 @@ def build_gif(data: dict, out: Path, *, frames: int = 48):
         borderpad=0.4,
     )
 
-    ax2.set_xlim(0, 30)
+    ax2.set_xlim(0, 60)
     ax2.set_yticks([])
     ax2.set_title("time to a usable controller", fontsize=10.5, loc="left")
     ax2.set_xlabel("seconds  (0.4 s/experiment, measured)")
@@ -244,8 +244,8 @@ def build_gif(data: dict, out: Path, *, frames: int = 48):
     fig.text(
         0.01,
         0.012,
-        "* only this row is not measured: one assumed 3 s LLM turn per experiment. "
-        "Curves and per-experiment time are measured on this machine.",
+        "* every number here is measured. The agent row uses a measured LLM turn "
+        "(median 5.3 s, GLM-5.3-Flash, 40 calls); the rest is simulation and decision time.",
         fontsize=7.0,
         color=MUTED,
     )
@@ -278,9 +278,9 @@ def build_gif(data: dict, out: Path, *, frames: int = 48):
         n_now = max(1, int(round(upto)))
         if hit["head"] is not None:
             agent_s = hit["head"] * (per_s + llm_s)
-            agent_bar[0].set_width(min(agent_s, 29.5) * min(1.0, upto / hit["head"]))
+            agent_bar[0].set_width(min(agent_s, 58.0) * min(1.0, upto / hit["head"]))
             agent_note.set_text(
-                f"{agent_s:.0f}s  ({hit['head']} × 3 s assumed)"
+                f"{agent_s:.0f}s  ({hit['head']} × {llm_s:.1f} s LLM turn, measured)"
                 if upto >= hit["head"]
                 else ""
             )

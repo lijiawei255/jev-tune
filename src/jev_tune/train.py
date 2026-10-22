@@ -34,7 +34,12 @@ def train_head(
         _to_t(data.noul),
     )
     ds = TensorDataset(feats, curves, choice, score, noul)
-    dl = DataLoader(ds, batch_size=batch, shuffle=True, drop_last=True)
+    # A dataset smaller than one batch used to produce zero batches, so training
+    # silently did nothing (the weights came back unchanged).  Clamp instead.
+    bs = max(1, min(batch, len(ds) // 2 if len(ds) > 1 else 1))
+    if bs != batch:
+        print(f"  [train] {len(ds)} samples -> batch size {bs} (was {batch})", flush=True)
+    dl = DataLoader(ds, batch_size=bs, shuffle=True, drop_last=False)
 
     n_actions = int(max(5, data.choice.max() + 1))
     if model is None:

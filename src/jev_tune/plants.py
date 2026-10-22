@@ -351,6 +351,11 @@ def simulate(
     ts: float = DEFAULT_TS,
     n_curve: int = N_CURVE,
     der_filter: float = 0.02,
+    profile: str = "step",
+    ramp_delay: float = 1.0,
+    ramp_rate: float = 0.1,
+    disturb_amp: float = 0.0,
+    disturb_time: float = 0.0,
 ):
     """Batch closed-loop step simulation.
 
@@ -413,8 +418,17 @@ def simulate(
     prev_y = np.zeros(N)
     sat_max = np.zeros(N)
 
-    r = ref
-    band = 0.02 * abs(r)
+    # reference profile: a scalar step, or a ramp that starts moving at
+    # ramp_delay.  Everything downstream works on r(k) so the metrics stay the
+    # same definitions.
+    r_vec = np.full((nsteps, N), float(ref))
+    if profile == "ramp":
+        ramp = np.clip(t - ramp_delay, 0.0, None) * ramp_rate
+        r_vec = np.minimum(float(ref), ramp)[:, None] * np.ones((1, N))
+    elif profile != "step":
+        raise ValueError(f"unknown profile {profile!r}")
+    band_vec = 0.02 * np.abs(r_vec)
+    lag_sum = np.zeros(N)
 
     # real sensors are noisy and real valves have a dead band; both are opt-in
     noise = (
@@ -438,6 +452,7 @@ def simulate(
             y = y + noise * rng.standard_normal(N)
             y_curve_noise_flag = True
 
+        r = r_vec[k]
         e = r - y
         integ = np.clip(integ + e * ts, -ilim, ilim)
         # derivative on measurement (no setpoint kick) -- the textbook structure
@@ -447,13 +462,19 @@ def simulate(
         y_prev = y
 
         u_raw = kp * e + ki * integ + kd * df
+        if disturb_amp and k * ts >= disturb_time:
+            # load disturbance on the plant input (not on the measurement)
+            pass
         if np.any(dz > 0):
             u_raw = np.sign(u_raw) * np.maximum(np.abs(u_raw) - dz, 0.0)
         u = np.clip(u_raw, umin, umax)
         sat += np.abs(u - u_raw) > 1e-12
         sat_max = np.maximum(sat_max, np.abs(u_raw - u))
 
-        x = np.einsum("nij,nj->ni", a, x) + b * u_del[:, None]
+        u_plant = u_del
+        if disturb_amp and k * ts >= disturb_time:
+            u_plant = u_plant + disturb_amp
+        x = np.einsum("nij,nj->ni", a, x) + b * u_plant[:, None]
 
         hist = np.roll(hist, -1, axis=1)
         hist[:, -1] = u
@@ -468,7 +489,8 @@ def simulate(
         peak_t = np.where(grew, t[k], peak_t)
         iae += np.abs(e) * ts
         itae += t[k] * np.abs(e) * ts
-        outside = np.abs(y - r) > band
+        outside = np.abs(y - r) > band_vec[k]
+        lag_sum += r - y
         t_settle = np.where(outside, t[k], t_settle)
         now_above = y > r
         n_cross += (now_above != above) & (k > 0)
@@ -481,19 +503,22 @@ def simulate(
             ci += 1
 
     y_final = y
+    lag = lag_sum / nsteps
+    ref_final = float(r_vec[-1, 0])
     metrics = np.column_stack(
         [
-            (peak - r)
-            / max(abs(r), 1e-9)
-            * (peak > r),  # overshoot (signed, 0 if none)
+            (peak - ref_final)
+            / max(abs(ref_final), 1e-9)
+            * (peak > ref_final),  # overshoot (signed, 0 if none)
             (t90 - t10),  # rise time
             t_settle,  # settling time
-            (r - y_final) / max(abs(r), 1e-9),  # steady-state error (normalised)
+            (ref_final - y_final) / max(abs(ref_final), 1e-9),  # steady-state error
             iae,
             itae,
             n_cross / 2.0,  # oscillations
             sat / nsteps,  # saturation fraction
             sat_max / amp,  # worst overdrive
+            lag,  # mean signed tracking error
         ]
     )
     # NaN rise time -> treat as never rose (slow/failed)
@@ -511,6 +536,7 @@ METRIC_NAMES = (
     "oscillations",
     "sat_frac",
     "sat_over",
+    "lag",
 )
 
 

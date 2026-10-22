@@ -96,6 +96,46 @@ generous ones produced a policy that could not tune it. The benchmark numbers
 across rows are **not** directly comparable — v3's zoo is harder for every
 method (Z-N 1.95 → 2.50, BO 0.39 → 0.58).
 
+
+## The agent row is now measured, not assumed
+
+The README compares against "an LLM agent in the loop". That row used to be an
+assumption (3 s per turn). It is now a measurement: `scripts/14_agent_baseline.py`
+asks a hosted model (Together AI, `zai-org/GLM-5.3-Flash`, temperature 0) for the
+next gain step once per experiment, on the same plants and with the same
+20-experiment budget.
+
+| | agent in the loop | Jev head |
+| :--- | ---: | ---: |
+| median latency per decision | **5.34 s** (p90 8.98 s) | **0.19 ms** |
+| wall clock, 20 experiments | ~107 s | ~8 s |
+| answers unusable (format) | **13 / 40** | 0 |
+| median cost reached | 1.606 | **0.577** |
+
+The agent is not handicapped by the prompt: it receives the same metrics the head
+sees, rendered as JSON, and may answer with three integers chosen from
+`[-20, -10, 0, +10, +20]`. The 13 unusable answers are truncations — a reasoning
+model spends its token budget thinking and never emits the final line.
+
+Two honest caveats: this is one model at one moment, and the number measures
+*this* prompt. A better prompt or a non-reasoning model would be faster and more
+parseable; the 0.19 ms figure does not depend on either.
+
+Raw log: `research/results/agent_baseline_900.json` (every request and response).
+
+## Objectives other than a step response
+
+`metrics.cost_from_metrics(..., objective="step" | "tracking" | "disturbance")`
+and `simulate(..., profile="step" | "ramp", disturb_amp=..., disturb_time=...)`
+are implemented, and the evaluator/expert thread both through.
+
+Measured on the disturbance-rejection task (0.4 step disturbance at t = 5 s),
+zero-shot head on 20 unseen plants: **1.428 → 0.960, improving 18/20 plants**.
+A specialist fine-tuned on that objective made it *worse* both times it was
+tried (500 states: 0.905 → 1.072; 1 680 states: 0.905 → 1.005), so it is not
+shipped. The machinery works; the transfer does not yet pay for itself at this
+data budget, and that is reported rather than hidden.
+
 ## Honest caveats
 
 1. **`pidtune` with the true model is the strongest design** (0.81 median on
@@ -213,7 +253,41 @@ v2 在该基准上最强。之所以发布 v3，是因为**只有它能迁移到
 会让策略无法调它。三行之间的绝对值**不可直接比**——v3 的动物园对所有方法都更难
 （Z-N 1.95 → 2.50，BO 0.39 → 0.58）。
 
-### 诚实的 caveat
+#
+## 智能体那行：从"假设"变成了"实测"
+
+README 里对比的"把大模型接进环路"原本是个假设（每次 3 秒）。现在是实测：
+`scripts/14_agent_baseline.py` 在同样的对象、同样的 20 次实验预算下，每次实验向托管
+模型（Together AI，`zai-org/GLM-5.3-Flash`，temperature 0）要一次增益调整。
+
+| | Agent 在环 | Jev 决策头 |
+| :--- | ---: | ---: |
+| 单次决策延迟（中位） | **5.34 秒**（p90 8.98 秒） | **0.19 毫秒** |
+| 20 次实验的总耗时 | 约 107 秒 | 约 8 秒 |
+| 输出无法解析 | **13 / 40** | 0 |
+| 达到的中位代价 | 1.606 | **0.577** |
+
+提示词没有为难它：它收到与决策头同样的指标（JSON 形式），可以从
+`[-20, -10, 0, +10, +20]` 里选三个整数。13 次失败是**截断**——推理模型把 token
+预算花在思考上，最后那行答案没吐出来。
+
+两个诚实的限定：这只是一个模型、一个时刻的结果，而且测的是*这个*提示词；更好的
+提示词或非推理模型会更快、更可解析。但 0.19 毫秒那一侧不受提示词影响。
+
+原始日志：`research/results/agent_baseline_900.json`（每一次请求和响应都在里面）。
+
+## 阶跃之外的目标函数
+
+`metrics.cost_from_metrics(..., objective="step" | "tracking" | "disturbance")`
+和 `simulate(..., profile="step" | "ramp", disturb_amp=..., disturb_time=...)` 已实现，
+评测器和专家生成都支持透传。
+
+在扰动抑制任务上（t = 5 秒施加 0.4 的输入扰动）实测：零样本决策头在 20 个未见对象
+上 **1.428 → 0.960，20 个里 18 个变好**。而一个在该目标上微调的专家**反而更差**
+（500 状态：0.905 → 1.072；1 680 状态：0.905 → 1.005），因此不发布。机制是通的，
+但以这个数据量，迁移还不划算——这条如实写出来，而不是藏起来。
+
+## 诚实的 caveat
 
 1. **模型已知时 `pidtune` 最强**（训练族上中位 0.81，0 次仿真）。学习型调参只有在
    模型不可得或不可信时才有正当性——这正是本基准设定的场景。

@@ -97,6 +97,8 @@ def evaluate_head(
     early_stop: bool = True,
     safety_gate: bool = True,
     max_rollbacks: int = 4,
+    objective: str = "step",
+    **sim_kwargs,
 ) -> HeadResult:
     import time
 
@@ -117,8 +119,8 @@ def evaluate_head(
 
     hist = []
     for k in range(iters):
-        res = simulate(plants, gains)
-        j = cost_from_metrics(res["metrics"], y_curve=res["y_curve"])
+        res = simulate(plants, gains, **sim_kwargs)
+        j = cost_from_metrics(res["metrics"], y_curve=res["y_curve"], objective=objective)
         upd = (j < best_cost) & ~done
         best_cost = np.where(upd, j, best_cost)
         best_gains = np.where(upd[:, None], gains, best_gains)
@@ -172,8 +174,8 @@ def evaluate_head(
         prev_action = step
         prev_cost = j
 
-    res = simulate(plants, gains)
-    j = cost_from_metrics(res["metrics"], y_curve=res["y_curve"])
+    res = simulate(plants, gains, **sim_kwargs)
+    j = cost_from_metrics(res["metrics"], y_curve=res["y_curve"], objective=objective)
     best_cost = np.where(~done & (j < best_cost), j, best_cost)
 
     return HeadResult(
