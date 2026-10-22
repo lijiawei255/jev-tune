@@ -8,8 +8,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[1]
 SRC = REPO / "src"
+
+HAS_MPL = bool(__import__("importlib").util.find_spec("matplotlib"))
 
 
 def _run(*args, timeout=120):
@@ -96,6 +100,7 @@ def test_mcp_exposes_discover_and_writeback():
         assert tool["inputSchema"]["type"] == "object"
 
 
+@pytest.mark.skipif(not HAS_MPL, reason="matplotlib is an optional dependency")
 def test_plot_writes_a_png(tmp_path):
     from jev_tune.plot import save_before_after
 
@@ -113,6 +118,7 @@ def test_plot_writes_a_png(tmp_path):
     assert out.is_file() and out.stat().st_size > 5000
 
 
+@pytest.mark.skipif(not HAS_MPL, reason="matplotlib is an optional dependency")
 def test_plot_without_traces_still_succeeds(tmp_path):
     """A result with no curves must not crash the agent's pipeline."""
     from jev_tune.plot import save_before_after

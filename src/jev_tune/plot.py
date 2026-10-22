@@ -9,10 +9,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import matplotlib
+try:
+    import matplotlib
 
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+except ImportError as exc:  # pragma: no cover - depends on the environment
+    raise RuntimeError(
+        "--plot needs matplotlib: pip install matplotlib"
+    ) from exc
 
 
 def save_before_after(
