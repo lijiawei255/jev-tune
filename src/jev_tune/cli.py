@@ -238,8 +238,12 @@ def cmd_doctor(args) -> int:
     if not args.model:
         print("--model is required", file=sys.stderr)
         return 2
-    result = run_doctor(args.model, work_dir=args.work_dir,
-                        discover=not args.no_discover, timeout=args.timeout)
+    result = run_doctor(
+        args.model,
+        work_dir=args.work_dir,
+        discover=not args.no_discover,
+        timeout=args.timeout,
+    )
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
     elif result.get("code") == "matlab_missing":
@@ -247,8 +251,10 @@ def cmd_doctor(args) -> int:
     else:
         print(f"{'check':<11} {'ok?':<5} detail")
         for c in result.get("checks") or []:
-            print(f"{c.get('name', ''):<11} {'ok' if c.get('ok') else 'FAIL':<5} "
-                  f"{c.get('detail', '')}")
+            print(
+                f"{c.get('name', ''):<11} {'ok' if c.get('ok') else 'FAIL':<5} "
+                f"{c.get('detail', '')}"
+            )
             if not c.get("ok") and c.get("fix"):
                 print(f"{'':<17} -> {c['fix']}")
         if result.get("verdict"):
@@ -256,6 +262,32 @@ def cmd_doctor(args) -> int:
         if result.get("next"):
             print(f"next:    {result['next']}")
     return 0 if result.get("ok") else 2
+
+
+def _gain_verdict(result: dict) -> str:
+    """One line comparing the result with the gains the model already had.
+
+    Returns "" when the MATLAB side did not report them (an older result file).
+    """
+    own_j = result.get("own_J")
+    final_j = result.get("final_J")
+    if own_j is None or final_j is None:
+        return ""
+    try:
+        own_j, final_j = float(own_j), float(final_j)
+    except (TypeError, ValueError):
+        return ""
+    gain_list = result.get("own_gains") or []
+    shown = ", ".join(f"{float(g):.4g}" for g in gain_list) if gain_list else "?"
+    if final_j < own_j - 1e-9 * max(1.0, abs(own_j)):
+        return (
+            f"beat       your model's existing gains ({shown}): "
+            f"J {own_j:.3f} -> {final_j:.3f}"
+        )
+    return (
+        f"kept       your model's existing gains ({shown}): J={own_j:.3f}, "
+        f"nothing tried beat them"
+    )
 
 
 def cmd_matlab(args) -> int:
@@ -278,16 +310,20 @@ def cmd_matlab(args) -> int:
             for w in result.get("warnings") or []:
                 print(f"  ! {w}")
             for loop in result.get("loops") or []:
-                print(f"  {loop.get('junction')}: {loop.get('code') or loop.get('error')}")
+                print(
+                    f"  {loop.get('junction')}: {loop.get('code') or loop.get('error')}"
+                )
         else:
             print(f"loops      {result.get('n_tuned')}/{result.get('n_loops')} tuned")
             for loop in result.get("loops") or []:
                 tag = "ok  " if loop.get("ok") else "FAIL"
                 start = loop.get("start_J")
                 final = loop.get("final_J")
-                print(f"  [{tag}] {loop.get('junction'):<16} "
-                      f"J {start:.3f} -> {final:.3f}  {loop.get('n_experiments')} exp  "
-                      f"{[round(g, 4) for g in loop.get('gains') or []]}")
+                print(
+                    f"  [{tag}] {loop.get('junction'):<16} "
+                    f"J {start:.3f} -> {final:.3f}  {loop.get('n_experiments')} exp  "
+                    f"{[round(g, 4) for g in loop.get('gains') or []]}"
+                )
             print(f"target     {result.get('target')}")
             print(f"wall       {result.get('wall_s', 0):.1f} s")
         return 0 if result.get("ok") else 2
@@ -390,6 +426,9 @@ def cmd_matlab(args) -> int:
                 f"cost       {_num(result.get('final_J'))}  "
                 f"(start {_num(hist[0].get('J'))})"
             )
+            verdict = _gain_verdict(result)
+            if verdict:
+                print(verdict)
             print(
                 f"experiments {result.get('n_experiments')}  "
                 f"rollbacks {result.get('n_rollbacks')}  "
@@ -588,8 +627,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     dr = sub.add_parser("doctor", help="explain why a model cannot be tuned")
     dr.add_argument("--model", required=True, help="absolute path to a .slx / .mdl")
-    dr.add_argument("--no-discover", action="store_true",
-                    help="skip the loop check (stops after the compile check)")
+    dr.add_argument(
+        "--no-discover",
+        action="store_true",
+        help="skip the loop check (stops after the compile check)",
+    )
     dr.add_argument("--work-dir", dest="work_dir")
     dr.add_argument("--timeout", type=int, default=600)
     dr.add_argument("--json", action="store_true")

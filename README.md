@@ -331,6 +331,21 @@ Full numbers, caveats and reproduction: [`docs/STEP1_RESULTS.md`](docs/STEP1_RES
 
 ---
 
+## What is not tested
+
+Three comparisons this project does not make. They are listed here so nobody has
+to infer the boundaries from the benchmark:
+
+| not tested | why it matters | what would close it |
+| :--- | :--- | :--- |
+| **The typed interface against a plain regression head** | Same features, same data, same budget, one difference: `choice/score/noul` versus regressing the three gains directly. Without it, "typed decision" is a design with measured *properties* (calibrated, thresholdable, 0.19 ms) and no measured *performance advantage* over a small non-typed policy of the same size | one training run on the same `data/expert_train.npz` |
+| **A language model that is not on the network** | The only language baseline is a hosted API — 5.34 s per turn, 13 of 40 answers unparseable — which mixes the language layer with the round trip and the parsing | a local 1.5B–4B model in the same loop |
+| **An external user** | Every model in the benchmarks is ours. "You can point it at your project" is a design goal with a test suite behind it, not something observed | one colleague's model |
+
+The first one is the interesting gap: it decides whether the interface is a
+performance claim or an engineering one. Both are worth having; only one is
+measured. See [`docs/CLAIMS.md`](docs/CLAIMS.md#what-is-not-tested).
+
 ## Repository layout
 
 ```

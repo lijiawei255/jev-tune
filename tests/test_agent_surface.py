@@ -89,6 +89,21 @@ def test_loop_command_tunes_without_matlab():
     assert len(data["final_gains"]) == 3
 
 
+def test_gain_verdict_says_kept_or_beat():
+    """A result that equals the model's own gains is a success, not a non-event."""
+    from jev_tune.cli import _gain_verdict
+
+    kept = _gain_verdict({"own_J": 0.3925, "final_J": 0.3925,
+                          "own_gains": [280, 300, 30]})
+    assert kept.startswith("kept") and "0.393" in kept
+
+    beat = _gain_verdict({"own_J": 0.3925, "final_J": 0.31,
+                          "own_gains": [280, 300, 30]})
+    assert beat.startswith("beat") and "0.310" in beat
+
+    assert _gain_verdict({"own_J": None, "final_J": 0.5}) == ""
+
+
 def test_doctor_is_a_subcommand():
     proc = _run("doctor", "--help")
     assert proc.returncode == 0

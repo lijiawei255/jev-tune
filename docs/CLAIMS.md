@@ -109,3 +109,49 @@ changes later.
 
 如果产物很贵（120 对象的基准、一次 MATLAB 会话），至少要把产物和 claims 一起更新，
 哪怕正文晚一次再改。
+
+## What is not tested
+
+Three comparisons are missing on purpose, and they are the only places in this
+project where a number is absent rather than unflattering. Saying so is cheaper
+than letting a reader assume the comparison happened.
+
+**1. The typed interface against a plain regression head.** Same features, same
+expert data, same training budget, one difference: `choice / score / noul` versus
+regressing the three gain deltas directly. Until this exists, the interface has
+measured *properties* (ECE 0.02–0.031, 0.19 ms, thresholdable, auditable) and no
+measured *performance advantage* over a small non-typed policy of the same size.
+What it would take: one training run on `data/expert_train.npz` and the existing
+evaluation harness. What it decides: whether the README's opening sentence is a
+performance claim or an engineering one.
+
+**2. A language model that is not on the network.** The only language baseline is
+a hosted API — 5.34 s per turn, 13 of 40 answers unparseable — which mixes three
+things: the language layer, the round trip, and the parsing. A local 1.5B–4B
+model in the same loop would separate them. Without it, "an LLM is too slow for
+the loop" is only proven for *cloud* LLMs.
+
+**3. An external user.** Every plant in every benchmark is ours. "Point it at your
+model" is a design goal backed by a test suite, not an observation. The discovery
+work is the part most likely to break on someone else's model, which is why there
+is an issue template for exactly that.
+
+
+## 没有做的对照
+
+这三项是**有意缺失**的，也是本仓库里唯一"没有数字"的地方——写清楚比让读者以为
+做过要好。
+
+**1. 类型化接口 vs 普通回归头。** 同样特征、同样专家数据、同样训练预算，只差一处：
+`choice / score / noul` 对比"直接回归三个增益增量"。在它出现之前，这个接口有的是
+**已测的性质**（ECE 0.02–0.031、0.19 ms、可阈值、可审计），没有**已测的性能优势**——
+相对于同尺寸的非类型化策略。补上它需要：用 `data/expert_train.npz` 训一次，跑现有评估。
+它决定的是：README 开头那句到底是性能主张还是工程主张。
+
+**2. 不在网络上的语言模型。** 目前唯一语言基线是云端 API——单轮 5.34 秒、40 次里
+13 次无法解析——它把三件事混在一起：语言层、网络往返、输出解析。同一个回路里换成本地
+1.5B–4B 模型才能分开。没有它，"大模型太慢不适合进环"只对**云端**成立。
+
+**3. 外部使用者。** 所有基准里的对象都是我们自己的。"拿它去调你的模型"是有测试支撑的
+设计目标，不是观察结果。最容易在别人的模型上出问题的是发现（discover）那一段，所以专门
+开了一个 issue 模板收这类反馈。
