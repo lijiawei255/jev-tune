@@ -116,7 +116,7 @@ experiments (~0.55 s of simulation); the stall detector stopped the loop at nine
 | :--- | :--- |
 | **What it does** | picks the next PID gain step from the response it just measured |
 | **How fast** | **0.19 ms** per decision (ONNX, 1 CPU thread) vs **236–276 ms** for a hosted Jev call and seconds for an LLM agent |
-| **How few experiments** | **11 experiments** on a real Simulink motor took the cost from **1.377 to 0.615**, and the loop never ends worse than it started |
+| **How few experiments** | **11 experiments** on a real Simulink motor took the cost from **1.377 to 0.615**; the result is never worse than the better of the start and the gains your model already had |
 | **How it generalises** | on a plant family it never saw (120 plants), **0.468** median cost vs **1.813** for CMA-ES at the same 20-simulation budget |
 
 ![before and after](assets/before_after.png)

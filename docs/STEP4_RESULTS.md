@@ -95,6 +95,11 @@ particular gain. Ziegler-Nichols assumes a clear boundary; this plant has none.
 The v0.2 numbers stay in place rather than being rewritten: they are what that
 release measured, and `assets/tuning.gif` is that run.
 
+With the own-gains floor added afterwards, the same model returns the lab's own
+gains (J = 0.3925) rather than the ZN start, because nothing the head tries beats
+them. That is the correct outcome, and the reason the promise is now worded as
+"never worse than the better of the start and your existing gains".
+
 
 ## What the plant actually wants (one-at-a-time sensitivity)
 

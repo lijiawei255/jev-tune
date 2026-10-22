@@ -235,7 +235,7 @@ guarantees you can read off a Bode plot.
 | experiments | many | **0** | 5–20 |
 | time to a result | hours | seconds | seconds (simulation) |
 | if the model is exact | good | **best** | worse (the lab: 0.598 vs the lab's 0.393) |
-| if the model is wrong | varies | **can destabilise** | bounded — never worse than the start |
+| if the model is wrong | varies | **can destabilise** | bounded — never worse than the better of its start and the gains the model already runs |
 | what you tune against | your eye | a bandwidth/phase margin spec | your actual cost function |
 
 Two things people miss:
@@ -274,7 +274,7 @@ because it only ever claims "the best gain set I actually measured".
 | 实验次数 | 很多 | **0** | 5–20 |
 | 出结果时间 | 几小时 | 几秒 | 几秒（仿真） |
 | 模型准确时 | 好 | **最好** | 较差（基准模型 0.598 vs 人工 0.393） |
-| 模型不准时 | 看运气 | **可能发散** | 有界——不比起点差 |
+| 模型不准时 | 看运气 | **可能发散** | 有界——不比「起点」与「模型现有增益」中更好的那组差 |
 | 优化对象 | 你的眼睛 | 带宽/相位裕度指标 | 你真实的代价函数 |
 
 两个常被忽略的点：

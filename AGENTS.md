@@ -84,9 +84,12 @@ the reason. Do not patch around it silently by hardcoding block names.
 ### Before you claim success
 
 `result["ok"]` must be true **and**
-`result["final_J"] <= result["history"][0]["J"]`. That inequality is the
-project's promise: the tuner never returns a gain set worse than the one it
-started from. If a baseline beats the head, say so.
+`result["final_J"] <= min(result["history"][0]["J"], result.get("own_J", float("inf")))`.
+
+That inequality is the project's promise: the tuner never returns a gain set worse
+than the better of its own starting point and the gains the model already ran.
+`own_J` is the cost of those existing gains; it is reported so you can quote both.
+If a baseline beats the head, say so.
 
 ## Setup (idempotent, no prompts)
 

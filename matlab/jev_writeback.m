@@ -68,14 +68,14 @@ try
             set_param(blk, 'Form', 'Parallel');
             out.converted_from = form;
         end
-        set_param(blk, 'P', num2str(p), 'I', num2str(i), 'D', num2str(d));
+        set_param(blk, 'P', num2str(p, 17), 'I', num2str(i, 17), 'D', num2str(d, 17));
         out.written = {sprintf('%s.P', cfg.pid_block), ...
                        sprintf('%s.I', cfg.pid_block), ...
                        sprintf('%s.D', cfg.pid_block)};
     else
-        set_param([mdl '/' cfg.kp_block], 'Gain', num2str(gains(1)));
-        set_param([mdl '/' cfg.ki_block], 'Gain', num2str(gains(2)));
-        set_param([mdl '/' cfg.kd_block], 'Gain', num2str(gains(3)));
+        set_param([mdl '/' cfg.kp_block], 'Gain', num2str(gains(1), 17));
+        set_param([mdl '/' cfg.ki_block], 'Gain', num2str(gains(2), 17));
+        set_param([mdl '/' cfg.kd_block], 'Gain', num2str(gains(3), 17));
         out.written = {cfg.kp_block, cfg.ki_block, cfg.kd_block};
     end
     set_param(mdl, 'FastRestart', 'off');

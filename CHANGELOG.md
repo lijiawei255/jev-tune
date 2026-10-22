@@ -3,6 +3,21 @@
 All notable changes to this project. Numbers quoted here are measured, and the
 file that produced them is named next to them.
 
+## [Unreleased]
+
+### Fixed
+
+* The tuner started from Ziegler-Nichols and never looked at the controller the
+  model already had, so "never worse than the start" meant "never worse than ZN".
+  On a model whose own gains are better than ZN it could hand back something worse
+  than the user was already running. The existing gains are now measured once and
+  become the floor the safety gate defends; `own_J` is reported in the JSON.
+  Self-check: a fixture tuned to 1.607, with those gains written back, comes back
+  unchanged at 1.607.
+* Gains were written with `num2str`'s default five significant digits, both to
+  the tuned copy and to the model on every iteration, so 55.4793 was applied as
+  55.479. Now written at full precision.
+
 ## [0.3.0] - 2026-10-22
 
 ### Added

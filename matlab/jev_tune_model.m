@@ -293,9 +293,39 @@ end
 T.sweep = toc(tSweep);
 tLoop = tic;
 
+% ------------------------------------------------- the gains the model already has
+% The loop starts from Ziegler-Nichols, which says nothing about the controller
+% the model shipped with.  Handing back something worse than what the user
+% already runs is not help, so those gains are measured once and become the floor
+% the safety gate defends.  One simulation, and the promise in the README stops
+% depending on how the ZN start happens to compare.
+%
+% Acceptance (2026-10-22): on a model whose own gains are better than its ZN
+% start, the returned cost must be at most the own-gains cost; on a model whose
+% own gains are worse, the behaviour must be unchanged.
+ownJ = inf; ownT = []; ownY = []; ownU = [];
+if any(abs(gOwn - gzn) > 1e-9 * max(1, abs(gOwn)))
+    apply(gOwn);
+    try
+        [ownT, ownY, ownU] = runOnce();
+        ownJ = jev_cost(jev_metrics(ownT, ownY, ownU, refCmd, stopTime, cfg.u_max), ...
+            stopTime, refCmd);
+        fprintf('[jev] the model own gains [%.4g %.4g %.4g] give J=%.3f\n', ...
+            gOwn(1), gOwn(2), gOwn(3), ownJ);
+    catch err
+        fprintf('[jev] the model own gains do not simulate (%s); ignoring them\n', ...
+            short_msg(err.message));
+        ownJ = inf; ownT = []; ownY = []; ownU = [];
+    end
+end
+
 % ---------------------------------------------------------------- tuning loop
 gains = gzn;
 bestGains = gains; bestJ = inf; bestY = []; bestT = []; bestU = [];
+if ownJ < bestJ
+    bestGains = gOwn; bestJ = ownJ;
+    bestT = ownT; bestY = ownY; bestU = ownU;
+end
 prevAction = zeros(1, 3);
 prevCost = 0;
 nRollbacks = 0;
@@ -413,6 +443,7 @@ T.loop = toc(tLoop);
 tSave = tic;
 R = struct('model', mdlName, 'stopTime', stopTime, 'iters', iters, ...
     'ku', ku, 'tu', tu, 'gzn', gzn, 'ref', refCmd, ...
+    'own_gains', gOwn, 'own_J', ownJ, ...
     'final_gains', bestGains, 'final_J', bestJ, 'n_rollbacks', nRollbacks, 'stepGain', stepGain, ...
     'hist', hist, 'scopes', {scopes}, 'best_t', bestT, 'best_y', bestY, 'best_u', bestU);
 R.timings = T;
@@ -428,13 +459,13 @@ function set_gains(mdlName, g, cfg)
 if strcmpi(cfg.controller, 'pid_block')
     % Simulink "PID Controller" block: parallel form with P, I, D mask params
     blk = [mdlName '/' cfg.pid_block];
-    set_param(blk, 'P', num2str(g(1)));
-    set_param(blk, 'I', num2str(g(2)));
-    set_param(blk, 'D', num2str(g(3)));
+    set_param(blk, 'P', num2str(g(1), 17));
+    set_param(blk, 'I', num2str(g(2), 17));
+    set_param(blk, 'D', num2str(g(3), 17));
 else
-    set_param([mdlName '/' cfg.kp_block], 'Gain', num2str(g(1)));
-    set_param([mdlName '/' cfg.ki_block], 'Gain', num2str(g(2)));
-    set_param([mdlName '/' cfg.kd_block], 'Gain', num2str(g(3)));
+    set_param([mdlName '/' cfg.kp_block], 'Gain', num2str(g(1), 17));
+    set_param([mdlName '/' cfg.ki_block], 'Gain', num2str(g(2), 17));
+    set_param([mdlName '/' cfg.kd_block], 'Gain', num2str(g(3), 17));
 end
 end
 

@@ -28,6 +28,7 @@ cases{end+1} = check_doctor(workRoot);
 if doTune
     cases{end+1} = check_autotune(workRoot);
     cases{end+1} = check_pid_form_equivalence(workRoot);
+    cases{end+1} = check_own_gains(workRoot);
     cases{end+1} = check_two_loops(workRoot);
 end
 
@@ -139,6 +140,54 @@ R = jev_tune_json(job, fullfile(workRoot, [name '_out.json']));
 if R.ok, j = R.final_J; end
 end
 
+function c = check_own_gains(workRoot)
+% The promise is that the tuner never hands back something worse than what the
+% model already runs.  Tune the fixture once, write the result into its gain
+% blocks as if the user had tuned it by hand, and run again: the second run must
+% not lose to the first.
+c = struct('name', 'own_gains', 'pass', false, 'detail', '');
+make_demo_model(workRoot, 'gains', struct('name', 'tc_own'));
+mdl = fullfile(workRoot, 'tc_own.slx');
+
+cfg = struct('model', mdl, 'work_dir', fullfile(workRoot, 'wd_own1'), ...
+    'iters', 6, 'auto_discover', true);
+job1 = fullfile(workRoot, 'own_job1.json');
+write_json(job1, cfg);
+R1 = jev_tune_json(job1, fullfile(workRoot, 'own_out1.json'));
+if ~R1.ok
+    c.detail = ['first run failed: ' getfield_default(R1, 'error', '?')];
+    return
+end
+
+g = R1.final_gains;
+D = jev_discover(mdl, struct('probe', false, 'work_dir', fullfile(workRoot, 'wd_own_disc')));
+if ~D.ok
+    c.detail = 'discovery failed on the fixture';
+    return
+end
+load_system(mdl);
+set_param(['tc_own/' D.controller.kp_block], 'Gain', num2str(g(1)));
+set_param(['tc_own/' D.controller.ki_block], 'Gain', num2str(g(2)));
+set_param(['tc_own/' D.controller.kd_block], 'Gain', num2str(g(3)));
+save_system('tc_own');
+close_system('tc_own', 0);
+
+cfg.work_dir = fullfile(workRoot, 'wd_own2');
+job2 = fullfile(workRoot, 'own_job2.json');
+write_json(job2, cfg);
+R2 = jev_tune_json(job2, fullfile(workRoot, 'own_out2.json'));
+c.pass = R2.ok && R2.final_J <= R1.final_J + 1e-6;
+c.detail = sprintf('tuned %.3f -> re-run from those gains %.3f (own-gains J %.3f)', ...
+    R1.final_J, getfield_default(R2, 'final_J', NaN), getfield_default(R2, 'own_J', NaN));
+bdclose('all');
+end
+
+function write_json(path, value)
+fid = fopen(path, 'w');
+fwrite(fid, jsonencode(value), 'char');
+fclose(fid);
+end
+
 function c = check_doctor(workRoot)
 % The doctor has to separate "cannot simulate" from "cannot be tuned", and it
 % has to reach both verdicts without the user reading any code.
@@ -217,7 +266,22 @@ try
     bdclose(nm);
 catch
 end
-c.pass = c.pass && isfinite(a1) && isfinite(b1) && a1 ~= 2 && b1 ~= 2;
+c.pass = c.pass && isfinite(a1) && isfinite(b1);
+% the file must contain each loop's own result, not just the last one written —
+% and "its own result" may legitimately be the gains the model already had.
+% Loops are matched by junction, not by index: discovery orders them by score.
+try
+    for k = 1:numel(R.loops)
+        rec = R.loops{k};
+        if contains(rec.junction, '_a')
+            c.pass = c.pass && abs(a1 - rec.gains(1)) < 1e-6;
+        elseif contains(rec.junction, '_b')
+            c.pass = c.pass && abs(b1 - rec.gains(1)) < 1e-6;
+        end
+    end
+catch
+    c.pass = false;
+end
 c.detail = sprintf('%d/%d tuned, %d experiments, k_a_1=%s k_b_1=%s', ...
     R.n_tuned, R.n_loops, R.total_experiments, num2str(a1), num2str(b1));
 end

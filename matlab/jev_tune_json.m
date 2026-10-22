@@ -66,6 +66,10 @@ try
     out.ku = R.ku;
     out.tu = R.tu;
     out.zn_start = R.gzn(:).';
+    if isfield(R, 'own_gains')
+        out.own_gains = R.own_gains(:).';
+        out.own_J = R.own_J;
+    end
     out.n_rollbacks = R.n_rollbacks;
     out.n_experiments = numel(R.hist);
     out.warnings = {};
