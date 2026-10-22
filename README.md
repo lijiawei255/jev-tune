@@ -143,8 +143,11 @@ shot with no feedback. This keeps iterating, and it learns the *policy* once
 across a whole family of plants, so a new plant needs no re-tuning of the tuner.
 
 **vs. Bayesian optimisation.** BO re-fits a surrogate at every step. This is
-amortised: one forward pass, and it already beats CMA-ES by 3× on the same
-simulation budget — it just does not beat BO's tail, and the benchmark says so.
+amortised: one forward pass, and at the same simulation budget it reaches a lower
+median cost than BO (0.468 vs 0.567) and a lower tail (p90 1.037 vs 1.510). The
+one baseline whose tail is better is relay autotuning (p90 0.935) — two
+experiments instead of twenty, and it never blows up, which is why it is in the
+table rather than in a footnote.
 
 **When your plant is outside the training zoo** the head is not magic: it fails
 on dead bands, inverse response and open-loop unstable plants (documented in
