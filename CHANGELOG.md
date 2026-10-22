@@ -3,7 +3,7 @@
 All notable changes to this project. Numbers quoted here are measured, and the
 file that produced them is named next to them.
 
-## [Unreleased]
+## [0.3.1] - 2026-10-23
 
 ### Fixed
 
