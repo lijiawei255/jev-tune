@@ -36,18 +36,28 @@ What it does:
 ## Measured on the two scenarios the head was worst at
 
 30 held-out jitters (gain/delay ±20 %, never seen in training), 90 training,
-30 epochs, 1 260 states:
+1 080 states:
 
 | scenario | zero-shot J | specialist J | change | time |
 | :--- | ---: | ---: | ---: | ---: |
-| valve dead band (`valve_dead_zone`) | 2.242 | **1.152** | **−49 %** | 96 s |
-| inverse response (`inverse_response`) | 1.727 | **0.844** | **−51 %** | 104 s |
+| valve dead band (`valve_dead_zone`) | 2.242 | **1.884** | **−16 %** | 93 s |
+| inverse response (`inverse_response`) | 1.727 | see below | — | — |
 
-Both were cases where zero-shot lost to the classical tuners. After
-specialising:
+Reproduce the first row exactly:
 
-* valve dead band: 1.15 vs relay autotuning's 0.86 (was 2.6× worse → now 1.3×);
-* inverse response: 0.84 vs CMA-ES's 1.95 (was 1.4× worse → now twice as good).
+```bash
+python scripts/10_specialize.py --scenario valve_dead_zone --plants 120
+```
+
+`--plants 120` matters: the script's default (48) means 12 held-out jitters, not
+30, and the two do not give the same number.
+
+**A note on the older figure.** The v0.2 release recorded 1.152 (−49 %) for this
+row. The same command against the head shipped *then* gave that; the head has been
+retrained since, and fine-tuning from the current one lands at 1.884. The
+direction is unchanged — specialising beats zero-shot — but the gain is much
+smaller than the release claimed. The old number is not reproducible today, so it
+is replaced rather than kept alongside.
 
 The cost is **~100 s of CPU once**, not zero — but also not "redo the project".
 
@@ -124,8 +134,20 @@ python scripts/10_specialize.py --spec plant.json --name myplant
 
 | 场景 | 零样本 J | 专家 J | 改善 | 耗时 |
 | :--- | ---: | ---: | ---: | ---: |
-| 阀死区（`valve_dead_zone`） | 2.242 | **1.152** | **−49 %** | 96 s |
-| 反向响应（`inverse_response`） | 1.727 | **0.844** | **−51 %** | 104 s |
+| 阀死区（`valve_dead_zone`） | 2.242 | **1.884** | **−16 %** | 93 s |
+| 反向响应（`inverse_response`） | 1.727 | 见下文 | — | — |
+
+第一行可以逐位复现：
+
+```bash
+python scripts/10_specialize.py --scenario valve_dead_zone --plants 120
+```
+
+`--plants 120` 不能省：脚本默认的 48 意味着 12 个留出抖动，而不是 30 个，两者数字不同。
+
+**关于旧数字。** v0.2 这个格子里记的是 1.152（−49 %）。同样的命令在**当时那颗头**上确实是
+这个结果；之后头重训过，从当前这颗头微调落在 1.884。方向没变——专门化比零点好——但提升
+远小于发布时声称的幅度。旧数字今天复现不出来，因此替换而不是并列保留。
 
 两例都是泛化测试里零样本输给传统方法的场景。专门化之后：
 

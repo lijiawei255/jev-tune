@@ -43,6 +43,23 @@ No block renames, no scope called `Scope_Position`, no reference typed by hand.
 When the model is ambiguous the command says `confidence: medium` instead of
 guessing, and the agent asks you one question.
 
+If something refuses or fails, `jev-tune doctor --model <file>` explains why in
+nine lines — does it load, does it compile, does it use referenced or protected
+models, what solver, can a loop be found at all:
+
+```console
+$ jev-tune doctor --model MyMotor.slx
+check       ok?   detail
+file        ok    MyMotor.slx (95 KB)
+loads       ok    MATLAB 2024b
+referenced  ok    none
+protected   ok    none
+stateflow   ok    none
+compiles    FAIL  Unrecognized function or variable 'Tsim'.
+                  -> define the variables the model asks for, then run it once
+solver      ...
+```
+
 **Several loops in one model?** Independent loops (four axes, three zones) are
 tuned one after another with `--all-loops`. A **cascade** is refused on purpose:
 `cascade_suspect` comes back with the loops it found, because tuning one loop of
@@ -51,7 +68,7 @@ a cascade and reporting success would be worse than saying so. See
 
 ![discovery on an unseen model](assets/discover.gif)
 
-*What `discover` does on the motor-valve benchmark motor, **step by step and from the model
+*What `discover` does on a lab motor, **step by step and from the model
 itself**: the error junction is confirmed by one run (the reference and the
 steady-state output are the same quantity), each gain is classified by what sits
 between it and that junction, and two extra simulations say whether doubling it
@@ -68,7 +85,7 @@ Regenerate with `scripts/15_make_discovery_gif.py`.*
 | know why my model will not tune | `jev-tune doctor --model <file>` |
 | know whether my model qualifies | [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md) |
 | understand the decision contract | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| check the numbers myself | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md), [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) |
+| check the numbers myself | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md), [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md), [`docs/CLAIMS.md`](docs/CLAIMS.md) |
 | drive it from an agent or MCP | [`AGENTS.md`](AGENTS.md) |
 | handle a plant family it has not seen | [`docs/SPECIALIZE.md`](docs/SPECIALIZE.md) |
 | run hundreds of models | [`docs/SCALE.md`](docs/SCALE.md) |
@@ -86,7 +103,7 @@ produces a single gain set after hours, not a series of experiments.*
 
 ![tuning a real Simulink DC motor](assets/tuning.gif)
 
-*Every frame above is one real closed-loop experiment on the motor-valve benchmark motor-valve benchmark
+*Every frame above is one real closed-loop experiment on the lab
 DC-motor model in Simulink. The tuner is choosing `Kp`, `Ki`, `Kd` itself; the
 right panel is the cost it is minimising. The best gains appeared after five
 experiments (~0.55 s of simulation); the stall detector stopped the loop at nine.*
@@ -99,13 +116,16 @@ experiments (~0.55 s of simulation); the stall detector stopped the loop at nine
 | :--- | :--- |
 | **What it does** | picks the next PID gain step from the response it just measured |
 | **How fast** | **0.19 ms** per decision (ONNX, 1 CPU thread) vs **236–276 ms** for a hosted Jev call and seconds for an LLM agent |
-| **How few experiments** | **5 experiments** (0.55 s of simulation) cut a real Simulink motor loop's cost by **52 %** |
-| **How it generalises** | on a plant family it never saw, **0.47** median cost vs **1.81** for CMA-ES at the same 20-simulation budget |
+| **How few experiments** | **11 experiments** on a real Simulink motor took the cost from **1.377 to 0.615**, and the loop never ends worse than it started |
+| **How it generalises** | on a plant family it never saw (120 plants), **0.468** median cost vs **1.813** for CMA-ES at the same 20-simulation budget |
 
 ![before and after](assets/before_after.png)
 
 *Same plant, three gain sets. Grey: the Ziegler-Nichols start. Blue: after five
-experiments. Dashed: the lab's hand-tuned solution.*
+experiments. Dashed: the lab's hand-tuned solution. That run started from a
+Ziegler-Nichols estimate produced by the Ku sweep as it was in v0.2; the sweep
+was wrong in three ways and has since been fixed — see the correction in
+[`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong).*
 
 ---
 
@@ -116,7 +136,7 @@ parse the answer") costs seconds per iteration, and the number is buried in
 prose. Here the model emits three Jev primitives — `choice` for the step,
 `score` for "how good is this response", `noul` for "is this step safe" — so the
 decision is a probability vector you can threshold, log and calibrate. Measured
-ECE after temperature fitting: **0.02**.
+ECE after temperature fitting: **0.02** on two axes, **0.031** on the worst one.
 
 **vs. classical autotune.** Ziegler-Nichols and relay autotuning give you one
 shot with no feedback. This keeps iterating, and it learns the *policy* once
@@ -135,9 +155,9 @@ on dead bands, inverse response and open-loop unstable plants (documented in
 python scripts/10_specialize.py --scenario valve_dead_zone --name valve
 ```
 
-Measured on a family the head had never seen: median cost **2.242 → 1.152
-(−49 %)** over 30 held-out jitters. Details:
-[`docs/SPECIALIZE.md`](docs/SPECIALIZE.md).
+Measured on a family the head had never seen: median cost **2.242 → 1.884 (−16 %)** after ~95 s of CPU on 30 held-out
+jitters. Details: `docs/SPECIALIZE.md` — the v0.2 figure of −49 % came
+from a head that has since been retrained, and does not reproduce.
 
 ---
 
@@ -280,7 +300,7 @@ Target = 1.05 × a 240-simulation CMA-ES reference.
 | CMA-ES | 1.813 | 2.618 | 3.75 | 18 |
 | Ziegler-Nichols | 2.322 | 3.082 | 5.74 | 1 |
 
-**Real Simulink model (motor-valve benchmark DC motor)**
+**Real Simulink model (lab DC motor)**
 
 | gain set | Kp | Ki | Kd | cost |
 | :--- | ---: | ---: | ---: | ---: |
@@ -385,7 +405,7 @@ There is also a [`CITATION.cff`](CITATION.cff) if your tool reads it.
 * **Several test benches, not one.** The method and the shipped head were
   developed on a synthetic plant zoo (2 000 plants across six families) and
   checked on ten out-of-distribution control scenarios plus a small generated
-  model (`matlab/make_demo_model.m`). The **motor-valve benchmark model** is
+  model (`matlab/make_demo_model.m`). The **lab motor model** is
   simply one more bench: a realistic Simulink plant that happened to be at hand.
   It is *not* used to train the shipped head, and the repository does not contain
   it — the demo figures show our own plotted output only. See

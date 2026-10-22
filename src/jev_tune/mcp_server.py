@@ -348,7 +348,7 @@ def handle(req: dict) -> dict | None:
             {
                 "protocolVersion": PROTOCOL_VERSION,
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "jev-tune", "version": "0.2.0"},
+                "serverInfo": {"name": "jev-tune", "version": "0.3.0"},
             },
         )
     if method in ("notifications/initialized", "initialized"):

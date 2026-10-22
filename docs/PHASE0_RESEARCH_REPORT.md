@@ -19,7 +19,7 @@
 ## The three findings that decided the architecture
 
 1. **The Simulink bottleneck is recompilation, not inference.** Measured on this
-   machine (motor-valve benchmark model): normal mode **763 ms** per run, Fast Restart **40 ms**
+   machine (lab model): normal mode **763 ms** per run, Fast Restart **40 ms**
    (18.9×) at StopTime = 1 s, **869 ms vs 111 ms** at 15 s, cold start 10.1 s.
 2. **A 421 M text encoder reading eight numbers is waste.** 395 M of it exists to
    read human language; the control state is 15–25 numbers and a curve.
@@ -76,7 +76,7 @@ was asked to sign off.
 
 **最关键的三个新事实（决定了架构）**
 
-1. **Simulink 侧瓶颈不是推理，是重复编译。** 本机实测（R2024b，你给的 motor-valve benchmark 电机模型，StopTime=1 s）：普通模式 **763 ms/次**，Fast Restart **40 ms/次（18.9×）**，冷启动 10.1 s。推理 40 ms 与仿真 40 ms 同量级——**"推理比仿真快"这个卖点必须靠 Fast Restart 才能兑现**。
+1. **Simulink 侧瓶颈不是推理，是重复编译。** 本机实测（R2024b，你给的那台实验课电机模型，StopTime=1 s）：普通模式 **763 ms/次**，Fast Restart **40 ms/次（18.9×）**，冷启动 10.1 s。推理 40 ms 与仿真 40 ms 同量级——**"推理比仿真快"这个卖点必须靠 Fast Restart 才能兑现**。
 2. **421M 文本编码器读 8 个数字是浪费。** 395M 主干吃掉 99% 算力，只为产出 26M 头的输入；控制状态是 15–25 维数值，天然不需要 tokenizer。生态里机器人项目（drone 2.5 Hz、MuJoCo skill 选择）全都把决策模型放在**慢速高层**——这既是先例，也是警告。
 3. **生态是空白，也是风险。** 全 GitHub 检索（992 项目目录 + 30 余个 awesome 列表）**没有任何一个用 Jev/System-1 做连续参数整定或 Simulink 调参的项目**。机会是首创，风险是"没人证明它比经典方法更好"→ 因此**必须自带 baseline（Z-N / 继电自整定 / 单纯形 / CMA-ES / 贝叶斯优化）**，否则不可发表、不可信。
 
@@ -184,7 +184,7 @@ was asked to sign off.
 - 50 次迭代的总预算：普通模式 **38 s** vs Fast Restart **2 s**。所以"决策 40 ms + 仿真 40 ms ≈ 80 ms/迭代"是可达的；不启用 FR 时决策开销被编译噪声彻底淹没。
 - **坑 1**：`Simulink.SimulationInput` + `setBlockParameter` 每次多 ~60 ms（对象构建/校验）。Python 桥接若追求极限，应**直接 `set_param` + `sim(mdl)`**，只在需要并行时才用 `SimulationInput`/`parsim`。
 - **坑 2**：带 Simscape Multibody 的模型默认会拉起 Mechanics Explorer 3D 视图——我第一次跑时内存冲到 **11 GB**、单次仿真数分钟不返回（已终止并改用 `SimMechanicsOpenEditorOnUpdate=off`）。**调参循环里必须关掉 3D 与动画**。
-- **坑 3**：模型名必须是合法 MATLAB 标识符（`motor_valve_model.slx` 直接报错），桥接层要重命名。
+- **坑 3**：模型名必须是合法 MATLAB 标识符（`bench_4_PID_bench_222745.slx` 直接报错），桥接层要重命名。
 
 ### 3.2 官方数据（B 级，交叉验证）
 
@@ -433,7 +433,7 @@ pip install "C:\Program Files\MATLAB\R2024b\extern\engines\python"  # matlab.eng
 | **Step 1** 纯 Python 闭环（1–2 天） | 植物动物园 + 指标 + 5 个 baseline + Fast Restart 之外的"零开销仿真" | 百万样本生成 <2 h；baseline 收敛曲线可复现（固定种子） |
 | **Step 2** 决策引擎（3–5 天） | Primitives 契约 + 倍率/区间树解码 + 安全闸 + NumericHead 训练 | 在**未见过的植物族**上，达到同等 ITAE 所需仿真次数 ≤ baseline 的 50%；单次决策 <1 ms |
 | **Step 3** Laya 接入（2–3 天） | JSON 状态 → Laya INT8 → 同一契约；零样本 vs 微调对比 | CPU 单次 ≤90 ms（≤120 token）；微调后 ECE ≤0.05；与 Track A 的胜率对比成表 |
-| **Step 4** Simulink 桥（2–3 天） | 常驻 MATLAB 会话 + Fast Restart + 你的 motor-valve benchmark 电机模型验收 | 单迭代 ≤120 ms（决策 40 + 仿真 40 + 通信 ≤40）；整定结果与 MATLAB PID Tuner 对比 |
+| **Step 4** Simulink 桥（2–3 天） | 常驻 MATLAB 会话 + Fast Restart + 你的一台实验课电机模型验收 | 单迭代 ≤120 ms（决策 40 + 仿真 40 + 通信 ≤40）；整定结果与 MATLAB PID Tuner 对比 |
 | **Step 5**（可选）部署 | ONNX → MATLAB `importNetworkFromONNX` / Simulink Predict 块 | 零 Python 依赖跑通一次闭环 |
 
 **必须一起交付的对照实验**（否则项目没有说服力）：
@@ -445,7 +445,7 @@ pip install "C:\Program Files\MATLAB\R2024b\extern\engines\python"  # matlab.eng
 
 1. **KPI 口径**：接受"单次决策 ≤90 ms（INT8）"而不是"数十毫秒"？（fp32 PyTorch 做不到，这是硬约束）
 2. **双轨是否都做**：Track A（数值原生，ms 级）+ Track B（Laya，生态对齐）——还是只做 Track B 以保持"纯 Jev 血统"？
-3. **验收对象**：Step 1–2 用合成植物，Step 4 用你的 motor-valve benchmark 电机模型——是否还需要 PMSM 电流环/位置环作为第二验收对象？
+3. **验收对象**：Step 1–2 用合成植物，Step 4 用你的一台实验课电机模型——是否还需要 PMSM 电流环/位置环作为第二验收对象？
 4. **baseline 范围**：5 个经典方法是否都要跑？（工作量约 +1 天，但没有它就发不了论文/写不了报告）
 5. **形态**：先做 **CLI + Python 库**（可复现、可测），还是直接做 **MATLAB App/GUI**？（建议前者，GUI 最后加）
 

@@ -1,0 +1,141 @@
+{
+  "note": "Every number this repository publishes, with the artifact it comes from. scripts/16_check_claims.py re-reads these and fails when the artifact and the claim disagree. Update both when you re-run a script.",
+  "claims": [
+    {
+      "id": "decision_ms",
+      "text": "0.19 ms per decision (ONNX, one CPU thread)",
+      "source": "research/results/agent_baseline.json",
+      "path": "head_decision_ms",
+      "value": 0.188,
+      "tol": 0.005,
+      "reproduce": "scripts/03_evaluate.py (ONNX bench)"
+    },
+    {
+      "id": "heldout_head_median",
+      "text": "0.468 median cost on 120 held-out plants",
+      "source": "research/results/eval_heldout_120.json",
+      "path": "rows[method=jev_head].final_cost_median",
+      "value": 0.468,
+      "tol": 0.001,
+      "reproduce": "scripts/03_evaluate.py --heldout"
+    },
+    {
+      "id": "heldout_cmaes_median",
+      "text": "1.813 median cost for CMA-ES at the same 20-simulation budget",
+      "source": "research/results/eval_heldout_120.json",
+      "path": "rows[method=cmaes].final_cost_median",
+      "value": 1.813,
+      "tol": 0.001,
+      "reproduce": "scripts/03_evaluate.py --heldout"
+    },
+    {
+      "id": "race_head_median",
+      "text": "0.476 median cost in the 40-plant race (the README animation)",
+      "source": "research/results/race.json",
+      "path": "runs.head.curve[-1]",
+      "value": 0.476,
+      "tol": 0.005,
+      "reproduce": "scripts/12_make_race.py --reuse"
+    },
+    {
+      "id": "race_cmaes_median",
+      "text": "1.752 median cost for CMA-ES in the same race",
+      "source": "research/results/race.json",
+      "path": "runs.cmaes.curve[-1]",
+      "value": 1.752,
+      "tol": 0.005,
+      "reproduce": "scripts/12_make_race.py --reuse"
+    },
+    {
+      "id": "llm_turn_median_s",
+      "text": "5.34 s median for one hosted-model turn (GLM-5.3-Flash, 40 calls)",
+      "source": "research/results/race.json",
+      "path": "assumptions.llm_measured.median_s",
+      "value": 5.34,
+      "tol": 0.01,
+      "reproduce": "scripts/14_agent_baseline.py"
+    },
+    {
+      "id": "llm_parse_failures",
+      "text": "13 of 40 hosted-model answers were unparseable",
+      "source": "research/results/race.json",
+      "path": "assumptions.llm_measured.parse_failures",
+      "value": 13,
+      "tol": 0,
+      "reproduce": "scripts/14_agent_baseline.py"
+    },
+    {
+      "id": "robustness_no_worse",
+      "text": "200/200 plants end at or better than their starting point",
+      "source": "research/results/robustness.json",
+      "path": "rows",
+      "reduce": "sum:n",
+      "where": {
+        "gate": true
+      },
+      "value": 200,
+      "tol": 0,
+      "reproduce": "scripts/11_robustness.py"
+    },
+    {
+      "id": "robustness_none_worse",
+      "text": "no plant in the robustness study ended worse than it started",
+      "source": "research/results/robustness.json",
+      "path": "rows",
+      "all_equal": [
+        "worse_pct",
+        0.0
+      ],
+      "value": 1,
+      "tol": 0,
+      "reproduce": "scripts/11_robustness.py"
+    },
+    {
+      "id": "generalization_beaten",
+      "text": "30 of 40 out-of-zoo plants beaten, median ratio 1.008",
+      "source": "research/results/generalization.json",
+      "path": "plants_beaten",
+      "value": 30,
+      "tol": 0,
+      "reproduce": "scripts/08_generalize.py"
+    },
+    {
+      "id": "bench_fast_restart_ms",
+      "text": "111 ms per experiment with Fast Restart (StopTime 15 s)",
+      "source": "research/bench/bench_log_15s.txt",
+      "regex": "fr_ms=\\[[^\\]]*\\] median=([0-9.]+)",
+      "value": 111.0,
+      "tol": 0.5,
+      "reproduce": "research/bench/bench_run.m"
+    },
+    {
+      "id": "bench_normal_ms",
+      "text": "869 ms per experiment without Fast Restart",
+      "source": "research/bench/bench_log_15s.txt",
+      "regex": "normal_ms=\\[[^\\]]*\\] median=([0-9.]+)",
+      "value": 868.8,
+      "tol": 0.5,
+      "reproduce": "research/bench/bench_run.m"
+    },
+    {
+      "id": "matlab_parity",
+      "text": "MATLAB forward pass matches the exported reference within 7.6e-06",
+      "source": "models/jev_head_weights.mat",
+      "value": 7.63e-06,
+      "tol": 1e-06,
+      "verified_by": "manual",
+      "reproduce": "matlab -batch \"W=load('models/jev_head_weights.mat'); o=jev_head_forward(W,W.ref_feats,W.ref_curves); max(abs(o.choice(:)-W.ref_choice(:)))\"",
+      "note": "v0.2 documented 6.1e-05; the weights were re-exported and the real figure is 7.6e-06. Re-measured 2026-10-22."
+    },
+    {
+      "id": "specialize_valve_jspecialised",
+      "text": "valve dead band: 2.242 zero-shot to 1.884 specialised (30 held-out jitters)",
+      "source": "docs/SPECIALIZE.md",
+      "value": 1.884,
+      "tol": 0.001,
+      "verified_by": "manual",
+      "reproduce": "python scripts/10_specialize.py --scenario valve_dead_zone --plants 120",
+      "note": "v0.2 recorded 1.152; the head was retrained since and the same command now lands at 1.884. Re-measured 2026-10-22."
+    }
+  ]
+}

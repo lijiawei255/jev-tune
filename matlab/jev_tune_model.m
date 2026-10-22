@@ -106,7 +106,7 @@ if ~reused
     % initialised, and it cannot be touched while Fast Restart holds it open
     for k = 1:numel(scopes)
         set_param([mdlName '/' scopes{k}], 'DataLogging', 'on', ...
-            'DataLoggingVariableName', strrep(scopes{k}, '-', '_'), ...
+            'DataLoggingVariableName', matlab.lang.makeValidName(strrep(scopes{k}, '-', '_')), ...
             'DataLoggingSaveFormat', 'Dataset', 'DataLoggingLimitDataPoints', 'off');
     end
 end
@@ -147,29 +147,58 @@ if ~reused && strcmpi(cfg.controller, 'pid_block')
     end
 end
 
-% ---------------------------------------------------------------- reference
-refCmd = 1.0;
-if isnumeric(cfg.ref_source) && isscalar(cfg.ref_source) && isfinite(cfg.ref_source)
-    refCmd = abs(cfg.ref_source);
-else
-    try
-        amp = str2num(get_param([mdlName '/' cfg.step_blocks{1}], 'After')); %#ok<ST2NM>
-        gsc = 1.0;
-        if ~isempty(cfg.scale_block)
-            gsc = str2num(get_param([mdlName '/' cfg.scale_block], 'Gain')); %#ok<ST2NM>
-        end
-        if isfinite(amp) && isfinite(gsc) && abs(amp * gsc) > 1e-9
-            refCmd = abs(amp * gsc);
-        end
-    catch
-        warning('jev:ref', 'could not infer the reference; pass cfg.ref_source');
-    end
-end
-fprintf('[jev] reference step = %.4f\n', refCmd);
-
 apply = @(g) set_gains(mdlName, g, cfg);
 runOnce = @() run_and_extract(mdlName, stopTime, cfg);
 sweepOnce = @() run_and_extract(mdlName, min(stopTime, 4), cfg);
+% captured before the sweep writes test gains into the model
+gOwn = get_gains(mdlName, cfg);
+
+% ---------------------------------------------------------------- reference
+% Any Step block, not a block called "Step": the name is a convention of one
+% model.  If even that fails, one run at the current gains gives the steady
+% state, which is what a closed loop with integral action settles on.
+refCmd = 1.0;
+[refCmd, refSrc, refOK] = infer_reference(mdlName, cfg);
+if ~refOK
+    try
+        [t0, y0, ~] = runOnce();
+        tail = y0(max(1, round(0.8 * numel(y0))):end);
+        guess = abs(median(tail));
+        if isfinite(guess) && guess > 1e-9
+            refCmd = guess;
+            refSrc = sprintf('steady state of a probe run (%.4g)', guess);
+            refOK = true;
+            warning('jev:ref', ...
+                ['the reference could not be read from a Step block; using the ' ...
+                 'steady state (%.4g). Pass ref_source if the loop has an offset'], ...
+                guess);
+        end
+    catch
+    end
+end
+if ~refOK
+    warning('jev:ref', 'could not infer the reference; pass cfg.ref_source');
+    refSrc = 'default 1.0';
+end
+fprintf('[jev] reference = %.4f  (%s)\n', refCmd, refSrc);
+
+% Before touching anything: the blocks this run will write must exist.  Without
+% this, a model with different names fails with "Invalid Simulink object name",
+% which says nothing about what to do.
+missing = {};
+if strcmpi(cfg.controller, 'pid_block')
+    if ~block_exists([mdlName '/' cfg.pid_block]), missing{end+1} = cfg.pid_block; end
+else
+    for nm = {cfg.kp_block, cfg.ki_block, cfg.kd_block}
+        if ~block_exists([mdlName '/' nm{1}]), missing{end+1} = nm{1}; end %#ok<AGROW>
+    end
+end
+if ~isempty(missing)
+    error('jev:no_gains', ...
+        ['these blocks do not exist in the model: %s. Run "jev-tune discover ' ...
+         '--model <file>" to find the controller, or pass kp_block / ki_block / ' ...
+         'kd_block'], strjoin(missing, ', '));
+end
 
 % ---------------------------------------------------------------- Ku / Tu
 % The ultimate gain depends on the plant, not on the gains we start from, so a
@@ -184,33 +213,83 @@ if isKey(cache, sweepKey) && ~(isfield(cfg, 'force_sweep') && cfg.force_sweep)
     ku = c.ku; tu = c.tu;
     fprintf('[jev] Ku~%.3g Tu~%.3g s (cached)\n', ku, tu);
 else
-    kpGrid = logspace(log10(0.5), log10(400), 7);
-    oscScore = zeros(size(kpGrid));
-    tuGuess = nan(size(kpGrid));
-    for i = 1:numel(kpGrid)
-        apply([kpGrid(i), 0, 0]);
-        try
-            [t, y, ~] = sweepOnce();
-            [oscScore(i), tuGuess(i)] = oscillation_score(t, y);
-        catch err
-            % an unstable point may not integrate at all; that is still an
-            % informative "no oscillation to measure here" answer
-            fprintf('[jev] Ku sweep: Kp=%.3g did not simulate (%s)\n', ...
-                kpGrid(i), short_msg(err.message));
-            oscScore(i) = 0; tuGuess(i) = NaN;
+    % The range is a starting point, not an assumption: a plant whose ultimate
+    % gain sits outside it gets a grid that is re-centred, because otherwise the
+    % nominal gain handed to Ziegler-Nichols is a guess with no relation to the
+    % plant.  Three rounds at most, so a model that never oscillates still ends.
+    lo = 0.05; hi = 50;
+    ku = NaN; tu = NaN;
+    for attempt = 1:2
+        kpGrid = logspace(log10(lo), log10(hi), 7);
+        oscScore = zeros(size(kpGrid));
+        tuGuess = nan(size(kpGrid));
+        for i = 1:numel(kpGrid)
+            apply([kpGrid(i), 0, 0]);
+            try
+                [t, y, ~] = sweepOnce();
+                [oscScore(i), tuGuess(i)] = oscillation_score(t, y);
+            catch err
+                % A gain at which the model will not integrate is past the
+                % boundary, not "inconclusive": scoring it as zero made the sweep
+                % widen into territory nothing can simulate.
+                fprintf('[jev] Ku sweep: Kp=%.3g did not simulate\n', kpGrid(i));
+                oscScore(i) = Inf; tuGuess(i) = NaN;
+            end
         end
-    end
-    ok = find(oscScore >= 3, 1, 'last');
-    if isempty(ok)
-        ku = kpGrid(end) * 0.5; tu = stopTime / 4;
-        fprintf('[jev] no sustained oscillation; Ku~%.3g Tu~%.3g\n', ku, tu);
-    else
-        ku = kpGrid(ok); tu = tuGuess(ok);
-        fprintf('[jev] Ku~%.3g (grid point %d), Tu~%.3g s\n', ku, ok, tu);
+        lastOsc = find(oscScore > 0, 1, 'first');
+        if isempty(lastOsc)
+            % tolerates more gain than the top of the range
+            if attempt < 2
+                fprintf('[jev] Ku sweep: no oscillation up to Kp=%.3g, widening\n', hi);
+                lo = kpGrid(end); hi = hi * 40;
+                continue
+            end
+            ku = NaN;   % no boundary in reach: do not invent one
+            break
+        elseif lastOsc == 1
+            % already unstable at the bottom of the range
+            if attempt < 2
+                fprintf('[jev] Ku sweep: oscillation at Kp=%.3g, narrowing\n', lo);
+                hi = kpGrid(1); lo = max(lo / 100, 1e-4);
+                continue
+            end
+            ku = kpGrid(1); tu = tuGuess(1);
+            fprintf(['[jev] Ku sweep: oscillation at every trial gain; using an ' ...
+                'upper bound Ku~%.3g Tu~%.3g (the start is aggressive)\n'], ku, tu);
+            break
+        else
+            ku = kpGrid(lastOsc); tu = tuGuess(lastOsc);
+            if lastOsc == numel(kpGrid)
+                fprintf('[jev] Ku~%.3g (at the top of the range, a lower bound), Tu~%.3g s\n', ...
+                    ku, tu);
+            else
+                fprintf('[jev] Ku~%.3g (between %.3g and %.3g), Tu~%.3g s\n', ...
+                    ku, kpGrid(max(1, lastOsc - 1)), kpGrid(min(numel(kpGrid), lastOsc + 1)), tu);
+            end
+            if ~isfinite(tu) || tu <= 0 || tu > stopTime / 3
+                fprintf(['[jev] Tu~%.3g s is close to the %.1f s sweep window; ' ...
+                    'the period estimate may be short\n'], tu, min(stopTime, 4));
+            end
+            break
+        end
     end
     cache(sweepKey) = struct('ku', ku, 'tu', tu);
 end
-gzn = [0.6 * ku, 1.2 * ku / tu, 0.075 * ku * tu];
+
+if ~isfinite(ku) || ~isfinite(tu) || tu <= 0
+    % Ziegler-Nichols has no answer for this plant (a first-order loop, or one
+    % that stays marginally stable across the whole range).  Inventing a number
+    % is how the old code produced a start that was really the top of its grid.
+    % Start where the model already is instead, and keep the feature scaling
+    % consistent with it.
+    gzn = gOwn;
+    ku = max(gOwn(1), 1e-6) / 0.6;
+    tu = max(stopTime / 4, 1e-3);
+    fprintf(['[jev] no ultimate gain in reach; starting from the model own ' ...
+        'gains [%.4g %.4g %.4g]\n'], gOwn(1), gOwn(2), gOwn(3));
+else
+    gzn = [0.6 * ku, 1.2 * ku / tu, 0.075 * ku * tu];
+end
 T.sweep = toc(tSweep);
 tLoop = tic;
 
@@ -415,14 +494,24 @@ if isempty(t)
         ['nothing was logged as "%s"; run jev-tune discover to find the right ' ...
          'block, or pass measure_scope / instrument_block'], cfg.measure_scope);
 end
+if size(y, 2) > 1
+    error('jev:wide_signal', ...
+        ['"%s" logs %d signals; the tuner needs one. Pass --auto so it taps the ' ...
+         'feedback signal itself, or name a single-signal Scope'], ...
+        cfg.measure_scope, size(y, 2));
+end
 [~, u] = pick_signal(out, cfg.input_scope);
 if isempty(u), u = zeros(size(t)); end
 end
 
 function [t, y] = pick_signal(out, name)
+% Return the logged signal as a matrix: the caller decides what to do with more
+% than one column.  Silently taking column 1 is how a two-input Scope (reference
+% *and* response) hands the tuner the reference as the measurement.
 t = []; y = [];
-if isprop(out, name) || isfield(out, name)
-    ds = out.(name);
+var = matlab.lang.makeValidName(strrep(name, '-', '_'));
+if isprop(out, var) || isfield(out, var)
+    ds = out.(var);
     if isa(ds, 'Simulink.SimulationData.Dataset')
         e = ds.getElement(1); y = e.Values.Data; t = e.Values.Time;
     elseif isstruct(ds)
@@ -430,24 +519,34 @@ if isprop(out, name) || isfield(out, name)
     end
 end
 if isempty(t), return; end
-t = t(:); y = y(:, 1);
+t = t(:);
+y = reshape(y, numel(t), []);
 end
 
 function [score, tu] = oscillation_score(t, y)
+% A sustained oscillation is one whose peaks do not decay.  Counting mean
+% crossings alone calls a damped second-order response "unstable" (its overshoot
+% crosses the mean three or four times), and then the highest trial gain wins the
+% sweep - which is how Ku always came out as the top of the grid.
+score = 0; tu = NaN;
 y = y(:); n = numel(y);
-i0 = round(n * 0.4);
-tail = y(i0:end);
-if numel(tail) < 10, score = 0; tu = NaN; return; end
-s = sign(tail - mean(tail));
-cross = find(diff(s) ~= 0);
-score = numel(cross);
-if score >= 3
-    tt = t(i0 + cross);
-    tu = 2 * median(diff(tt));
-else
-    tu = NaN;
+if n < 20, return; end
+i0 = max(1, round(n * 0.35));
+seg = y(i0:end) - mean(y(i0:end));
+tt = t(i0:end);
+up = find(seg(1:end-1) <= 0 & seg(2:end) > 0);
+if numel(up) < 3, return; end              % three peaks at least, to judge decay
+amps = zeros(1, numel(up) - 1);
+for k = 1:numel(up) - 1
+    amps(k) = max(seg(up(k):up(k+1)));
 end
-if ~isfinite(tu) || tu <= 0, tu = NaN; score = 0; end
+amps = amps(amps > 0.01 * max(amps));
+if numel(amps) < 3, return; end
+ratio = amps(end) / max(amps(end-1), eps);
+tu = 2 * median(diff(tt(up)));
+if ratio >= 0.9 && isfinite(tu) && tu > 0
+    score = numel(amps);
+end
 end
 
 function J = jev_cost(M, horizon, ref)
@@ -459,6 +558,80 @@ itae = min(max(M(6) / (max(ref, 1e-9) * horizon^2), 0), 3);
 sat_ = min(max(M(8), 0), 1);
 over_ = min(max(M(9), 0), 3);
 J = os_ + (0.5 * ts_ + st_) + 4 * ess_ + itae + sat_ + 0.5 * over_;
+end
+
+function [ref, src, ok] = infer_reference(mdlName, cfg)
+% Reference by block *type*, with the configured name only as a preference.
+ref = NaN; src = 'none'; ok = false;
+if isnumeric(cfg.ref_source) && isscalar(cfg.ref_source) && isfinite(cfg.ref_source)
+    ref = abs(cfg.ref_source); src = 'given by the caller'; ok = true;
+    return
+end
+steps = {};
+for k = 1:numel(cfg.step_blocks)
+    b = [mdlName '/' cfg.step_blocks{k}];
+    if block_exists(b), steps{end+1} = b; end %#ok<AGROW>
+end
+if isempty(steps)
+    steps = find_system(mdlName, 'SearchDepth', 1, 'LookUnderMasks', 'none', ...
+        'FollowLinks', 'off', 'BlockType', 'Step');
+end
+if numel(steps) ~= 1
+    if numel(steps) > 1
+        src = sprintf('%d Step blocks, ambiguous', numel(steps));
+    end
+    return
+end
+amp = num_of(steps{1}, 'After');
+if ~isfinite(amp), amp = num_of(steps{1}, 'Amplitude'); end
+gsc = 1;
+if ~isempty(cfg.scale_block) && block_exists([mdlName '/' cfg.scale_block])
+    g = num_of([mdlName '/' cfg.scale_block], 'Gain');
+    if isfinite(g), gsc = g; end
+end
+if isfinite(amp) && abs(amp * gsc) > 1e-12
+    ref = abs(amp * gsc);
+    src = sprintf('%s%s', strrep(steps{1}, [mdlName '/'], ''), ...
+        ternary(abs(gsc - 1) > 1e-12, sprintf(' x %g', gsc), ''));
+    ok = true;
+end
+end
+
+function tf = block_exists(path)
+tf = false;
+try
+    tf = ~isempty(get_param(path, 'Handle'));
+catch
+end
+end
+
+function out = ternary(cond, a, b)
+if cond, out = a; else, out = b; end
+end
+
+function g = get_gains(mdlName, cfg)
+% The controller as the model currently has it, whatever encodes it.
+if strcmpi(cfg.controller, 'pid_block')
+    blk = [mdlName '/' cfg.pid_block];
+    g = [num_of(blk, 'P'), num_of(blk, 'I'), num_of(blk, 'D')];
+    if strcmpi(safe_get(blk, 'Form', 'Parallel'), 'Parallel') == false
+        g = parallel_gains(blk);
+    end
+else
+    g = [num_of([mdlName '/' cfg.kp_block], 'Gain'), ...
+         num_of([mdlName '/' cfg.ki_block], 'Gain'), ...
+         num_of([mdlName '/' cfg.kd_block], 'Gain')];
+end
+g(~isfinite(g) | g < 1e-6) = 1e-3;
+end
+
+function v = safe_get(blk, param, fallback)
+try
+    v = get_param(blk, param);
+catch
+    v = fallback;
+end
+if isempty(v), v = fallback; end
 end
 
 function [p, i, d] = parallel_gains(blk)

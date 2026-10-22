@@ -4,7 +4,7 @@ Inputs  : research/sim_tune/demo_traces.mat  (written by matlab/save_demo_traces
 Outputs : assets/tuning.gif, assets/before_after.png, assets/convergence.png
 
 The GIF is the real thing -- every frame is one closed-loop experiment on the
-motor-valve benchmark DC-motor model, with the gains and the cost the tuner saw at that step.
+the lab DC-motor model, with the gains and the cost the tuner saw at that step.
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ def make_gif(S, R, out: Path, interval_ms: int = 550):
     ax1.set_xlabel("time (s)")
     ax1.set_ylabel("position (rad)")
     ax1.set_title(
-        "Simulink motor-valve benchmark DC motor — one step per experiment", fontsize=10, loc="left"
+        "Simulink lab DC motor — one step per experiment", fontsize=10, loc="left"
     )
     ax1.legend(loc="lower right", fontsize=8, frameon=False)
     txt = ax1.text(

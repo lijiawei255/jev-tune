@@ -58,7 +58,7 @@ def _tf(family: str, p: dict):
         )
     if family == "position_loop":
         # type-1 3rd order: current loop (fast) -> speed loop (slow) -> 1/s.
-        # This is the shape of the motor-valve benchmark motor: K / (s (T1 s + 1)(T2 s + 1)).
+        # This is the shape of the the lab motor: K / (s (T1 s + 1)(T2 s + 1)).
         t1, t2 = p["tau_c"], p["tau_s"]
         return (
             np.array([p["K"]]),
@@ -233,7 +233,7 @@ def sample_plants(
 
     # actuator headroom: a tight limit saturates the proportional action, so
     # derivative damping becomes the binding knob (this is the regime where a
-    # real position loop like the motor-valve benchmark motor lives)
+    # real position loop like the the lab motor lives)
     u_max = rng.choice(np.array([1.0, 1.6, 2.5]), size=n, p=[0.33, 0.34, 0.33])
 
     nd = max(len(x) for x in den_list)

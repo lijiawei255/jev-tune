@@ -21,18 +21,25 @@ from scipy.io import loadmat, savemat
 from .baselines import BaselineResult, _eval, zn_gains
 from .plants import PlantSet
 
-MATLAB_EXE = Path(r"C:\Program Files\MATLAB\R2024b\bin\matlab.exe")
 MATLAB_DIR = Path(__file__).resolve().parents[2] / "matlab"
 
 
+def _matlab() -> Path | None:
+    """Whatever MATLAB this machine has, via the same lookup the CLI uses."""
+    from .matlab_runner import find_matlab
+
+    info = find_matlab()
+    return info.executable if info.ok else None
+
+
 def matlab_available() -> bool:
-    return MATLAB_EXE.is_file()
+    return _matlab() is not None
 
 
 def pidtune_gains(plants: PlantSet, ctype: str = "PID") -> tuple[np.ndarray, float]:
     """Return (gains (n,3), wall seconds) from MATLAB ``pidtune``."""
     if not matlab_available():
-        raise RuntimeError(f"MATLAB not found at {MATLAB_EXE}")
+        raise RuntimeError(f"MATLAB not found at {_matlab()}")
 
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
@@ -46,7 +53,7 @@ def pidtune_gains(plants: PlantSet, ctype: str = "PID") -> tuple[np.ndarray, flo
         )
         t0 = time.perf_counter()
         proc = subprocess.run(
-            [str(MATLAB_EXE), "-batch", cmd],
+            [str(_matlab()), "-batch", cmd],
             capture_output=True,
             text=True,
             timeout=600,

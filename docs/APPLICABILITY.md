@@ -234,7 +234,7 @@ guarantees you can read off a Bode plot.
 | needs a model | no | **yes, and it must be accurate** | no |
 | experiments | many | **0** | 5–20 |
 | time to a result | hours | seconds | seconds (simulation) |
-| if the model is exact | good | **best** | worse (motor-valve benchmark: 0.598 vs the lab's 0.393) |
+| if the model is exact | good | **best** | worse (the lab: 0.598 vs the lab's 0.393) |
 | if the model is wrong | varies | **can destabilise** | bounded — never worse than the start |
 | what you tune against | your eye | a bandwidth/phase margin spec | your actual cost function |
 
@@ -273,7 +273,7 @@ because it only ever claims "the best gain set I actually measured".
 | 需要模型 | 不需要 | **需要，而且必须准** | 不需要 |
 | 实验次数 | 很多 | **0** | 5–20 |
 | 出结果时间 | 几小时 | 几秒 | 几秒（仿真） |
-| 模型准确时 | 好 | **最好** | 较差（motor-valve benchmark：0.598 vs 人工 0.393） |
+| 模型准确时 | 好 | **最好** | 较差（基准模型 0.598 vs 人工 0.393） |
 | 模型不准时 | 看运气 | **可能发散** | 有界——不比起点差 |
 | 优化对象 | 你的眼睛 | 带宽/相位裕度指标 | 你真实的代价函数 |
 

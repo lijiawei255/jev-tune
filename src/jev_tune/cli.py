@@ -47,6 +47,16 @@ def _n_actions(models_dir: Path) -> int:
     return 5
 
 
+def _matlab_found() -> bool:
+    """Any MATLAB the runner can find: PATH, MATLAB_EXE, Program Files, registry."""
+    try:
+        from .matlab_runner import find_matlab
+
+        return find_matlab().ok
+    except Exception:
+        return shutil.which("matlab") is not None
+
+
 def cmd_status(args) -> int:
     info = {
         "python": sys.version.split()[0],
@@ -54,8 +64,7 @@ def cmd_status(args) -> int:
         "conda_env": os.environ.get("CONDA_DEFAULT_ENV", ""),
         "packages": {m: _has(m) for m in REQUIRED},
         "onnxruntime": _has("onnxruntime"),
-        "matlab": shutil.which("matlab") is not None
-        or Path(r"C:\Program Files\MATLAB\R2024b\bin\matlab.exe").is_file(),
+        "matlab": _matlab_found(),
         "assets": {
             "head_weights": (REPO / "models/jev_head.pt").is_file(),
             "onnx": (REPO / "models/jev_head.onnx").is_file(),

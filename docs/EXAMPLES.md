@@ -10,7 +10,7 @@ Nothing here is idealized: the numbers are what came out.
 
 ## 1. A loop you have never seen
 
-The motor-valve benchmark motor model: a Simscape plant, three gain blocks, four Scopes, and a
+A benchmark lab's motor model: a Simscape plant, three gain blocks, four Scopes, and a
 position signal that leaves `Motor_Drive` on **output port 3 of 4**.
 
 ### Ask why it might not work
@@ -148,7 +148,7 @@ without seeing the model.
 
 ## 1. 没见过的回路
 
-motor-valve benchmark 电机模型：Simscape 被控对象、三个增益块、四个示波器，位置信号从
+某门实验课的电机模型：Simscape 被控对象、三个增益块、四个示波器，位置信号从
 `Motor_Drive` 的**第 3 个输出口**（共 4 个）引出。
 
 ### 先问"为什么可能调不了"

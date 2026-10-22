@@ -14,7 +14,7 @@ function mdl = make_demo_model(outDir, variant, opts)
 %   jev_demo_plant.
 %
 %   These exist so the tuner can be checked against something that is NOT the
-%   motor-valve benchmark model: a different plant, a different controller encoding, and no
+%   lab model: a different plant, a different controller encoding, and no
 %   Simscape, which makes it fast enough to use in CI.
 
 if nargin < 2 || isempty(variant), variant = 'second_order'; end
@@ -219,6 +219,10 @@ add_block('simulink/Math Operations/Sum', [mdl '/dSum_' tag '_u'], ...
 add_block('simulink/Continuous/Transfer Fcn', [mdl '/plant_' tag], ...
     'Numerator', num, 'Denominator', den, ...
     'Position', [340 y*140 410 y*140+40]);
+% a transport delay gives the loop a real ultimate gain; without one a
+% second-order plant is stable at every gain and Z-N has no answer
+add_block('simulink/Continuous/Transport Delay', [mdl '/delay_' tag], ...
+    'DelayTime', '0.02', 'Position', [420 y*140 480 y*140+40]);
 
 add_line(mdl, ['Step_' tag '/1'], ['dSum_' tag '/1'], 'autorouting', 'on');
 add_line(mdl, ['dSum_' tag '/1'], ['k_' tag '_1/1'], 'autorouting', 'on');
@@ -230,7 +234,8 @@ add_line(mdl, ['k_' tag '_1/1'], ['dSum_' tag '_u/1'], 'autorouting', 'on');
 add_line(mdl, ['k_' tag '_2/1'], ['dSum_' tag '_u/2'], 'autorouting', 'on');
 add_line(mdl, ['k_' tag '_3/1'], ['dSum_' tag '_u/3'], 'autorouting', 'on');
 add_line(mdl, ['dSum_' tag '_u/1'], ['plant_' tag '/1'], 'autorouting', 'on');
-add_line(mdl, ['plant_' tag '/1'], ['dSum_' tag '/2'], 'autorouting', 'on');
+add_line(mdl, ['plant_' tag '/1'], ['delay_' tag '/1'], 'autorouting', 'on');
+add_line(mdl, ['delay_' tag '/1'], ['dSum_' tag '/2'], 'autorouting', 'on');
 end
 
 function build_cascade(mdl, outDir, dst)

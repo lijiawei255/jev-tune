@@ -7,7 +7,7 @@ Bayesian optimisation and this project's decision head.
 The right panel asks the question a user actually cares about: how long until
 the controller is usable? A method counts if it reaches J <= 0.60 on the median
 plant; time is `experiments x 0.4 s`, where 0.4 s is the measured per-experiment
-cost of a Fast Restart run on the motor-valve benchmark model. The agent row adds an assumed 3 s
+cost of a Fast Restart run on lab model. The agent row adds an assumed 3 s
 LLM turn, and is drawn hatched because it is the one number this repository
 cannot measure.
 
@@ -53,7 +53,7 @@ GOOD = "#27ae60"
 ORANGE = "#e67e22"
 
 TARGET_J = 0.60
-PER_EXPERIMENT_S = 0.4  # measured on the motor-valve benchmark model (Fast Restart, 10 s)
+PER_EXPERIMENT_S = 0.4  # measured on lab model (Fast Restart, 10 s)
 LLM_TURN_S = 3.0  # assumption, labelled everywhere
 
 
@@ -108,7 +108,7 @@ def collect(plants_n: int, seed: int, models: str) -> dict:
             "llm_turn_s": LLM_TURN_S,
             "per_experiment_s": PER_EXPERIMENT_S,
             "target_j": TARGET_J,
-            "note": "per-experiment time measured on the motor-valve benchmark model; LLM turn is assumed",
+            "note": "per-experiment time measured on lab model; LLM turn is assumed",
         },
     }
 

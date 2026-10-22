@@ -148,6 +148,8 @@ code = 'tune_failed';
 if isempty(identifier), return; end
 switch identifier
     case 'jev:no_signal', code = 'no_signal';
+    case 'jev:wide_signal', code = 'wide_signal';
+    case 'jev:no_gains', code = 'no_gains';
     case 'jev:instrument', code = 'instrument_failed';
     case 'jev:ref', code = 'no_reference';
     otherwise
@@ -160,6 +162,12 @@ switch code
     case 'no_signal'
         hint = ['nothing was logged as the measurement: run "jev-tune discover" ' ...
             'to find the right block, or pass measure_scope/instrument_block'];
+    case 'wide_signal'
+        hint = ['that Scope logs several signals; pass --auto so the tuner taps ' ...
+            'the feedback signal itself, or name a single-signal Scope'];
+    case 'no_gains'
+        hint = ['the gain blocks named in the config do not exist: run "jev-tune ' ...
+            'discover" and reuse its config, or pass kp_block/ki_block/kd_block'];
     case 'instrument_failed'
         hint = ['could not attach a logging Scope; pass measure_scope with the ' ...
             'name of an existing Scope or To Workspace block'];

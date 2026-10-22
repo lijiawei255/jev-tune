@@ -35,6 +35,11 @@ jobs:
           PYTHONPATH: src
         run: python -m pytest -q
 
+      - name: Published numbers still match their artifacts
+        env:
+          PYTHONPATH: src
+        run: python scripts/16_check_claims.py
+
       - name: CLI smoke test
         env:
           PYTHONPATH: src

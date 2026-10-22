@@ -5,7 +5,7 @@
 
 Three questions that only show up when someone actually deploys this.
 
-> Every number below is measured on the reference machine (motor-valve benchmark model, 10 s
+> Every number below is measured on the reference machine (lab model, 10 s
 > horizon, 20 experiments). Only "LLM turn = 3 s" is an assumption, and it is
 > labelled as such.
 
@@ -143,7 +143,7 @@ quality. Tracking or disturbance rejection needs new metrics and a retrain
 2. MCP 服务器阻塞会不会吃掉规模效应；
 3. 别人的 MATLAB 不是 R2024b 还能不能跑。
 
-> 下面所有数字都来自本机实测（motor-valve benchmark 模型，10 s 仿真时长，20 次实验），
+> 下面所有数字都来自本机实测（一台实验课电机，10 s 仿真时长，20 次实验），
 > 只有"LLM 往返 3 s"是假设，已标注。
 
 ---

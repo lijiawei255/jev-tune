@@ -27,6 +27,22 @@ jev-tune matlab --model MyMotor.slx --auto --plot before_after.png --write-back
 不需要改块名，不需要有个叫 `Scope_Position` 的示波器，也不用自己算参考值。
 如果模型有歧义，命令会如实返回 `confidence: medium` 而不是瞎猜，Agent 只问你一个问题。
 
+如果模型被拒绝或直接失败，`jev-tune doctor --model <文件>` 会用九行说清为什么——
+能不能加载、能不能编译、有没有引用模型或受保护模型、求解器是什么、到底能不能找到一个回路：
+
+```console
+$ jev-tune doctor --model MyMotor.slx
+check       ok?   detail
+file        ok    MyMotor.slx (95 KB)
+loads       ok    MATLAB 2024b
+referenced  ok    none
+protected   ok    none
+stateflow   ok    none
+compiles    FAIL  Unrecognized function or variable 'Tsim'.
+                  -> define the variables the model asks for, then run it once
+solver      ...
+```
+
 **一个模型里有多个回路？** 互相独立的多回路（四轴、三温区）用 `--all-loops`
 逐个调、增益累积写回同一个文件。**串级会被明确拒绝**：返回 `cascade_suspect`
 并列出它找到的回路——只调其中一环却报告"成功"，比直接说"不调"更糟。详见
@@ -34,7 +50,7 @@ jev-tune matlab --model MyMotor.slx --auto --plot before_after.png --write-back
 
 ![在不认识的模型上做自动发现](assets/discover.gif)
 
-*这是 `discover` 在 motor-valve benchmark 电机上的全过程，**逐帧都来自模型本身**：误差汇合点由一次
+*这是 `discover` 在一台实验课电机上的全过程，**逐帧都来自模型本身**：误差汇合点由一次
 仿真确认（参考值与稳态输出是同一个物理量），每个增益按"它和汇合点之间有什么"分类，
 再用两次额外仿真确认"把它翻倍是否真的改变响应"。上面这些块名**没有参与任何判断**——
 `Gain_Kp` 改叫 `alpha` 结果完全一样。重新生成用 `scripts/15_make_discovery_gif.py`。*
@@ -48,7 +64,7 @@ jev-tune matlab --model MyMotor.slx --auto --plot before_after.png --write-back
 | 弄清模型为什么调不了 | `jev-tune doctor --model <文件>` |
 | 判断我的模型适不适合 | [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md) |
 | 搞清“类型化决策”到底是什么 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| 自己核对数字 | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md)、[`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) |
+| 自己核对数字 | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md)、[`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md)、[`docs/CLAIMS.md`](docs/CLAIMS.md) |
 | 用 Agent 或 MCP 驱动 | [`AGENTS.md`](AGENTS.md) |
 | 处理没见过的对象族 | [`docs/SPECIALIZE.md`](docs/SPECIALIZE.md) |
 | 批量跑几百个模型 | [`docs/SCALE.md`](docs/SCALE.md) |
@@ -76,7 +92,7 @@ jev-tune matlab --model MyMotor.slx --auto --plot before_after.png --write-back
 
 ![在真实 Simulink 直流电机上调参](assets/tuning.gif)
 
-*上面每一帧都是 motor-valve benchmark motor-valve benchmark 直流电机模型上的一次真实闭环实验。调的是
+*上面每一帧都是基准实验里那台直流电机模型上的一次真实闭环实验。调的是
 `Kp / Ki / Kd`，右边是它正在最小化的代价。最好的增益出现在第 5 次实验
 （约 0.55 秒仿真），停滞检测在第 9 次停下。*
 
@@ -88,13 +104,14 @@ jev-tune matlab --model MyMotor.slx --auto --plot before_after.png --write-back
 | :--- | :--- |
 | **做什么** | 看刚测到的响应，决定下一步把 PID 增益乘多少 |
 | **多快** | 单次决策 **0.19 ms**（ONNX，单线程）；托管 Jev 一次 236–276 ms，通用大模型 Agent 一次几秒 |
-| **多省实验** | **5 次实验**把真实 Simulink 电机回路的代价降了 **52%** |
-| **多能泛化** | 在训练时没见过的对象族上，同样 20 次仿真预算，中位代价 **0.47** vs CMA-ES **1.81** |
+| **多省实验** | 真实 Simulink 电机上 **11 次实验**把代价从 **1.377 降到 0.615**，且结果永远不比起点差 |
+| **多能泛化** | 在训练时没见过的对象族上（120 个对象），同样 20 次仿真预算，中位代价 **0.468** vs CMA-ES **1.813** |
 
 ![前后对比](assets/before_after.png)
 
 *同一个被控对象、三组增益。灰色：Ziegler-Nichols 起点；蓝色：5 次实验后；
-虚线：实验课人工调参的结果。*
+虚线：实验课人工调参的结果。那次运行的起点来自 v0.2 的 Ku 扫描，而那个扫描有三处缺陷，
+已修复——见 [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) 的更正一节。*
 
 ---
 
@@ -119,8 +136,9 @@ jev-tune matlab --model MyMotor.slx --auto --plot before_after.png --write-back
 python scripts/10_specialize.py --scenario valve_dead_zone --name valve
 ```
 
-在没见过的对象族上实测：中位代价 **2.242 → 1.152（−49%）**。详见
-[`docs/SPECIALIZE.md`](docs/SPECIALIZE.md)。
+在没见过的对象族上实测：中位代价 **2.242 → 1.884（−16%）**，30 个留出抖动、约 95 秒 CPU。
+详见 [`docs/SPECIALIZE.md`](docs/SPECIALIZE.md)——v0.2 记的 −49% 来自一颗之后重训过的头，
+今天复现不出来。
 
 ---
 
@@ -249,7 +267,7 @@ CMA-ES 参考。
 | CMA-ES | 1.813 | 2.618 | 3.75 | 18 |
 | Ziegler-Nichols | 2.322 | 3.082 | 5.74 | 1 |
 
-**真实 Simulink 模型（motor-valve benchmark 直流电机）**
+**真实 Simulink 模型（直流电机）**
 
 | 增益组 | Kp | Ki | Kd | 代价 |
 | :--- | ---: | ---: | ---: | ---: |
@@ -346,7 +364,7 @@ assets/          README 用到的 GIF 和图片
 
 * **实验场不止一个。** 方法与出厂权重是在合成植物动物园（2 000 个对象、6 个族）
   上开发的，随后在 10 个分布外控制场景和一个小型生成模型
-  （`matlab/make_demo_model.m`）上验证。**电机阀门基准模型**
+  （`matlab/make_demo_model.m`）上验证。**基准实验里的那台电机模型**
   只是其中**又一个实验场**：一个刚好在手的、比较真实的 Simulink 被控对象。它
   *不* 参与训练出厂权重，仓库里也不包含该模型——演示图只展示我们自己绘制的曲线。
   其余实验场见 [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md)。

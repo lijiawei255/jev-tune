@@ -11,7 +11,7 @@ Regenerate with a real model (MATLAB required, once):
     jev-tune discover --model path/Model.slx --json > discover.json
     python scripts/15_make_discovery_gif.py graph.json discover.json assets/discover.gif
 
-The default paths point at the motor-valve benchmark model used in docs/STEP4_RESULTS.md.
+The default paths point at lab model used in docs/STEP4_RESULTS.md.
 """
 
 from __future__ import annotations

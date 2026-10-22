@@ -1,6 +1,6 @@
 """README figure: agent-in-the-loop vs a warm decision head.
 
-Measured on the motor-valve benchmark model, 20 experiments (timings from the tuner itself):
+Measured on lab model, 20 experiments (timings from the tuner itself):
 
     decision (MATLAB forward pass) ... 0.002 s
     simulation ....................... ~0.4 s   (0.09 s in a very warm session)
@@ -128,7 +128,7 @@ def main(out: Path):
     fig.text(
         0.01,
         0.015,
-        "measured on the motor-valve benchmark model: decision 0.002 s, simulation ~0.4 s, MATLAB cold start ~50 s, "
+        "measured on lab model: decision 0.002 s, simulation ~0.4 s, MATLAB cold start ~50 s, "
         "setup ~28 s + Kp sweep ~40 s (cached after the first job) · LLM latency 3 s is an "
         "assumption, not measured",
         fontsize=7.0,

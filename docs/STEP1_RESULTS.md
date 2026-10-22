@@ -194,7 +194,7 @@ ONNX Runtime，单线程，batch=1，2 000 次重复：
 
 ONNX 图与 PyTorch 的最大绝对偏差 **7.6e-06**。目标是"决策 < 1 ms"，实测 **0.19 ms**。
 
-motor-valve benchmark 模型的完整一次迭代：决策 0.19 ms + Fast Restart 仿真 **111 ms**（StopTime=10 s，
+那台实验课电机的完整一次迭代：决策 0.19 ms + Fast Restart 仿真 **111 ms**（StopTime=10 s，
 见 `research/bench/`）≈ 0.11 s。不开 Fast Restart 同样模型每次 869 ms——瓶颈会是桥接
 而不是模型。
 

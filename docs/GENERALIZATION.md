@@ -4,7 +4,7 @@
 
 
 The worry this document answers: *the head was trained on a synthetic plant zoo
-and tested on the motor-valve benchmark motor — is it only good at those two things?*
+and tested on the lab motor — is it only good at those two things?*
 
 **Test design.** Ten scenarios a control engineer meets in other projects, none
 of them present in the zoo, each with four jittered draws (±30 % gain, ±30 %
@@ -60,7 +60,7 @@ collapses nor dominates — it behaves like a competent default tuner.
 * But it **is** limited by its feature set: every failure above traces back to
   a state descriptor that does not exist (dead-band chatter, inverted initial
   direction, "the plant is unstable so Z-N is meaningless").
-* The motor-valve benchmark case (cost 1.238 → 0.598) is therefore not evidence of overfitting
+* The lab case (cost 1.238 → 0.598) is therefore not evidence of overfitting
   to the test bench — it sits inside the band of results above.
 
 ## Reproduce
@@ -88,7 +88,7 @@ just done once, offline, and shared by every plant of that type.
 
 ## 泛化测试（中文）
 
-本项目要回答的疑问：*决策头是在合成动物园上训练的、又在 motor-valve benchmark 上测过——是不是只会这两样？*
+本项目要回答的疑问：*决策头是在合成动物园上训练的、又在一台实验课电机上测过——是不是只会这两样？*
 
 **测试设计。** 10 个其他项目里会遇到的场景，**都不在动物园里**，每个 4 组抖动
 （增益 ±30%、延迟 ±30%）= 40 株。发布的决策头**零样本**运行：不做逐对象训练、不
@@ -134,7 +134,7 @@ just done once, offline, and shared by every plant of that type.
   对象（延迟主导、双积分、谐振）。
 * 但它**受限于特征集**：上面每一个失败都能追溯到某个不存在的状态描述（死区抖动、
   初始方向反向、"对象不稳定所以 Z-N 无意义"）。
-* 所以 motor-valve benchmark 的结果（1.238 → 0.598）**不是过拟合测试台的证据**——它落在这 40 株的
+* 所以这台电机的实验结果（1.238 → 0.598）**不是过拟合测试台的证据**——它落在这 40 株的
   分布带里。
 
 ### 复现

@@ -22,6 +22,12 @@ if ~block_exists(tapBlock)
     fprintf('[instrument] no such block: %s\n', tapBlock);
     return
 end
+if block_exists(blk) && ~is_ours(blk, scopeName)
+    % the model already has a block with this name: leave it alone and take the
+    % next free name instead of deleting somebody else's work
+    scopeName = free_name(mdlName, scopeName);
+    blk = [mdlName '/' scopeName];
+end
 if ~block_exists(blk)
     try
         add_block('simulink/Sinks/Scope', blk, 'Position', [760 40 790 70]);
@@ -118,6 +124,28 @@ if k > numel(pc), return; end
 h = pc(k).SrcBlock;
 if isempty(h) || all(h == -1), return; end
 s = getfullname(h(1));
+end
+
+function tf = is_ours(blk, scopeName)
+% A scope we created logs under the variable that matches its own name.
+tf = false;
+try
+    tf = strcmp(get_param(blk, 'BlockType'), 'Scope') && ...
+        strcmp(get_param(blk, 'DataLoggingVariableName'), scopeName);
+catch
+end
+end
+
+function name = free_name(mdl, scopeName)
+name = scopeName;
+for k = 2:50
+    candidate = sprintf('%s%d', scopeName, k);
+    if ~block_exists([mdl '/' candidate])
+        name = candidate;
+        return
+    end
+end
+name = sprintf('%s_%d', scopeName, randi(9999));
 end
 
 function tf = block_exists(path)
