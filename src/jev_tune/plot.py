@@ -55,24 +55,30 @@ def save_before_after(
             ax.axhline(
                 float(ref), color="#444", ls="--", lw=1.0, alpha=0.7, label="reference"
             )
-        # A diverging start would squash the tuned trace into a flat line, so the
-        # axis follows the tuned response and the start is clipped, with a note.
+        # The axis follows the tuned response.  A start that overshoots a little
+        # is allowed to fit; one that diverges would squash the tuned trace into
+        # a flat line, so it is clipped and labelled.
         lo = min(min(best["y"]), float(ref) if ref else 0.0)
         hi = max(max(best["y"]), float(ref) if ref else 1.0)
         span = max(hi - lo, 1e-6)
-        ax.set_ylim(lo - 0.35 * span, hi + 0.35 * span)
-        peak = max(abs(float(v)) for v in start["y"])
-        if peak > hi + 0.35 * span:
+        start_lo = min(float(v) for v in start["y"])
+        start_hi = max(float(v) for v in start["y"])
+        if start_hi <= hi + 2 * span and start_lo >= lo - 2 * span:
+            lo, hi = min(lo, start_lo), max(hi, start_hi)
+        else:
+            peak = max(abs(start_lo), abs(start_hi))
             ax.text(
                 0.99,
                 0.94,
-                f"start reaches {peak:.0f} (clipped)",
+                f"start reaches {peak:.3g} (clipped)",
                 transform=ax.transAxes,
                 ha="right",
                 va="top",
                 fontsize=8,
                 color="#8a949c",
             )
+        span = max(hi - lo, 1e-6)
+        ax.set_ylim(lo - 0.15 * span, hi + 0.15 * span)
         ax.legend(frameon=False, loc="lower right", fontsize=9)
         ax.set_ylabel("measured signal")
     else:
