@@ -102,8 +102,8 @@ method (Z-N 1.95 → 2.50, BO 0.39 → 0.58).
 The README compares against "an LLM agent in the loop". That row used to be an
 assumption (3 s per turn). It is now a measurement: `scripts/14_agent_baseline.py`
 asks a hosted model (Together AI, `zai-org/GLM-5.3-Flash`, temperature 0) for the
-next gain step once per experiment, on the same plants and with the same
-20-experiment budget.
+next gain step once per experiment. Two held-out plants, 20 experiments each,
+same cost function.
 
 | | agent in the loop | Jev head |
 | :--- | ---: | ---: |
@@ -257,7 +257,7 @@ v2 在该基准上最强。之所以发布 v3，是因为**只有它能迁移到
 ## 智能体那行：从"假设"变成了"实测"
 
 README 里对比的"把大模型接进环路"原本是个假设（每次 3 秒）。现在是实测：
-`scripts/14_agent_baseline.py` 在同样的对象、同样的 20 次实验预算下，每次实验向托管
+`scripts/14_agent_baseline.py` 在 2 个留出对象、每个 20 次实验、同一代价函数下，每次实验向托管
 模型（Together AI，`zai-org/GLM-5.3-Flash`，temperature 0）要一次增益调整。
 
 | | Agent 在环 | Jev 决策头 |
