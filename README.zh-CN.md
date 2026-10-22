@@ -154,6 +154,18 @@ pip install -e .
 jev-tune demo            # 12 个未见对象，决策头 vs CMA-ES vs Z-N，约 20 秒
 ```
 
+然后在自己模型上，**先跑 doctor 再调参**。它约 40 秒（几乎全是 MATLAB 启动），回答的是
+决定后面一切的那个问题：这个模型到底能不能调？
+
+```bash
+jev-tune doctor  --model C:/path/你的模型.slx           # 加载、编译、求解器、回路
+jev-tune matlab  --model C:/path/你的模型.slx --auto --plot before_after.png
+```
+
+`compiles` 那行失败，后面全都不用试了，而且它会点名缺哪个工作区变量；`tunable` 失败，
+原因就在那一行和 `--json` 里。九个检查、一行一个，真实输出见
+[`docs/EXAMPLES.md`](docs/EXAMPLES.md)。
+
 **请 clone，不要 `pip install jev-tune`。** MATLAB 桥（`matlab/*.m`）和权重
 （`models/`，600 KB）跟着仓库走，PyPI 上的 wheel 会是一个不完整的包：命令能跑，
 但找不到真正干活的东西。仓库本身就是分发单元——不需要 PyPI、Docker 或 GPU。
@@ -176,10 +188,10 @@ python -m jev_tune.cli matlab --model 你的模型.slx --auto --json
 { "mcpServers": { "jev-tune": { "command": "jev-tune-mcp" } } }
 ```
 
-工具：`tune_status`、`tune_probe_matlab`、`tune_discover`、`tune_simulink`、
-`tune_apply_gains`、`tune_demo`。`tune_discover` 告诉助手哪几个块是控制器、
-哪一路信号是被测量；`tune_simulink` 返回最终增益 + 每次实验的代价 + 回滚次数——
-**一次工具调用，而不是二十次**。
+工具：`tune_status`、`tune_probe_matlab`、`tune_doctor`、`tune_discover`、
+`tune_simulink`、`tune_apply_gains`、`tune_demo`。`tune_doctor` 解释"为什么不能调"；
+`tune_discover` 告诉助手哪几个块是控制器、哪一路信号是被测量；`tune_simulink`
+返回最终增益 + 每次实验的代价 + 回滚次数——**一次工具调用，而不是二十次**。
 
 ![Agent 在环 vs 决策头](assets/agent_vs_head.png)
 

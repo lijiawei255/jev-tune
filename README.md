@@ -173,6 +173,20 @@ pip install -e .
 jev-tune demo            # 12 held-out plants, head vs CMA-ES vs Z-N, ~20 s
 ```
 
+Then, on **your** model, run the doctor before the tuner. It takes ~40 s (almost
+all of it MATLAB starting) and answers the question that decides everything else:
+can this model be tuned at all?
+
+```bash
+jev-tune doctor  --model C:/path/YourModel.slx          # loads, compiles, solver, loop
+jev-tune matlab  --model C:/path/YourModel.slx --auto --plot before_after.png
+```
+
+If the `compiles` line fails, nothing downstream will work and it names the
+missing workspace variable; if `tunable` fails, the reason is in that line and in
+`--json`. Nine checks, one line each — see
+[`docs/EXAMPLES.md`](docs/EXAMPLES.md) for the real output.
+
 **Clone, do not `pip install jev-tune`.** The MATLAB bridge (`matlab/*.m`) and
 the trained weights (`models/`, 600 KB) travel with the repository, so a wheel
 from PyPI would be an incomplete package — the command would run and then fail
@@ -197,9 +211,10 @@ Or register the MCP server so the agent can call it as a tool:
 { "mcpServers": { "jev-tune": { "command": "jev-tune-mcp" } } }
 ```
 
-Tools exposed: `tune_status`, `tune_probe_matlab`, `tune_discover`,
-`tune_simulink`, `tune_apply_gains`, `tune_demo`. `tune_discover` tells the
-agent which blocks are the controller and which signal is measured;
+Tools exposed: `tune_status`, `tune_probe_matlab`, `tune_doctor`, `tune_discover`,
+`tune_simulink`, `tune_apply_gains`, `tune_demo`. `tune_doctor` explains a refusal;
+`tune_discover` tells the agent which blocks are the controller and which signal
+is measured;
 `tune_simulink` returns the final gains, the cost at every experiment and the
 rollback count. One tool call instead of twenty.
 
