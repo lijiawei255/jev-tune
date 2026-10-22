@@ -8,6 +8,12 @@ Three questions that only show up when someone actually deploys this.
 > Every number below is measured on the reference machine (lab model, 10 s
 > horizon, 20 experiments). Only "LLM turn = 3 s" is an assumption, and it is
 > labelled as such.
+>
+> The phase table is for `jev-tune matlab` **without** `--auto`. With `--auto`
+> — what every command in the README uses — discovery loads and compiles the
+> model first, so the same job reports `setup 0.7 s`, `sweep 3.6 s`, `loop 0.7 s`
+> instead of `24.3 / 38.7 / 5.4 s` (lab model, 5 experiments, 2026-10-23). The
+> work did not disappear; it moved into `discover`.
 
 ## 1. Where the wall clock goes
 
@@ -145,6 +151,12 @@ quality. Tracking or disturbance rejection needs new metrics and a retrain
 
 > 下面所有数字都来自本机实测（一台实验课电机，10 s 仿真时长，20 次实验），
 > 只有"LLM 往返 3 s"是假设，已标注。
+>
+> 阶段表对应**不带** `--auto` 的 `jev-tune matlab`。带 `--auto` 时（README 里
+> 所有命令都是）发现阶段会先把模型加载、编译一遍，所以同一个任务报的是
+> `setup 0.7 s`、`sweep 3.6 s`、`loop 0.7 s`，而不是 `24.3 / 38.7 / 5.4 s`
+> （同一台电机、5 次实验，2026-10-23 实测）。时间没有消失，只是移进了
+> `discover`。
 
 ---
 

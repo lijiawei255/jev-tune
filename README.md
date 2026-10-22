@@ -6,7 +6,7 @@
 [![MATLAB](https://img.shields.io/badge/MATLAB-R2024b%20verified-orange)](docs/SCALE.md#4-matlab-versions)
 [![decision latency](https://img.shields.io/badge/decision-0.19%20ms-brightgreen)](docs/STEP1_RESULTS.md)
 [![model size](https://img.shields.io/badge/model-200%20KB-lightgrey)](docs/STEP1_RESULTS.md)
-[![platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](#install)
+[![platform](https://img.shields.io/badge/platform-Python%20any%20OS%20%C2%B7%20MATLAB%20Windows-lightgrey)](docs/SCALE.md#4-matlab-versions)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![中文](https://img.shields.io/badge/README-简体中文-red)](README.zh-CN.md)
 
@@ -115,8 +115,8 @@ experiments (~0.55 s of simulation); the stall detector stopped the loop at nine
 | | |
 | :--- | :--- |
 | **What it does** | picks the next PID gain step from the response it just measured |
-| **How fast** | **0.19 ms** per decision (ONNX, 1 CPU thread) vs **236–276 ms** for a hosted Jev call and seconds for an LLM agent |
-| **How few experiments** | **11 experiments** on a real Simulink motor took the cost from **1.377 to 0.615**; the result is never worse than the better of the start and the gains your model already had |
+| **How fast** | **0.19 ms** per decision (ONNX, 1 CPU thread) vs **5.34 s** per turn for a hosted LLM agent (measured, 40 plants) |
+| **How few experiments** | **5 experiments** on a real Simulink motor cut the cost from **1.238 to 0.598** (the recorded run; with the corrected gain sweep the same model starts better and the tuner returns the lab's own gains instead — [why](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)); the result is never worse than the better of the start and the gains your model already had |
 | **How it generalises** | on a plant family it never saw (120 plants), **0.468** median cost vs **1.813** for CMA-ES at the same 20-simulation budget |
 
 ![before and after](assets/before_after.png)
@@ -224,8 +224,9 @@ rollback count. One tool call instead of twenty.
 ![agent in the loop vs agent as supervisor](assets/agent_vs_head.png)
 
 *Per-iteration numbers are measured (0.111 s simulation, 0.19 ms decision);
-the LLM latency is an assumption and labelled as such. Where the 10–90× comes
-from, and how it scales to hundreds of plants:
+the LLM latency is an assumption and labelled as such. Where the two speedups
+in the table come from (122 s → 8.8 s, 60 s → 2.7 s), and how it scales to
+hundreds of plants:
 [`docs/SCALE.md`](docs/SCALE.md).*
 
 ### On your own Simulink model
@@ -287,7 +288,7 @@ measurement is blunt about the conditions:
 | how you run it | per 20-experiment job |
 | :--- | ---: |
 | agent in the loop (LLM 3 s/turn) | 60 s |
-| **one CLI process per job** | **122 s** ← 50 s startup + 28 s setup + 40 s Kp sweep |
+| **one CLI process per job** | **122 s** ← 50 s startup + 24 s setup + 39 s Kp sweep + 8 s loop (without `--auto`) |
 | warm worker (model and sweep cached) | **8.8 s** |
 | long-lived MATLAB session | **2.7 s** |
 
@@ -356,15 +357,24 @@ src/jev_tune/
   primitives.py  Choice / Score / Noul   (the only output surface)
   decode.py      expected-value decode, trust region, interval refinement
   model.py       the decision head and the lookahead value net
+  train.py       dataset -> head (+ expert.py, the rule-based demonstrator)
   baselines.py   Z-N, relay, simplex, CMA-ES, BO
   identified.py  identify -> pidtune (the practitioner baseline)
-  cli.py         status / demo / check
-matlab/          Fast Restart bridge + hand-written MATLAB forward pass
-scripts/         00 dataset, 01 chunks, 02 train, 03 evaluate, 04 onnx,
-                 05 report, 06 matlab weights, 07 demo assets,
-                 08 generalisation, 09 figure, 10 specialize
-docs/            research report, architecture, step results
-assets/          the GIF and figures used above
+  discover.py    find the gains, signal and reference of an unknown model
+  evaluate.py    held-out loop used by the benchmarks
+  plot.py        the before/after figure
+  scenarios.py   10 out-of-zoo scenarios, for generalisation
+  simulink.py, matlab_runner.py, matlab_worker.py   MATLAB bridge and worker
+  mcp_server.py  the seven MCP tools
+  cli.py         status / demo / doctor / discover / matlab / loop / batch / check
+matlab/          Fast Restart bridge, hand-written forward pass, test_discover.m
+scripts/         00 merge chunks, 00b relabel, 01 dataset, 02 train, 03 evaluate,
+                 04 onnx, 05 report, 06 matlab weights, 07 demo assets,
+                 08 generalise, 09 arch figure, 10 specialize, 11 robustness,
+                 12 race, 13 tracking demo, 14 agent baseline, 15 gifs,
+                 16 check claims
+docs/            research report, architecture, step results, claims, examples
+assets/          the GIFs and figures used above
 ```
 
 ## Is it for my problem?

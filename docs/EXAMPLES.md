@@ -68,9 +68,10 @@ discovered  Motor_Drive (high)
 ```
 
 The 77.7 s is dominated by MATLAB's ~50 s cold start; the tuning itself is 11
-experiments of a 10 s simulation. The start cost 1.377 is the same number as the
-run recorded in `docs/STEP4_RESULTS.md`, which is the point: discovery did not
-change what is being optimised, only how the blocks were found.
+experiments of a 10 s simulation. The 1.377 start is *this* run's Z-N gains;
+`docs/STEP4_RESULTS.md` records **1.238** for the same starting gains from an
+earlier build. The two absolute numbers are not interchangeable — compare the
+ratio (1.24 → 0.60 and 1.38 → 0.62), not the level.
 
 ---
 
@@ -198,9 +199,10 @@ experiments 11  rollbacks 0  wall 77.7 s
 written    .../jev_lab_model_tuned.slx
 ```
 
-77.7 秒里大部分是 MATLAB 约 50 秒的冷启动；调参本身是 11 次 10 秒仿真。起点 1.377 和
-`docs/STEP4_RESULTS.md` 里记录的那次完全一致——这说明发现过程没有改变被优化的东西，
-只改变了"怎么找到块"。
+77.7 秒里大部分是 MATLAB 约 50 秒的冷启动；调参本身是 11 次 10 秒仿真。起点
+1.377 是**这一次**扫描给出的 Z-N 增益；`docs/STEP4_RESULTS.md` 里记的是同一组
+起点增益在更早的版本上测得的 **1.238**。两个绝对值不能混用——比比值
+（1.24 → 0.60 与 1.38 → 0.62），别比绝对高度。
 
 ## 2. 串级：拒绝，并给出方案
 

@@ -47,6 +47,10 @@ Being explicit about this is the point of the file.
 | `Ku ≈ 400` and the start `[240, 1160, 12.4]` on motor-valve benchmark | The sweep's grid ended at 400, it took the *last* oscillating point, and a damped response counted as oscillation. Fixed in v0.3; the consequence (the start was an artifact, and from a corrected start the head does not improve) is written up in `docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong`. |
 | MATLAB/PyTorch parity `6.1e-05` | Measured again in v0.3 against the current weights: **7.6e-06**. The old figure was kept in a document that nobody re-ran. |
 | `2.242 → 1.152 (−49 %)` for the valve dead band | Reproducing it needs `--plants 120` (30 held-out), not the script's default of 48 (12 held-out). The command is now written next to the number. |
+| `11 experiments, 1.377 → 0.615` in the 15-second table | A re-run that was never written up. It sat next to the `1.238 → 0.598` run in the benchmark table and next to a GIF caption that said "five experiments", so three numbers described one model. Removed in v0.3.1: the table now quotes the recorded run. |
+| `236–276 ms for a hosted Jev call` | Never measured here — it was a Phase-0 estimate (`docs/PHASE0_RESEARCH_REPORT.md` now says so). Removed in v0.3.1; the row uses the measured 5.34 s LLM turn instead. |
+| `10–90×` | The README pointed at `docs/SCALE.md`, which never contained that range. The two ratios that do exist are 14× (122 s → 8.8 s) and 22× (60 s → 2.7 s), and the README now quotes those. |
+| `28 s setup` / `40 s Kp sweep` in the throughput table | True for `jev-tune matlab` **without** `--auto`. With `--auto` (every README command) the load and compile are paid inside `discover`, and the same job reports 0.7 s and 3.6 s. `docs/SCALE.md` now says which path the table describes. |
 
 ## When you change a script
 
@@ -98,6 +102,10 @@ changes later.
 | motor-valve benchmark 上的 `Ku ≈ 400` 与起点 `[240, 1160, 12.4]` | 扫描的网格上限是 400、取的是**最后**一个振荡点、而且把阻尼响应也算成振荡。v0.3 修好；后果（起点是假象，从修正后的起点出发决策头不再改善）写在 `docs/STEP4_RESULTS.md` 的更正一节。 |
 | MATLAB/PyTorch 偏差 `6.1e-05` | v0.3 用当前权重重测：**7.6e-06**。旧数字留在没人重跑的文档里。 |
 | 阀死区 `2.242 → 1.152（−49%）` | 复现需要 `--plants 120`（30 个留出），而不是脚本默认的 48（12 个留出）。命令现在写在数字旁边。 |
+| 15 秒表里的 `11 次实验，1.377 → 0.615` | 一次没有写进任何文档的重跑。它和基准表里的 `1.238 → 0.598`、GIF 说明里的"第 5 次"并排放着，于是同一个模型有三套数字。v0.3.1 删除，表格改为引用记录运行。 |
+| `托管 Jev 236–276 ms` | 本仓库从未测过，是 Phase 0 的估算（`docs/PHASE0_RESEARCH_REPORT.md` 现已标注）。v0.3.1 删除，改用实测的大模型 Agent 单轮 5.34 s。 |
+| `10–90×` | README 指向 `docs/SCALE.md`，但那份文档里从来没有这个区间。真正存在的两个比值是 14×（122 s → 8.8 s）和 22×（60 s → 2.7 s），README 已改为引用它们。 |
+| 吞吐表里的 `28 s 建模` / `40 s 扫 Ku` | 对**不带** `--auto` 的 `jev-tune matlab` 成立。带 `--auto`（README 里所有命令）时加载与编译在 `discover` 里付掉，同一个任务报 0.7 s 和 3.6 s。`docs/SCALE.md` 现在写明表格对应哪条路径。 |
 
 ## 改了脚本之后
 

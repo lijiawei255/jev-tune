@@ -40,6 +40,9 @@ These are the open gaps, roughly in order of value:
 
 | Area | What it needs | Size |
 | :--- | :--- | :--- |
+| **Typed interface vs a regression head** | same features, same expert data, same training budget: `choice / score / noul` against regressing the gain deltas. This is the one comparison the project has not made (`docs/CLAIMS.md`, "What is not tested") | small |
+| **A local language-model baseline** | a 1.5B–4B model in the same loop, so the language layer and the network round trip stop being one number | medium |
+| **A model that is not ours** | run it on a third-party `.slx` and publish the table; `jev-tune doctor --model` output is the most useful part of the report | small |
 | **Objective presets** | tracking / disturbance-rejection metrics next to the step-response cost (see `metrics.py`) | medium |
 | **Concurrent workers** | run N MATLAB workers in parallel for large batches (`matlab_worker.py`) | medium |
 | **Cross-model cache** | reuse the compiled model when several jobs share one `.slx` | small |
@@ -113,6 +116,9 @@ MATLAB 相关工作需要 R2019a+ 与 Simulink；`jev-tune matlab --probe` 会�
 
 | 方向 | 需要什么 | 规模 |
 | :--- | :--- | :--- |
+| **类型化接口 vs 回归头** | 同样的特征、同样的专家数据、同样的训练预算，用 `choice / score / noul` 对照"直接回归增益增量"。这是项目唯一没做的对照（见 `docs/CLAIMS.md` 的 "What is not tested"） | 小 |
+| **本地语言模型基线** | 在同一回路里跑 1.5B–4B 本地模型，把"语言层"和"网络往返"拆成两个数 | 中 |
+| **一个不是我们的模型** | 在第三方 `.slx` 上跑一遍并公开表格；报告里最有价值的是 `jev-tune doctor --model` 的输出 | 小 |
 | **目标函数预设** | 在阶跃指标之外，加跟踪 / 扰动抑制指标（见 `metrics.py`） | 中 |
 | **并发 worker** | 批量场景下并行跑 N 个 MATLAB（`matlab_worker.py`） | 中 |
 | **跨模型缓存** | 多个任务共用同一个 `.slx` 时复用已编译模型 | 小 |

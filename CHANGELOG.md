@@ -18,6 +18,27 @@ file that produced them is named next to them.
   the tuned copy and to the model on every iteration, so 55.4793 was applied as
   55.479. Now written at full precision.
 
+### Docs
+
+* The README's 15-second table quoted a motor-valve benchmark re-run (`11 experiments, 1.377 →
+  0.615`) beside the recorded run (`1.238 → 0.598`, best at experiment 5) and a
+  GIF caption that said "five", so three numbers described one model. The table
+  now quotes the recorded run only.
+* Removed `236–276 ms for a hosted Jev call`: it was a Phase-0 estimate and is
+  labelled as one now. The "how fast" row uses the measured 5.34 s LLM turn.
+* Removed the `10–90×` pointer. `docs/SCALE.md` never contained that range; the
+  two ratios it does contain are 14× and 22×, and the README quotes those.
+* `docs/SCALE.md` now says the phase table describes `jev-tune matlab` **without**
+  `--auto`; with it, the load and compile are paid inside `discover` (measured:
+  setup 0.7 s, sweep 3.6 s, versus 24.3 s and 38.7 s).
+* The platform badge no longer claims Linux and macOS for the MATLAB bridge,
+  which has only been run on Windows. `docs/SCALE.md` keeps the version matrix.
+* `CONTRIBUTING.md` lists the three comparisons that have not been made: typed
+  interface against a regression head, a local language model, an outside model.
+* Repository layout in both READMEs regenerated (scripts 00–16, the eight
+  subcommands, the modules that were missing), and the Chinese README's
+  "试一试" link now points at the heading that exists.
+
 ## [0.3.0] - 2026-10-22
 
 ### Added

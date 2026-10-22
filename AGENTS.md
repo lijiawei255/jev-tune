@@ -150,11 +150,15 @@ epochs (~1–3 min CPU) and reports zero-shot vs specialised on held-out jitters
 
 ## Throughput (read before running many jobs)
 
-Measured on the reference machine: MATLAB cold start ≈ 50 s, model setup ≈ 28 s,
-Kp sweep ≈ 40 s, simulation ≈ 0.4 s per experiment.
+Measured on the reference machine: MATLAB cold start ≈ 50 s, then ≈ 0.11 s per
+simulation (Fast Restart, 10 s horizon). **Without** `--auto` the model setup is
+≈ 24 s and the Kp sweep ≈ 39 s; **with** `--auto` discovery pays the load and
+compile first, so `timings` reports setup ≈ 1 s and sweep ≈ 4 s for the same job.
+(The "0.4 s per experiment" in older notes was the Python zoo, not MATLAB.)
 
 * **one process per job is SLOWER than an agent loop** (122 s vs 60 s);
-* a warm worker gives 8.8 s per job; a long-lived session 2.7 s.
+* a warm worker gives 8.8 s per job; a long-lived session 2.7 s (both measured
+  without `--auto`; with it, each job also pays the discovery pass).
 
 So: for more than a couple of jobs use `jev-tune batch --jobs jobs.json`
 (one MATLAB for the whole queue) or the MCP server, which keeps a worker alive.

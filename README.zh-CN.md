@@ -59,7 +59,7 @@ solver      ...
 
 | 我想…… | 去看 |
 | :--- | :--- |
-| 一分钟内跑起来 | [试一试](#试一试) |
+| 一分钟内跑起来 | [试一试](#上手) |
 | 看一次完整运行（带真实输出） | [`docs/EXAMPLES.md`](docs/EXAMPLES.md) |
 | 弄清模型为什么调不了 | `jev-tune doctor --model <文件>` |
 | 判断我的模型适不适合 | [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md) |
@@ -103,8 +103,8 @@ solver      ...
 | | |
 | :--- | :--- |
 | **做什么** | 看刚测到的响应，决定下一步把 PID 增益乘多少 |
-| **多快** | 单次决策 **0.19 ms**（ONNX，单线程）；托管 Jev 一次 236–276 ms，通用大模型 Agent 一次几秒 |
-| **多省实验** | 真实 Simulink 电机上 **11 次实验**把代价从 **1.377 降到 0.615**；结果不会比 ZN 起点与模型自带增益中更好的那组更差 |
+| **多快** | 单次决策 **0.19 ms**（ONNX，单线程）；托管大模型 Agent 一次 **5.34 s**（实测，40 个对象） |
+| **多省实验** | 真实 Simulink 电机上 **5 次实验**把代价从 **1.238 降到 0.598**（v0.2 的记录运行；修正增益扫描后同一模型起点更好，整定器会直接返回电机自带的增益——[原因](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)）；结果不会比 ZN 起点与模型自带增益中更好的那组更差 |
 | **多能泛化** | 在训练时没见过的对象族上（120 个对象），同样 20 次仿真预算，中位代价 **0.468** vs CMA-ES **1.813** |
 
 ![前后对比](assets/before_after.png)
@@ -249,7 +249,7 @@ jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
 | 跑法 | 20 次实验耗时 |
 | :--- | ---: |
 | Agent 在环（LLM 3 s/次） | 60 s |
-| **一个 CLI 进程跑一个任务** | **122 s**（50 s 启动 + 28 s 建模 + 40 s 扫 Ku） |
+| **一个 CLI 进程跑一个任务** | **122 s**（50 s 启动 + 24 s 建模 + 39 s 扫 Ku + 8 s 回路；不带 `--auto`） |
 | 常驻 worker（缓存编译和 Ku） | **8.8 s** |
 | 长驻 MATLAB 会话 | **2.7 s** |
 
@@ -308,21 +308,28 @@ CMA-ES 参考。
 
 ```
 src/jev_tune/
-  plants.py      植物动物园 + 向量化闭环仿真
-  metrics.py     响应 -> 标量代价
-  state.py       20 个特征 + 2×64 曲线
-  primitives.py  Choice / Score / Noul（唯一输出面）
-  decode.py      期望值解码、信赖域、区间细化
-  model.py       决策头 + 一步预测价值网
-  baselines.py   Z-N、继电、单纯形、CMA-ES、BO
-  identified.py  辨识 -> pidtune（工程界基线）
-  scenarios.py   10 个"动物园外"场景（泛化测试）
-  cli.py         status / demo / check / matlab / batch
-matlab/          Fast Restart 桥接 + 手写 MATLAB 前向
-scripts/         00 数据、01 分块、02 训练、03 评估、04 onnx、
-                 05 报告、06 MATLAB 权重、07 演示素材、
-                 08 泛化、09 图、10 专家化
-docs/            调研报告、架构、各阶段结果
+  plants.py       植物动物园 + 向量化闭环仿真
+  metrics.py      响应 -> 标量代价
+  state.py        20 个特征 + 2×64 曲线
+  primitives.py   Choice / Score / Noul（唯一输出面）
+  decode.py       期望值解码、信赖域、区间细化
+  model.py        决策头 + 一步预测价值网
+  train.py        数据 -> 决策头（`expert.py` 是规则专家）
+  baselines.py    Z-N、继电、单纯形、CMA-ES、BO
+  identified.py   辨识 -> pidtune（工程界基线）
+  discover.py     在陌生模型上找增益、信号与参考
+  evaluate.py     基准测试用的留出回路
+  plot.py         前后对比图
+  scenarios.py    10 个"动物园外"场景（泛化测试）
+  simulink.py、matlab_runner.py、matlab_worker.py   MATLAB 桥接与 worker
+  mcp_server.py   七个 MCP 工具
+  cli.py          status / demo / doctor / discover / matlab / loop / batch / check
+matlab/          Fast Restart 桥接、手写前向、test_discover.m
+scripts/         00 合并分块、00b 重标注、01 数据、02 训练、03 评估、
+                 04 onnx、05 报告、06 MATLAB 权重、07 演示素材、08 泛化、
+                 09 架构图、10 专家化、11 鲁棒性、12 竞赛图、13 跟踪演示、
+                 14 Agent 基线、15 GIF、16 claims 校验
+docs/            调研报告、架构、各阶段结果、claims、示例
 assets/          README 用到的 GIF 和图片
 ```
 
