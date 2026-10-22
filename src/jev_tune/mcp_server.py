@@ -93,6 +93,23 @@ TOOLS = [
         },
     },
     {
+        "name": "tune_doctor",
+        "description": (
+            "Explain why a model cannot be tuned: does it load, does it compile, "
+            "does it use referenced or protected models, what is the solver, can "
+            "discovery find a loop. Use this when tune_discover failed, before "
+            "asking the user anything."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model": {"type": "string"},
+                "discover": {"type": "boolean", "default": True},
+            },
+            "required": ["model"],
+        },
+    },
+    {
         "name": "tune_discover",
         "description": (
             "Find the PID gains, the measured signal and the reference inside a "
@@ -242,6 +259,13 @@ def _tune_simulink(args: dict) -> dict:
     return tune_with_worker(cfg, timeout=float(args.get("timeout", 300)))
 
 
+def _tune_doctor(args: dict) -> dict:
+    from .matlab_runner import run_doctor
+
+    return run_doctor(args["model"], discover=bool(args.get("discover", True)),
+                      timeout=float(args.get("timeout", 600)))
+
+
 def _tune_discover(args: dict) -> dict:
     from .matlab_runner import run_discover
 
@@ -293,6 +317,7 @@ def _tune_demo(args: dict) -> dict:
 HANDLERS = {
     "tune_status": lambda a: _status(),
     "tune_probe_matlab": lambda a: _probe(),
+    "tune_doctor": _tune_doctor,
     "tune_discover": _tune_discover,
     "tune_simulink": _tune_simulink,
     "tune_apply_gains": _tune_apply_gains,

@@ -3,7 +3,7 @@
 [![tests](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml/badge.svg)](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)](pyproject.toml)
-[![MATLAB](https://img.shields.io/badge/MATLAB-R2019a%2B-orange)](docs/SCALE.md)
+[![MATLAB](https://img.shields.io/badge/MATLAB-R2024b%20verified-orange)](docs/SCALE.md#4-matlab-versions)
 [![decision latency](https://img.shields.io/badge/decision-0.19%20ms-brightgreen)](docs/STEP1_RESULTS.md)
 [![model size](https://img.shields.io/badge/model-200%20KB-lightgrey)](docs/STEP1_RESULTS.md)
 [![platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)](#install)
@@ -64,6 +64,8 @@ Regenerate with `scripts/15_make_discovery_gif.py`.*
 | I want to… | go to |
 | :--- | :--- |
 | see it run in a minute | [Try it](#try-it) |
+| watch a full run, with real output | [`docs/EXAMPLES.md`](docs/EXAMPLES.md) |
+| know why my model will not tune | `jev-tune doctor --model <file>` |
 | know whether my model qualifies | [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md) |
 | understand the decision contract | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | check the numbers myself | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md), [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) |

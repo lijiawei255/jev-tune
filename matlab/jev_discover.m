@@ -70,6 +70,28 @@ D.stop_time = stopTime;
 blks = collect_blocks(mdl);
 D.n_blocks = numel(blks);
 
+% A referenced model is a separate file.  Its contents are invisible here, so
+% the loop cannot be traced and the honest answer is to say which files to look
+% at rather than to report "no loop found".
+refBlocks = {};
+for k = 1:numel(blks)
+    if ~strcmp(safe_get(blks{k}, 'BlockType', ''), 'ModelReference'), continue; end
+    name = safe_get(blks{k}, 'ModelName', '?');
+    tag = name;
+    if endsWith(lower(name), '.slxp'), tag = [name ' (protected)']; end
+    refBlocks{end+1} = sprintf('%s -> %s', strrep(blks{k}, [mdl '/'], ''), tag); %#ok<AGROW>
+end
+if ~isempty(refBlocks)
+    D.code = 'referenced_model_unsupported';
+    D.error = sprintf(['%d referenced model(s) in this file; their contents live ' ...
+        'elsewhere, so the feedback loop cannot be traced from here'], numel(refBlocks));
+    D.candidates = refBlocks;
+    D.warnings{end+1} = ['open the referenced model itself and run jev-tune on that ' ...
+        'file, or flatten the hierarchy (right-click > Subsystem & Model Reference ' ...
+        '> Convert to Subsystem) before tuning'];
+    return
+end
+
 [cands, errNote, scan] = junction_candidates(mdl, blks);
 D.junction_scan = scan;
 D.evidence{end+1} = errNote;

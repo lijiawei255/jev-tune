@@ -224,6 +224,47 @@ def run_discover(
         return result
 
 
+def run_doctor(model: str, *, work_dir: str | None = None,
+               discover: bool = True, timeout: int = 600) -> dict:
+    """Explain why a model can or cannot be tuned, check by check."""
+    info = find_matlab()
+    if not info.ok:
+        return {"ok": False, "code": "matlab_missing",
+                "error": "MATLAB not found; set MATLAB_EXE or add matlab to PATH"}
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        out_file = tmp_path / "doctor.out.json"
+        opts = {"discover": bool(discover)}
+        if work_dir:
+            opts["work_dir"] = work_dir
+        code = (
+            f"addpath('{MATLAB_DIR.as_posix()}'); "
+            f"jev_doctor('{Path(model).resolve().as_posix()}', "
+            f"'{out_file.as_posix()}', {_matlab_struct(opts)});"
+        )
+        proc = run_matlab(code, timeout=timeout, matlab=info)
+        if not out_file.is_file():
+            return {"ok": False, "code": "doctor_failed",
+                    "error": "MATLAB produced no result file",
+                    "stderr": proc.stderr[-2000:], "stdout": proc.stdout[-3000:]}
+        result = json.loads(out_file.read_text(encoding="utf-8"))
+        result["matlab"] = str(info.executable)
+        return result
+
+
+def _matlab_struct(values: dict) -> str:
+    """{'a': True, 'b': 'x'} -> struct('a', true, 'b', 'x')."""
+    parts = []
+    for key, value in values.items():
+        if isinstance(value, bool):
+            parts.append(f"'{key}', {str(value).lower()}")
+        elif isinstance(value, (int, float)):
+            parts.append(f"'{key}', {value}")
+        else:
+            parts.append(f"'{key}', '{value}'")
+    return "struct(" + ", ".join(parts) + ")"
+
+
 def run_all_loops(
     model: str,
     *,

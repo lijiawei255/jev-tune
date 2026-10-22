@@ -89,6 +89,27 @@ def test_loop_command_tunes_without_matlab():
     assert len(data["final_gains"]) == 3
 
 
+def test_doctor_is_a_subcommand():
+    proc = _run("doctor", "--help")
+    assert proc.returncode == 0
+    assert "--no-discover" in proc.stdout
+    assert "--model" in proc.stdout
+
+
+def test_doctor_without_matlab_reports_a_code(monkeypatch):
+    from jev_tune import matlab_runner
+
+    class _Missing:
+        ok = False
+        executable = None
+        source = "none"
+
+    monkeypatch.setattr(matlab_runner, "find_matlab", lambda: _Missing())
+    result = matlab_runner.run_doctor("nope.slx")
+    assert result["ok"] is False
+    assert result["code"] == "matlab_missing"
+
+
 def test_all_loops_without_matlab_reports_a_code(monkeypatch):
     from jev_tune import matlab_runner
 
@@ -108,7 +129,7 @@ def test_mcp_exposes_discover_and_writeback():
 
     resp = handle({"jsonrpc": "2.0", "id": 1, "method": "tools/list"})
     names = {t["name"] for t in resp["result"]["tools"]}
-    assert {"tune_discover", "tune_apply_gains"} <= names
+    assert {"tune_discover", "tune_apply_gains", "tune_doctor"} <= names
     # the schemas must stay self-describing: an agent has nothing else to read
     for tool in resp["result"]["tools"]:
         assert tool["description"].strip()

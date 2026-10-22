@@ -3,7 +3,7 @@
 [![tests](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml/badge.svg)](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)](pyproject.toml)
-[![MATLAB](https://img.shields.io/badge/MATLAB-R2019a%2B-orange)](docs/SCALE.md)
+[![MATLAB](https://img.shields.io/badge/MATLAB-R2024b%20%E5%AE%9E%E6%B5%8B-orange)](docs/SCALE.md)
 [![decision latency](https://img.shields.io/badge/decision-0.19%20ms-brightgreen)](docs/STEP1_RESULTS.md)
 [![model size](https://img.shields.io/badge/model-200%20KB-lightgrey)](docs/STEP1_RESULTS.md)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -44,6 +44,8 @@ jev-tune matlab --model MyMotor.slx --auto --plot before_after.png --write-back
 | 我想…… | 去看 |
 | :--- | :--- |
 | 一分钟内跑起来 | [试一试](#试一试) |
+| 看一次完整运行（带真实输出） | [`docs/EXAMPLES.md`](docs/EXAMPLES.md) |
+| 弄清模型为什么调不了 | `jev-tune doctor --model <文件>` |
 | 判断我的模型适不适合 | [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md) |
 | 搞清“类型化决策”到底是什么 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | 自己核对数字 | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md)、[`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) |

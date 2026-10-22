@@ -85,6 +85,11 @@ Handled:
 
 ## 4. MATLAB versions
 
+> **What is actually tested:** MATLAB **R2024b** (Update 6) with Simulink, Simscape
+> and Control System Design. Older releases are supported by the code's fallbacks
+> (`-batch` detection, `-r`) but have **not** been run against the self-check, so
+> treat `R2019a+` as an expectation, not a measurement.
+
 The original code hard-coded `C:\Program Files\MATLAB\R2024b` and assumed
 `matlab -batch`. Both are gone.
 

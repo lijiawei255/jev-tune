@@ -24,6 +24,7 @@ cases{end+1} = check_gains(workRoot);
 cases{end+1} = check_nested(workRoot);
 cases{end+1} = check_pid_block(workRoot);
 cases{end+1} = check_cascade_refused(workRoot);
+cases{end+1} = check_doctor(workRoot);
 if doTune
     cases{end+1} = check_autotune(workRoot);
     cases{end+1} = check_pid_form_equivalence(workRoot);
@@ -136,6 +137,38 @@ fwrite(fid, jsonencode(cfg), 'char');
 fclose(fid);
 R = jev_tune_json(job, fullfile(workRoot, [name '_out.json']));
 if R.ok, j = R.final_J; end
+end
+
+function c = check_doctor(workRoot)
+% The doctor has to separate "cannot simulate" from "cannot be tuned", and it
+% has to reach both verdicts without the user reading any code.
+c = struct('name', 'doctor', 'pass', false, 'detail', '');
+if ~isfile(fullfile(workRoot, 'tc_nested.slx'))
+    make_demo_model(workRoot, 'nested', struct('name', 'tc_nested'));
+end
+if ~isfile(fullfile(workRoot, 'tc_cascade.slx'))
+    make_demo_model(workRoot, 'cascade', struct('name', 'tc_cascade'));
+end
+okModel = jev_doctor(fullfile(workRoot, 'tc_nested.slx'), ...
+    fullfile(workRoot, 'doc_ok.json'), struct('discover', true));
+badModel = jev_doctor(fullfile(workRoot, 'tc_cascade.slx'), ...
+    fullfile(workRoot, 'doc_bad.json'), struct('discover', true));
+tunableOK = by_name(okModel, 'tunable');
+tunableBad = by_name(badModel, 'tunable');
+c.pass = okModel.ok && tunableOK.ok && ~badModel.ok && ~tunableBad.ok && ...
+    by_name(okModel, 'compiles').ok && by_name(badModel, 'compiles').ok;
+c.detail = sprintf('healthy: %s | cascade: %s', tunableOK.detail, tunableBad.detail);
+bdclose('all');
+end
+
+function c = by_name(result, name)
+c = struct('name', name, 'ok', false, 'detail', '(missing)');
+for k = 1:numel(result.checks)
+    if strcmp(result.checks{k}.name, name)
+        c = result.checks{k};
+        return
+    end
+end
 end
 
 function c = check_cascade_refused(workRoot)

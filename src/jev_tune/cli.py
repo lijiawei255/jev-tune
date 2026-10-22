@@ -62,7 +62,9 @@ def cmd_status(args) -> int:
             "matlab_weights": (REPO / "models/jev_head_weights.mat").is_file(),
             "dataset": (REPO / "data/expert_train.npz").is_file(),
             "demo_gif": (REPO / "assets/tuning.gif").is_file(),
+            "matlab_bridge": (REPO / "matlab/jev_tune_model.m").is_file(),
         },
+        "install": "clone" if (REPO / ".git").exists() else "package",
     }
     missing = [m for m, ok in info["packages"].items() if not ok]
     if missing:
@@ -70,6 +72,13 @@ def cmd_status(args) -> int:
             "pip install "
             + " ".join(REQUIRED[m] for m in missing)
             + "   # or: bash scripts/agent_setup.sh"
+        )
+        code = 2
+    elif not info["assets"]["matlab_bridge"]:
+        info["next"] = (
+            "the MATLAB bridge is missing: this looks like a packaged install. "
+            "Clone the repository (git clone https://github.com/lijiawei255/jev-tune) "
+            "to tune Simulink models; the Python commands work either way"
         )
         code = 2
     elif not info["assets"]["head_weights"]:
@@ -210,6 +219,33 @@ def cmd_discover(args) -> int:
             print(f"config      {args.out}")
         for w in result.get("warnings") or []:
             print(f"  ! {w}")
+    return 0 if result.get("ok") else 2
+
+
+def cmd_doctor(args) -> int:
+    """Say why a model can or cannot be tuned, one check per line."""
+    from .matlab_runner import run_doctor
+
+    if not args.model:
+        print("--model is required", file=sys.stderr)
+        return 2
+    result = run_doctor(args.model, work_dir=args.work_dir,
+                        discover=not args.no_discover, timeout=args.timeout)
+    if args.json:
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+    elif result.get("code") == "matlab_missing":
+        print(f"error: {result.get('error')}")
+    else:
+        print(f"{'check':<11} {'ok?':<5} detail")
+        for c in result.get("checks") or []:
+            print(f"{c.get('name', ''):<11} {'ok' if c.get('ok') else 'FAIL':<5} "
+                  f"{c.get('detail', '')}")
+            if not c.get("ok") and c.get("fix"):
+                print(f"{'':<17} -> {c['fix']}")
+        if result.get("verdict"):
+            print(f"\nverdict: {result['verdict']}")
+        if result.get("next"):
+            print(f"next:    {result['next']}")
     return 0 if result.get("ok") else 2
 
 
@@ -540,6 +576,15 @@ def build_parser() -> argparse.ArgumentParser:
     d.add_argument("--seed", type=int, default=0)
     d.add_argument("--json", action="store_true")
     d.set_defaults(func=cmd_demo)
+
+    dr = sub.add_parser("doctor", help="explain why a model cannot be tuned")
+    dr.add_argument("--model", required=True, help="absolute path to a .slx / .mdl")
+    dr.add_argument("--no-discover", action="store_true",
+                    help="skip the loop check (stops after the compile check)")
+    dr.add_argument("--work-dir", dest="work_dir")
+    dr.add_argument("--timeout", type=int, default=600)
+    dr.add_argument("--json", action="store_true")
+    dr.set_defaults(func=cmd_doctor)
 
     d = sub.add_parser("discover", help="find the gains, signal and reference")
     d.add_argument("--model", required=True, help="absolute path to a .slx / .mdl")
