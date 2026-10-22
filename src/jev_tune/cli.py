@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import sys
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -205,7 +206,9 @@ def cmd_matlab(args) -> int:
 
 
 def cmd_batch(args) -> int:
-    """Run a queue of tuning jobs in one MATLAB process."""
+    """Run a queue of tuning jobs, optionally across several MATLAB workers."""
+    from concurrent.futures import ThreadPoolExecutor
+
     from .matlab_runner import run_batch
 
     jobs = json.loads(Path(args.jobs).read_text(encoding="utf-8-sig"))
@@ -214,7 +217,36 @@ def cmd_batch(args) -> int:
     for job in jobs:
         job.setdefault("iters", args.iters)
         job.setdefault("step_gain", args.step_gain)
-    results = run_batch(jobs, timeout=args.timeout)
+
+    if args.workers and args.workers > 1:
+        from .matlab_worker import MatlabWorker
+
+        n = min(int(args.workers), len(jobs))
+        workers = [MatlabWorker(timeout=args.timeout) for _ in range(n)]
+        for w in workers:
+            w.start()
+        print(f"[batch] {n} MATLAB workers")
+
+        def run_one(pair):
+            idx, job = pair
+            w = workers[idx % n]
+            t0 = time.perf_counter()
+            try:
+                r = w.run(job)
+            except Exception as exc:  # keep the queue moving
+                r = {"ok": False, "error": str(exc)}
+            r["index"] = idx + 1
+            r.setdefault("job_wall_s", time.perf_counter() - t0)
+            return r
+
+        try:
+            with ThreadPoolExecutor(max_workers=n) as pool:
+                results = list(pool.map(run_one, enumerate(jobs)))
+        finally:
+            for w in workers:
+                w.stop()
+    else:
+        results = run_batch(jobs, timeout=args.timeout)
 
     if args.json:
         print(json.dumps(results, indent=2, ensure_ascii=False))
@@ -277,6 +309,8 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--jobs", required=True, help="JSON file with a list of job objects")
     b.add_argument("--iters", type=int, default=20)
     b.add_argument("--step-gain", dest="step_gain", type=float, default=1.0)
+    b.add_argument("--workers", type=int, default=1,
+                   help="parallel MATLAB workers (bounded by your licence)")
     b.add_argument("--timeout", type=int, default=3600)
     b.add_argument("--json", action="store_true")
     b.set_defaults(func=cmd_batch)

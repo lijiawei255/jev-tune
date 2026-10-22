@@ -85,6 +85,8 @@ Kp sweep ≈ 40 s, simulation ≈ 0.4 s per experiment.
 
 So: for more than a couple of jobs use `jev-tune batch --jobs jobs.json`
 (one MATLAB for the whole queue) or the MCP server, which keeps a worker alive.
+`--workers N` runs N warm MATLAB processes in parallel; the ceiling is your
+MATLAB licence, not the code.
 
 ## MCP server
 
