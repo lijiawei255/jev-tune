@@ -53,7 +53,9 @@ project does not relicense them.
 
 ## Evidence boundaries
 
-The motor-valve benchmark is a development-feedback/regression example.
+The method was developed on a synthetic zoo and validated on ten out-of-distribution
+scenarios and a generated model (`matlab/make_demo_model.m`). The motor-valve
+benchmark is a development-feedback/regression example.
 Observations influenced later synthetic-zoo design, including actuator headroom;
 it is not an untouched independent external test. The published training-data
 generator uses synthetic plants. Final NPZ hashes establish file identity, not a
@@ -120,7 +122,8 @@ redistribute your trained specialists, your plant models, or your results.
 
 ### 证据边界
 
-电机阀门基准属于开发反馈/回归示例。其观察影响了后续合成动物园设计，包括执行器余量，
+方法在合成动物园上开发，并在10 个分布外场景和一个生成模型
+（`matlab/make_demo_model.m`）上验证。电机阀门基准属于开发反馈/回归示例。其观察影响了后续合成动物园设计，包括执行器余量，
 不能称为从未用于开发的独立外测。公开训练数据生成程序使用合成对象。NPZ最终哈希
 证明文件身份，不是历史训练过程的完整因果记录。
 

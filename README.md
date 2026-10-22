@@ -302,14 +302,16 @@ Good first issues are labelled on GitHub.
 
 There is also a [`CITATION.cff`](CITATION.cff) if your tool reads it.
 
-## Acknowledgements and scope
+## Scope and references
 
-* The animated demo and the numbers in
-  [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) come from running this tuner
-  against the **motor-valve benchmark (reference) motor-valve benchmark motor model**. That model is benchmark's
-  material: it is **not** redistributed here, and the figures show our own
-  plotted output only. This is a personal side project, not benchmark material, and it
-  is not endorsed by the reference benchmark.
+* **Several test benches, not one.** The method and the shipped head were
+  developed on a synthetic plant zoo (2 000 plants across six families) and
+  checked on ten out-of-distribution control scenarios plus a small generated
+  model (`matlab/make_demo_model.m`). The **motor-valve benchmark model** is
+  simply one more bench: a realistic Simulink plant that happened to be at hand.
+  It is *not* used to train the shipped head, and the repository does not contain
+  it — the demo figures show our own plotted output only. See
+  [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md) for the other benches.
 * **Jev** (TypeSafe AI) and **Laya** (Convai Innovations) inspired the interface
   this project implements. There is no affiliation, endorsement or sponsorship.
 * **MATLAB** / **Simulink** are trademarks of The MathWorks, Inc.

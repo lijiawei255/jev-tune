@@ -5,6 +5,11 @@
 
 > Plant: the motor-valve benchmark DC-motor position loop (`motor_valve_model.slx`,
 > Simscape Multibody butterfly valve, variable-step solver, 30° = 0.5236 rad step).
+> **This is one of several test benches** — the synthetic zoo and ten
+> out-of-distribution scenarios in [`GENERALIZATION.md`](GENERALIZATION.md) are
+> the others. The benchmark is used here because it is a realistic Simulink
+> plant, not because the method was built around it; it is not part of the
+> repository and does not train the shipped head.
 > Machine: Windows, MATLAB R2024b, CPU only.
 
 ## Why the bridge is built this way
@@ -120,6 +125,10 @@ python scripts/07_make_demo.py
 
 > 被控对象：motor-valve benchmark 直流电机位置环（`motor_valve_model.slx`，Simscape
 > Multibody 蝶阀，变步长求解器，30° = 0.5236 rad 阶跃）。
+> **这只是多个实验场之一**——另外还有合成动物园和
+> [`GENERALIZATION.md`](GENERALIZATION.md) 里的 10 个分布外场景。用基准模型，
+> 是因为它是一个比较真实的 Simulink 被控对象，而不是因为方法是围着它做的；
+> 它不在仓库里，也不参与训练出厂权重。
 > 机器：Windows，MATLAB R2024b，纯 CPU。
 
 ### 桥接为什么这么做

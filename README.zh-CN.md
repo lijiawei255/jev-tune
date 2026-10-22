@@ -279,10 +279,12 @@ assets/          README 用到的 GIF 和图片
 
 ## 边界与参考
 
-* 演示动图和 [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) 的数字，来自对
-  **电机阀门基准模型**的调参实验。该模型属于基准材料，
-  **本仓库不转发**，图里只有我们自己画出来的曲线。这是个人项目、不是基准作业，
-  也不代表基准背书。
+* **实验场不止一个。** 方法与出厂权重是在合成植物动物园（2 000 个对象、6 个族）
+  上开发的，随后在 10 个分布外控制场景和一个小型生成模型
+  （`matlab/make_demo_model.m`）上验证。**电机阀门基准模型**
+  只是其中**又一个实验场**：一个刚好在手的、比较真实的 Simulink 被控对象。它
+  *不* 参与训练出厂权重，仓库里也不包含该模型——演示图只展示我们自己绘制的曲线。
+  其余实验场见 [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md)。
 * **Jev**（TypeSafe AI）与 **Laya**（Convai Innovations）启发了本项目实现的接口，
   与之无隶属、无背书关系。
 * **MATLAB** / **Simulink** 是 The MathWorks, Inc. 的商标。
