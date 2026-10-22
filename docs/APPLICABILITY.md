@@ -215,3 +215,79 @@ four ideas transfer to any "take a bounded action, measure, repeat" problem.
 **即使不做 PID 也可以拿走的东西**：`choice / score / noul` 契约、带方差信赖域的
 期望值解码、"专家 = 在同一动作词表上搜索"的训练配方、以及两层安全模式（实测
 最优 + 确定性回滚）。这四个想法适用于任何"做有界动作 → 测量 → 重复"的问题。
+
+---
+
+## If you already have an accurate model, use `pidtune`
+
+This is the question every control engineer asks first, so it deserves a
+straight answer.
+
+`pidtune` is **model-based design**. You hand it an LTI model and a bandwidth or
+phase-margin target; it solves the frequency-domain problem and returns gains.
+It never simulates the plant, never runs an experiment, and on a *correct* model
+it is better than anything in this repository — faster, cheaper, and with
+guarantees you can read off a Bode plot.
+
+| | manual | `pidtune` | this project |
+| :--- | :--- | :--- | :--- |
+| needs a model | no | **yes, and it must be accurate** | no |
+| experiments | many | **0** | 5–20 |
+| time to a result | hours | seconds | seconds (simulation) |
+| if the model is exact | good | **best** | worse (motor-valve benchmark: 0.598 vs the lab's 0.393) |
+| if the model is wrong | varies | **can destabilise** | bounded — never worse than the start |
+| what you tune against | your eye | a bandwidth/phase margin spec | your actual cost function |
+
+Two things people miss:
+
+1. **"Build a model" is the expensive part.** Physical derivation, system
+   identification (`tfest`, `n4sid`) or linearising a Simulink model
+   (`linearize`) at an operating point. The quality of the result is the quality
+   of that model.
+2. **`pidtune` optimises a specification, not your response.** It targets
+   bandwidth and phase margin; if what you actually want is "no overshoot and
+   settle in 2 s", you have to translate that into a spec (or move to
+   `systune` with time-domain constraints) and iterate by hand.
+
+The strongest model-based competitor in our own benchmark is therefore not
+`pidtune` alone but **identify → `pidtune`**: one step test, a FOPDT fit, then a
+design. It reaches 0.74 in **2** experiments; this project reaches 0.47 in 20.
+If two experiments are acceptable to you, that route is excellent value.
+
+**Rule of thumb.** Exact model and a linear-ish plant → `pidtune`. Model
+unavailable, unreliable, or the plant is nonlinear and saturating → this project,
+because it only ever claims "the best gain set I actually measured".
+
+---
+
+## 如果你已经有准确的模型，请直接用 `pidtune`
+
+这是控制工程里最常被问的问题，值得正面回答。
+
+`pidtune` 是**基于模型的设计**：你给它一个 LTI 模型和带宽/相位裕度目标，它在频域解
+方程，直接返回增益。它不仿真被控对象、不做实验；**模型准确时，它比本仓库里任何方法
+都好**——更快、更省，而且有 Bode 图上能读出来的保证。
+
+| | 人工 | `pidtune` | 本项目 |
+| :--- | :--- | :--- | :--- |
+| 需要模型 | 不需要 | **需要，而且必须准** | 不需要 |
+| 实验次数 | 很多 | **0** | 5–20 |
+| 出结果时间 | 几小时 | 几秒 | 几秒（仿真） |
+| 模型准确时 | 好 | **最好** | 较差（motor-valve benchmark：0.598 vs 人工 0.393） |
+| 模型不准时 | 看运气 | **可能发散** | 有界——不比起点差 |
+| 优化对象 | 你的眼睛 | 带宽/相位裕度指标 | 你真实的代价函数 |
+
+两个常被忽略的点：
+
+1. **"建模型"才是贵的部分**：物理推导、系统辨识（`tfest`、`n4sid`），或者对 Simulink
+   模型做工作点线性化（`linearize`）。模型的精度决定了最后的效果。
+2. **`pidtune` 优化的是"指标"，不是"你的响应"**：它盯的是带宽和相位裕度。如果你真正
+   要的是"不许超调、2 秒内稳定"，得自己把这句话翻译成指标（或者改用 `systune` 的时域
+   约束），再反复手调。
+
+所以本仓库基准里最强的"基于模型"对手不是裸 `pidtune`，而是**辨识 → `pidtune`**：
+先做一次阶跃辨识 FOPDT，再设计。它用 **2 次**实验拿到 0.74；本项目用 20 次拿到 0.47。
+如果两次实验你能接受，那条路非常划算。
+
+**一句话规则**：模型准确、对象近似线性 → 用 `pidtune`；模型拿不到、不可信、或者对象
+非线性且会饱和 → 用本项目，因为它只承诺"我实测过的最好那组增益"。
