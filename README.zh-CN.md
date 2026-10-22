@@ -115,11 +115,17 @@ python scripts/10_specialize.py --scenario valve_dead_zone --name valve
 ### 人用
 
 ```bash
+git clone https://github.com/lijiawei255/jev-tune && cd jev-tune
 conda create -n jev-tune python=3.12 -y && conda activate jev-tune
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -e .
-jev-tune demo            # 12 个留出对象，决策头 vs CMA-ES vs Z-N，约 20 秒
+jev-tune demo            # 12 个未见对象，决策头 vs CMA-ES vs Z-N，约 20 秒
 ```
+
+**请 clone，不要 `pip install jev-tune`。** MATLAB 桥（`matlab/*.m`）和权重
+（`models/`，600 KB）跟着仓库走，PyPI 上的 wheel 会是一个不完整的包：命令能跑，
+但找不到真正干活的东西。仓库本身就是分发单元——不需要 PyPI、Docker 或 GPU。
+`git clone` 慢的话，用绿色的 **Code → Download ZIP** 得到同一棵树。
 
 ### Agent 用
 

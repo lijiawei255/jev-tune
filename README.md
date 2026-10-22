@@ -128,11 +128,19 @@ Measured on a family the head had never seen: median cost **2.242 → 1.152
 ### Human
 
 ```bash
+git clone https://github.com/lijiawei255/jev-tune && cd jev-tune
 conda create -n jev-tune python=3.12 -y && conda activate jev-tune
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -e .
 jev-tune demo            # 12 held-out plants, head vs CMA-ES vs Z-N, ~20 s
 ```
+
+**Clone, do not `pip install jev-tune`.** The MATLAB bridge (`matlab/*.m`) and
+the trained weights (`models/`, 600 KB) travel with the repository, so a wheel
+from PyPI would be an incomplete package — the command would run and then fail
+to find the thing that does the work. The repository *is* the distribution unit;
+nothing here needs PyPI, Docker or a GPU. If `git clone` is slow on your
+network, the green **Code → Download ZIP** button gives the same tree.
 
 ### Agent
 
