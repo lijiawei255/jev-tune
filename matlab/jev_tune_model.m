@@ -271,6 +271,10 @@ for it = 0:iters-1
         fprintf('[jev] stopping: the model does not simulate at these gains\n');
         break
     end
+    if ~isfinite(bestJ) && nRollbacks >= 2
+        fprintf('[jev] stopping: nothing has simulated successfully yet\n');
+        break
+    end
 
     [feats, curves] = jev_state(M, t, y, u, gains, gzn, ku, tu, ...
         prevAction, prevCost, J, it, stopTime, refCmd);
@@ -311,6 +315,11 @@ catch err
     fprintf('[jev] re-running the best gains failed (%s); keeping the recorded result\n', ...
         short_msg(err.message));
     t = bestT; y = bestY; u = bestU; J = bestJ;
+    if isempty(y)
+        error('jev:no_signal', ...
+            ['no experiment produced a usable response; the model did not ' ...
+             'simulate at any gain set (last error: %s)'], short_msg(err.message));
+    end
     M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
 end
 if J < bestJ

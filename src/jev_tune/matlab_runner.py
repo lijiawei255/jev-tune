@@ -224,6 +224,46 @@ def run_discover(
         return result
 
 
+def run_all_loops(
+    model: str,
+    *,
+    work_dir: str | None = None,
+    iters: int = 20,
+    units=None,
+    timeout: int = 3600,
+) -> dict:
+    """Tune every independent loop of a model, carrying the gains forward.
+
+    Discovery runs first and refuses a cascade, so this only ever fires on a
+    model with several *independent* loops (a gantry with four axes). The last
+    copy written contains every loop's gains.
+    """
+    info = find_matlab()
+    if not info.ok:
+        return {"ok": False, "code": "matlab_missing",
+                "error": "MATLAB not found; set MATLAB_EXE or add matlab to PATH"}
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        cfg_file = tmp_path / "all.json"
+        out_file = tmp_path / "all.out.json"
+        cfg = {"model": str(Path(model).resolve()), "iters": int(iters)}
+        if work_dir:
+            cfg["work_dir"] = work_dir
+        cfg_file.write_text(json.dumps(cfg), encoding="utf-8")
+        code = (
+            f"addpath('{MATLAB_DIR.as_posix()}'); "
+            f"jev_tune_all('{cfg_file.as_posix()}','{out_file.as_posix()}');"
+        )
+        proc = run_matlab(code, timeout=timeout, matlab=info)
+        if not out_file.is_file():
+            return {"ok": False, "code": "tune_failed",
+                    "error": "MATLAB produced no result file",
+                    "stderr": proc.stderr[-2000:], "stdout": proc.stdout[-4000:]}
+        result = json.loads(out_file.read_text(encoding="utf-8"))
+        result["matlab"] = str(info.executable)
+        return result
+
+
 def run_writeback(
     model: str,
     gains: list[float],

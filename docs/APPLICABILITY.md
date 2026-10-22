@@ -401,3 +401,108 @@ def measure(gains) -> tuple[t, y, u]:
 诚实地说：换适配器不会让方法变差，但会稀释**可信度**——README 里的数字全部来自
 Simulink 上的实测。新增适配器时请按同样的标准报告数字，并跑一遍
 `scripts/11_robustness.py` 那样的"不比起点差"检查。
+
+---
+
+## Several loops in one model
+
+The tuner edits **one controller per run**. What that means depends on how the
+loops relate:
+
+| topology | what happens | status |
+| :--- | :--- | :--- |
+| one loop | `jev-tune matlab --auto` | measured, see `docs/STEP4_RESULTS.md` |
+| several **independent** loops (four axes, three oven zones) | `--all-loops` tunes each, carries the gains forward, writes one file with all of them | measured on a two-loop model: 2/2 loops tuned, both gain sets present in the final copy |
+| **cascade** (inner current loop inside an outer speed loop) | **refused** with `cascade_suspect` | measured: a hand-built cascade is detected and not tuned |
+| MIMO / decoupling / MPC | out of scope | documented, not attempted |
+
+### Why a cascade is refused rather than attempted
+
+Tuning the outer loop of a cascade *with the inner loop closed* is legitimate
+engineering practice. Tuning it and reporting "your model is tuned" is not: the
+inner gains were never touched, and the outer result is only valid for the inner
+gains it happened to inherit. Since the honest version of that message is long
+and the wrong version is short, the tool stops and says which loops it found.
+
+Three independent signals trigger it, and any one is enough:
+
+* more than one masked PID block in the model;
+* two *verified* loops whose measured signals sit inside each other's forward
+  path (nesting);
+* two integrators **and** more than three scalar gains between the error
+  junction and the measured signal — one PID loop has one integrator and three
+  gains; a PI-in-PI cascade has two and four.
+
+The last rule is the one that catches a cascade built by hand from Gain and
+Integrator blocks, because that is invisible to a block-count and its inner
+error junction is hidden inside the outer loop's forward path.
+
+### What the inner-then-outer workflow needs
+
+Not implemented, and deliberately not claimed:
+
+1. enumerate the loops and their nesting order (the discovery code already
+   produces the list, it is the ordering that is untested);
+2. open or freeze the outer loop on a *copy* while the inner one is tuned — this
+   edits topology, and a wrong edit introduces an algebraic loop;
+3. re-tune the outer loop afterwards and report the coupling honestly.
+
+Until that exists the recommended path is manual and explicit: name the inner
+loop's blocks with `--kp-block/--ki-block/--kd-block`, tune it, then repeat for
+the outer loop against the saved `_tuned.slx`. It works today; it is just not
+automatic.
+
+### One practical trap
+
+Tuning loop A can make the model stiff (a high gain with a transport delay is
+enough), and a variable-step solver then crawls through **every** subsequent
+experiment, including loop B's. If a chained run slows down by an order of
+magnitude, switch the model to a fixed step before deciding that the tuner is
+slow: on the two-loop test model that changed 500 s to 40 s.
+
+
+---
+
+## 一个模型里有多个回路
+
+调参器**每次只改一个控制器**。这句话的含义取决于回路之间的关系：
+
+| 拓扑 | 行为 | 状态 |
+| :--- | :--- | :--- |
+| 单回路 | `jev-tune matlab --auto` | 已实测，见 `docs/STEP4_RESULTS.md` |
+| 多个**互相独立**的回路（四轴、三温区） | `--all-loops` 逐个调、增益累积写回同一个文件 | 在双回路模型上实测：2/2 全部调通，两套增益都在最终文件里 |
+| **串级**（内环电流套在外环速度里） | **拒绝**，返回 `cascade_suspect` | 实测：手搭的串级能被识别且不会被调 |
+| MIMO / 解耦 / MPC | 不在范围内 | 已写明，不尝试 |
+
+### 为什么串级是拒绝而不是硬调
+
+"内环已闭合时调外环"本身是正当的工程做法。但调完外环就报告"你的模型调好了"不是：
+内环增益根本没动过，而外环的结果只对它恰好继承的那组内环增益成立。诚实的说法很长，
+错误的说法很短——所以工具停下来，告诉你它找到了哪几个回路。
+
+三个独立信号任一命中即拒绝：
+
+* 模型里有多个掩码 PID 块；
+* 两个**已验证**回路的被测量互相落在对方的前向路径里（嵌套）；
+* 误差汇合点到被测量之间有**两个积分器且标量增益多于三个**——单个 PID 回路是一个
+  积分器、三个增益；PI 套 PI 的串级是两个积分器、四个增益。
+
+最后这条专门抓"用 Gain + Integrator 手搭的串级"：数块数量抓不到它，而它的内环误差
+汇合点藏在外环的前向路径里。
+
+### 先内后外需要什么
+
+没有实现，也刻意不声称支持：
+
+1. 枚举回路并排出嵌套顺序（发现器已经能给出列表，未验证的是排序）；
+2. 调内环时在**副本**上断开或冻结外环——这是改拓扑，改错会引入代数环；
+3. 之后再调外环，并如实报告耦合。
+
+在它存在之前，推荐的做法是手动且明确：用 `--kp-block/--ki-block/--kd-block`
+点名内环的三个块，调完；再对着保存下来的 `_tuned.slx` 调外环。今天就能做，只是不自动。
+
+### 一个实际会踩的坑
+
+调完 A 回路会让模型变刚（高增益 + 传输延迟就够了），变步长求解器随后会在**每一次**
+实验上慢慢爬，包括 B 回路的实验。如果串行调参突然慢了一个数量级，先把模型改成定步长
+再判断是不是调参器的问题：在双回路测试模型上，这一步把 500 秒变成了 40 秒。

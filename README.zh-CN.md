@@ -27,6 +27,11 @@ jev-tune matlab --model MyMotor.slx --auto --plot before_after.png --write-back
 不需要改块名，不需要有个叫 `Scope_Position` 的示波器，也不用自己算参考值。
 如果模型有歧义，命令会如实返回 `confidence: medium` 而不是瞎猜，Agent 只问你一个问题。
 
+**一个模型里有多个回路？** 互相独立的多回路（四轴、三温区）用 `--all-loops`
+逐个调、增益累积写回同一个文件。**串级会被明确拒绝**：返回 `cascade_suspect`
+并列出它找到的回路——只调其中一环却报告"成功"，比直接说"不调"更糟。详见
+[`docs/APPLICABILITY.md`](docs/APPLICABILITY.md#一个模型里有多个回路)。
+
 ## 从哪读起
 
 | 我想…… | 去看 |

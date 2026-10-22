@@ -43,6 +43,12 @@ No block renames, no scope called `Scope_Position`, no reference typed by hand.
 When the model is ambiguous the command says `confidence: medium` instead of
 guessing, and the agent asks you one question.
 
+**Several loops in one model?** Independent loops (four axes, three zones) are
+tuned one after another with `--all-loops`. A **cascade** is refused on purpose:
+`cascade_suspect` comes back with the loops it found, because tuning one loop of
+a cascade and reporting success would be worse than saying so. See
+[`docs/APPLICABILITY.md`](docs/APPLICABILITY.md#several-loops-in-one-model).
+
 ## Where to read next
 
 | I want to… | go to |

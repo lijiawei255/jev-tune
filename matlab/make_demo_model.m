@@ -36,6 +36,14 @@ switch lower(variant)
     otherwise, den = '[1 0.6 1]';
 end
 
+if strcmpi(variant, 'two_loops')
+    build_two_loops(mdl, outDir, dst);
+    return
+elseif strcmpi(variant, 'cascade')
+    build_cascade(mdl, outDir, dst);
+    return
+end
+
 add_block('simulink/Sources/Step', [mdl '/Step'], ...
     'Time', '1', 'Before', '0', 'After', '1', 'Position', [30 100 60 130]);
 add_block('simulink/Math Operations/Sum', [mdl '/Sum_Error'], ...
@@ -165,4 +173,123 @@ add_line(c, 'Sat/1', 'aw_err/1', 'autorouting', 'on');
 add_line(c, 'Sum_Ctrl/1', 'aw_err/2', 'autorouting', 'on');
 add_line(c, 'aw_err/1', 'Kaw/1', 'autorouting', 'on');
 add_line(c, 'Kaw/1', 'int_in/2', 'autorouting', 'on');
+end
+
+% -------------------------------------------------------------------------
+function build_two_loops(mdl, outDir, dst)
+% Two unrelated position loops in one model, with names that say nothing.
+% Discovery must see two loops, not one ambiguous one, and --all-loops must be
+% able to tune both without either one starting from the other's copy.
+loop(mdl, 'a', 1, '1', '[1 0.6 1]', 1.0);
+loop(mdl, 'b', 2, '1', '[1 1]', 0.6);
+% A fixed step keeps this fixture fast: after loop a is tuned it becomes stiff,
+% and a variable-step solver would then crawl through *both* loops on every
+% experiment.  That slowdown is real engineering behaviour, not a bug, so the
+% fixture avoids it and the docs mention it.
+set_param(mdl, 'StopTime', '10', 'Solver', 'ode4', ...
+    'FixedStep', '0.0005', 'SaveTime', 'on');
+save_system(mdl, dst);
+close_system(mdl, 0);
+fprintf('[demo] built %s (two_loops)\n', dst);
+end
+
+function loop(mdl, tag, y, num, den, amp)
+% One closed loop: Step -> Sum(+,-) -> Gain x3 -> Plant -> Delay -> back.
+add_block('simulink/Sources/Step', [mdl '/Step_' tag], ...
+    'Time', '1', 'Before', '0', 'After', num2str(amp), ...
+    'Position', [30 y*140 60 y*140+30]);
+add_block('simulink/Math Operations/Sum', [mdl '/dSum_' tag], ...
+    'Inputs', '+-', 'Position', [100 y*140 120 y*140+24]);
+add_block('simulink/Math Operations/Gain', [mdl '/k_' tag '_1'], ...
+    'Gain', '2', 'Position', [170 y*140-40 210 y*140-10]);
+add_block('simulink/Continuous/Integrator', [mdl '/i_' tag], ...
+    'Position', [170 y*140 190 y*140+20]);
+add_block('simulink/Math Operations/Gain', [mdl '/k_' tag '_2'], ...
+    'Gain', '3', 'Position', [215 y*140 255 y*140+30]);
+% filtered derivative (s/(0.01s+1)), the way a real controller does it:
+% a raw Derivative block produces an unbounded spike on the step edge, which a
+% fixed-step solver cannot integrate
+add_block('simulink/Continuous/Transfer Fcn', [mdl '/d_' tag], ...
+    'Numerator', '[1 0]', 'Denominator', '[0.01 1]', ...
+    'Position', [165 y*140+40 205 y*140+70]);
+add_block('simulink/Math Operations/Gain', [mdl '/k_' tag '_3'], ...
+    'Gain', '0.05', 'Position', [215 y*140+40 255 y*140+70]);
+add_block('simulink/Math Operations/Sum', [mdl '/dSum_' tag '_u'], ...
+    'Inputs', '+++', 'Position', [290 y*140 310 y*140+50]);
+add_block('simulink/Continuous/Transfer Fcn', [mdl '/plant_' tag], ...
+    'Numerator', num, 'Denominator', den, ...
+    'Position', [340 y*140 410 y*140+40]);
+
+add_line(mdl, ['Step_' tag '/1'], ['dSum_' tag '/1'], 'autorouting', 'on');
+add_line(mdl, ['dSum_' tag '/1'], ['k_' tag '_1/1'], 'autorouting', 'on');
+add_line(mdl, ['dSum_' tag '/1'], ['i_' tag '/1'], 'autorouting', 'on');
+add_line(mdl, ['i_' tag '/1'], ['k_' tag '_2/1'], 'autorouting', 'on');
+add_line(mdl, ['dSum_' tag '/1'], ['d_' tag '/1'], 'autorouting', 'on');
+add_line(mdl, ['d_' tag '/1'], ['k_' tag '_3/1'], 'autorouting', 'on');
+add_line(mdl, ['k_' tag '_1/1'], ['dSum_' tag '_u/1'], 'autorouting', 'on');
+add_line(mdl, ['k_' tag '_2/1'], ['dSum_' tag '_u/2'], 'autorouting', 'on');
+add_line(mdl, ['k_' tag '_3/1'], ['dSum_' tag '_u/3'], 'autorouting', 'on');
+add_line(mdl, ['dSum_' tag '_u/1'], ['plant_' tag '/1'], 'autorouting', 'on');
+add_line(mdl, ['plant_' tag '/1'], ['dSum_' tag '/2'], 'autorouting', 'on');
+end
+
+function build_cascade(mdl, outDir, dst)
+% The canonical cascade, built by hand (Gain + Integrator, no masked block) so
+% the *structural* guard is what catches it, not a PID-block count:
+%   speed loop (slow):  w_err  -> ka + kb/s -> i_ref
+%   current loop (fast): i_err -> kc + kd/s -> voltage
+%   armature 1/(0.05 s + 1), mechanics 1/(0.5 s + 1)
+% The inner reference is the outer controller's output, so these are not two
+% independent loops and the tuner must refuse rather than pick one.
+add_block('simulink/Sources/Step', [mdl '/w_ref'], ...
+    'Time', '1', 'Before', '0', 'After', '1', 'Position', [20 100 50 130]);
+add_block('simulink/Math Operations/Sum', [mdl '/w_err'], ...
+    'Inputs', '+-', 'Position', [90 103 110 127]);
+
+add_block('simulink/Math Operations/Gain', [mdl '/ka'], 'Gain', '2', ...
+    'Position', [150 70 190 100]);
+add_block('simulink/Continuous/Integrator', [mdl '/ib'], ...
+    'Position', [150 110 170 130]);
+add_block('simulink/Math Operations/Gain', [mdl '/kb'], 'Gain', '3', ...
+    'Position', [195 110 235 140]);
+add_block('simulink/Math Operations/Sum', [mdl '/w_sum'], 'Inputs', '++', ...
+    'Position', [280 95 300 140]);
+
+add_block('simulink/Math Operations/Sum', [mdl '/i_err'], ...
+    'Inputs', '+-', 'Position', [340 103 360 127]);
+add_block('simulink/Math Operations/Gain', [mdl '/kc'], 'Gain', '2', ...
+    'Position', [400 70 440 100]);
+add_block('simulink/Continuous/Integrator', [mdl '/id'], ...
+    'Position', [400 110 420 130]);
+add_block('simulink/Math Operations/Gain', [mdl '/kd'], 'Gain', '3', ...
+    'Position', [445 110 485 140]);
+add_block('simulink/Math Operations/Sum', [mdl '/i_sum'], 'Inputs', '++', ...
+    'Position', [530 95 550 140]);
+
+add_block('simulink/Continuous/Transfer Fcn', [mdl '/armature'], ...
+    'Numerator', '1', 'Denominator', '[0.05 1]', 'Position', [590 95 660 135]);
+add_block('simulink/Continuous/Transfer Fcn', [mdl '/mech'], ...
+    'Numerator', '1', 'Denominator', '[0.5 1]', 'Position', [700 95 770 135]);
+
+add_line(mdl, 'w_ref/1', 'w_err/1', 'autorouting', 'on');
+add_line(mdl, 'w_err/1', 'ka/1', 'autorouting', 'on');
+add_line(mdl, 'w_err/1', 'ib/1', 'autorouting', 'on');
+add_line(mdl, 'ib/1', 'kb/1', 'autorouting', 'on');
+add_line(mdl, 'ka/1', 'w_sum/1', 'autorouting', 'on');
+add_line(mdl, 'kb/1', 'w_sum/2', 'autorouting', 'on');
+add_line(mdl, 'w_sum/1', 'i_err/1', 'autorouting', 'on');
+add_line(mdl, 'i_err/1', 'kc/1', 'autorouting', 'on');
+add_line(mdl, 'i_err/1', 'id/1', 'autorouting', 'on');
+add_line(mdl, 'id/1', 'kd/1', 'autorouting', 'on');
+add_line(mdl, 'kc/1', 'i_sum/1', 'autorouting', 'on');
+add_line(mdl, 'kd/1', 'i_sum/2', 'autorouting', 'on');
+add_line(mdl, 'i_sum/1', 'armature/1', 'autorouting', 'on');
+add_line(mdl, 'armature/1', 'mech/1', 'autorouting', 'on');
+add_line(mdl, 'mech/1', 'w_err/2', 'autorouting', 'on');
+add_line(mdl, 'armature/1', 'i_err/2', 'autorouting', 'on');
+
+set_param(mdl, 'StopTime', '10', 'Solver', 'ode45', 'SaveTime', 'on');
+save_system(mdl, dst);
+close_system(mdl, 0);
+fprintf('[demo] built %s (cascade)\n', dst);
 end

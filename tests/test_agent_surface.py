@@ -46,6 +46,7 @@ def test_matlab_accepts_the_agent_flags():
         "--plot",
         "--pid-block",
         "--instrument-port",
+        "--all-loops",
     ):
         assert flag in proc.stdout, flag
 
@@ -86,6 +87,20 @@ def test_loop_command_tunes_without_matlab():
     assert data["ok"] is True
     assert data["final_J"] <= data["start_J"]
     assert len(data["final_gains"]) == 3
+
+
+def test_all_loops_without_matlab_reports_a_code(monkeypatch):
+    from jev_tune import matlab_runner
+
+    class _Missing:
+        ok = False
+        executable = None
+        source = "none"
+
+    monkeypatch.setattr(matlab_runner, "find_matlab", lambda: _Missing())
+    result = matlab_runner.run_all_loops("nope.slx")
+    assert result["ok"] is False
+    assert result["code"] == "matlab_missing"
 
 
 def test_mcp_exposes_discover_and_writeback():

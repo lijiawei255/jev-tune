@@ -29,7 +29,12 @@ end
 [srcDir, stem, ext] = fileparts(mdlPath);
 if isempty(cfg.out_dir), cfg.out_dir = srcDir; end
 if ~isfolder(cfg.out_dir), mkdir(cfg.out_dir); end
-target = fullfile(cfg.out_dir, [stem cfg.suffix ext]);
+if isfield(cfg, 'target') && ~isempty(cfg.target)
+    % chained runs (jev_tune_all) name the file themselves
+    target = cfg.target;
+else
+    target = fullfile(cfg.out_dir, [stem cfg.suffix ext]);
+end
 out.target = target;
 
 tmpDir = tempname;
@@ -78,6 +83,11 @@ try
     save_system(mdl, target);
     out.ok = true;
     out.code = '';
+    % save_system may rename the in-memory model after the new file name; close
+    % by name so a chained run does not leave the previous copy open and locked
+    close_named(mdl);
+    [~, targetStem] = fileparts(target);
+    close_named(targetStem);
 catch err
     out.code = 'writeback_failed';
     out.error = err.message;
@@ -96,6 +106,16 @@ for k = 1:numel(f)
     if ~isfield(cfg, f{k}) || isempty(cfg.(f{k}))
         cfg.(f{k}) = d.(f{k});
     end
+end
+end
+
+function close_named(name)
+try
+    if bdIsLoaded(name)
+        try, set_param(name, 'FastRestart', 'off'); catch, end
+        close_system(name, 0);
+    end
+catch
 end
 end
 

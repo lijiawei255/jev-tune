@@ -23,9 +23,11 @@ cases = {};
 cases{end+1} = check_gains(workRoot);
 cases{end+1} = check_nested(workRoot);
 cases{end+1} = check_pid_block(workRoot);
+cases{end+1} = check_cascade_refused(workRoot);
 if doTune
     cases{end+1} = check_autotune(workRoot);
     cases{end+1} = check_pid_form_equivalence(workRoot);
+    cases{end+1} = check_two_loops(workRoot);
 end
 
 T = struct('ok', all(cellfun(@(c) c.pass, cases)), 'cases', {cases}, ...
@@ -136,7 +138,57 @@ R = jev_tune_json(job, fullfile(workRoot, [name '_out.json']));
 if R.ok, j = R.final_J; end
 end
 
-% -------------------------------------------------------------------------
+function c = check_cascade_refused(workRoot)
+% A hand-built cascade must be refused, not silently tuned as one loop.  This is
+% the case the old code got wrong: it picked a junction and reported success.
+c = struct('name', 'cascade', 'pass', false, 'detail', '');
+make_demo_model(workRoot, 'cascade', struct('name', 'tc_cascade'));
+D = jev_discover(fullfile(workRoot, 'tc_cascade.slx'), ...
+    struct('work_dir', fullfile(workRoot, 'wd_cascade')));
+c.pass = ~D.ok && strcmp(D.code, 'cascade_suspect');
+detail = sprintf('ok=%d code=%s', D.ok, getfield_default(D, 'code', '-'));
+if isfield(D, 'controller') && isfield(D.controller, 'n_integrators')
+    detail = sprintf('%s (gains=%d, integrators=%d)', detail, ...
+        D.controller.n_gains, D.controller.n_integrators);
+end
+c.detail = detail;
+end
+
+function c = check_two_loops(workRoot)
+% Two independent loops: discovery must see both, and --all-loops must leave
+% both gain sets in the final file.
+c = struct('name', 'two_loops', 'pass', false, 'detail', '');
+make_demo_model(workRoot, 'two_loops', struct('name', 'tc_two'));
+D = jev_discover(fullfile(workRoot, 'tc_two.slx'), ...
+    struct('probe', false, 'all_loops', true, 'work_dir', fullfile(workRoot, 'wd_two')));
+nVerified = sum([D.loops.verified]);
+if nVerified < 2
+    c.detail = sprintf('%d verified loops', nVerified);
+    return
+end
+cfg = struct('model', fullfile(workRoot, 'tc_two.slx'), ...
+    'work_dir', fullfile(workRoot, 'wd_two_all'), 'iters', 4);
+job = fullfile(workRoot, 'two_job.json');
+fid = fopen(job, 'w');
+fwrite(fid, jsonencode(cfg), 'char');
+fclose(fid);
+R = jev_tune_all(job, fullfile(workRoot, 'two_out.json'));
+c.pass = R.ok && R.n_tuned == 2 && isfile(R.target);
+% both loops' gains must be in the copy, not just the last one written
+a1 = NaN; b1 = NaN;
+try
+    load_system(R.target);
+    [~, nm] = fileparts(R.target);
+    a1 = str2double(get_param([nm '/k_a_1'], 'Gain'));
+    b1 = str2double(get_param([nm '/k_b_1'], 'Gain'));
+    bdclose(nm);
+catch
+end
+c.pass = c.pass && isfinite(a1) && isfinite(b1) && a1 ~= 2 && b1 ~= 2;
+c.detail = sprintf('%d/%d tuned, %d experiments, k_a_1=%s k_b_1=%s', ...
+    R.n_tuned, R.n_loops, R.total_experiments, num2str(a1), num2str(b1));
+end
+
 function v = getfield_default(s, name, default)
 if isstruct(s) && isfield(s, name) && ~isempty(s.(name))
     v = s.(name);

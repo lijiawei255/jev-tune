@@ -63,7 +63,7 @@ end
 cleanup = onCleanup(@() safe_close(mdl)); %#ok<NASGU>
 warning('off', 'all');
 
-stopTime = model_stop_time(mdl, D);
+[stopTime, D] = model_stop_time(mdl, D);
 D.stop_time = stopTime;
 
 % ------------------------------------------------------------------ structure
@@ -80,28 +80,77 @@ if isempty(cands)
         'explicitly, or check that the model has one feedback loop with a Sum error'];
     return
 end
-[errSum, refIdx, fbIdx] = choose_junction(mdl, cands, stopTime, D);
-D.n_junction_candidates = numel(cands);
-D.error_junction = strrep(errSum, [mdl '/'], '');
 
-[measure, mport] = resolved_src_port(errSum, fbIdx);
-if isempty(measure)
-    D.code = 'no_measurement';
-    D.error = 'the feedback input of the error junction has no source';
+% ------------------------------------------------------------ how many loops
+% Each candidate gets one cheap run: at a real error junction the reference and
+% the steady-state output are the same quantity, so their magnitudes agree.
+% Counting the survivors is what tells one loop from two, and a loop from a
+% summing point inside the plant.
+[junctions, D] = evaluate_junctions(mdl, cands, stopTime, D);
+D.n_junction_candidates = numel(junctions);
+D.loops = describe_loops(junctions, mdl);
+
+verified = [junctions.verified];
+nVerified = sum(verified);
+if nVerified == 0
+    D.code = 'ambiguous_junction';
+    D.error = ['none of the summing junctions could be confirmed as a loop ' ...
+        'error: every candidate failed the run that compares the reference ' ...
+        'with the steady-state output'];
+    D.candidates = {junctions.junction};
+    D.warnings{end+1} = ['the model may need workspace variables before it can ' ...
+        'simulate, or it may have no single-loop error junction'];
     return
 end
-% a Scope cannot be in the feedback path, but a To Workspace / Outport can sit
-% between the amplifier and the junction; keep walking until a real signal.
-measure = unwrap_sink(measure, mdl);
+
+nested = nesting_mask(junctions);
+if nVerified >= 2 && any(nested)
+    D.code = 'cascade_suspect';
+    D.error = ['two verified loops are nested (the inner loop''s measured ' ...
+        'signal sits in the outer loop''s forward path), which is a cascade; ' ...
+        'this tuner tunes one loop'];
+    D.candidates = {junctions(verified).junction};
+    D.warnings{end+1} = ['tune the inner loop first, then the outer one with the ' ...
+        'inner loop closed; see docs/APPLICABILITY.md'];
+    return
+end
+
+if nVerified >= 2 && ~opts.all_loops
+    loopNames = strjoin(cellfun(@(b) strrep(b, [mdl '/'], ''), ...
+        {junctions(verified).junction}, 'UniformOutput', false), ', ');
+    D.warnings{end+1} = sprintf(['%d independent loops found (%s); tuning the ' ...
+        'clearest one. Use --all-loops to tune them all.'], nVerified, loopNames);
+end
+
+% ---------------------------------------------------------------- pick one
+pick = pick_junction(junctions, opts, mdl);
+if pick == 0
+    D.code = 'loop_not_found';
+    D.error = 'the requested loop junction is not one of the verified loops';
+    D.candidates = {junctions.junction};
+    return
+end
+errSum = junctions(pick).junction;
+refIdx = junctions(pick).ref;
+fbIdx = junctions(pick).fb;
+measure = junctions(pick).measure;
+mport = junctions(pick).measure_port;
+refCmd = junctions(pick).reference;
+
+D.error_junction = strrep(errSum, [mdl '/'], '');
 D.measure_block = strrep(measure, [mdl '/'], '');
 D.measure_port = mport;
-D.evidence{end+1} = sprintf('measured signal: %s port %d (feedback into the error junction)', ...
+D.evidence{end+1} = sprintf('error junction: %s (confirmed by a run)', ...
+    D.error_junction);
+D.evidence{end+1} = sprintf('measured signal: %s port %d (feedback into it)', ...
     D.measure_block, mport);
-
-% ---------------------------------------------------------------- reference
-[refCmd, refSrc] = reference_value(mdl, errSum, refIdx);
+if ~isfinite(refCmd)
+    [refCmd, refSrc] = reference_value(mdl, errSum, refIdx);
+    D.reference_source = refSrc;
+else
+    D.reference_source = 'inferred from the reference branch';
+end
 D.reference = refCmd;
-D.reference_source = refSrc;
 
 % ---------------------------------------------------------------- controller
 pidBlocks = {};
@@ -116,20 +165,37 @@ end
 
 if numel(pidBlocks) > 1
     D.code = 'cascade_unsupported';
-    D.warnings{end+1} = sprintf(['%d PID blocks found (%s): this looks like a cascade. ' ...
-        'The tuner handles one loop; asking the user which loop to tune is safer ' ...
-        'than tuning the wrong one.'], numel(pidBlocks), strjoin(names(pidBlocks, mdl), ', '));
+    D.error = sprintf('%d PID blocks found: this looks like a cascade', numel(pidBlocks));
+    D.warnings{end+1} = sprintf(['the tuner handles one loop; the blocks are %s. ' ...
+        'Ask the user which loop to tune.'], strjoin(names(pidBlocks, mdl), ', '));
     D.candidates = names(pidBlocks, mdl);
     return
 end
 
 controller = struct('kind', 'unknown');
 if numel(pidBlocks) == 1
-    controller = pid_block_config(pidBlocks{1}, mdl, D);
+    [controller, D] = pid_block_config(pidBlocks{1}, mdl, D);
 else
-    [controller, ok] = three_gain_config(mdl, blks, errSum, measure, opts, D);
+    [controller, ok, D] = three_gain_config(mdl, blks, errSum, measure, opts, D);
     if ~ok, return; end
 end
+
+% A hand-built cascade does not show up as two PID blocks: from the outer
+% junction the inner loop is just part of the plant.  Two integrators in the
+% controller region plus more gains than a PID needs is that case, and it is
+% refused rather than tuned as if it were one loop.
+if strcmp(controller.kind, 'three_gains') && ...
+        controller.n_integrators >= 2 && controller.n_gains >= 4
+    D.code = 'cascade_suspect';
+    D.error = sprintf(['%d integrators and %d scalar gains sit between the ' ...
+        'error junction and the measured signal; one PID loop has one ' ...
+        'integrator and three gains'], controller.n_integrators, controller.n_gains);
+    D.candidates = controller.candidates;
+    D.warnings{end+1} = ['this is probably a cascade or two controllers in one ' ...
+        'path; tune the inner loop first, or name the blocks explicitly'];
+    return
+end
+
 D.controller = controller;
 D.cfg = build_cfg(mdl, D, controller, measure, refCmd, stopTime);
 
@@ -140,7 +206,7 @@ end
 
 % ------------------------------------------------------------------ verdict
 D.ok = true;
-D.confidence = verdict(D, controller);
+D.confidence = verdict(D, D.controller);
 if strcmp(D.confidence, 'low')
     D.code = 'ambiguous_controller';
     D.warnings{end+1} = ['low confidence: ask the user which blocks are Kp/Ki/Kd ' ...
@@ -381,43 +447,107 @@ else
 end
 end
 
-function [best, refIdx, fbIdx] = choose_junction(mdl, cands, stopTime, D)
-% Structure cannot tell an error junction from a summing point inside the
-% plant.  Behaviour can: at a real error junction the reference and the
-% steady-state output are the same physical quantity, so their magnitudes
-% agree.  A load-torque sum fails that test badly (newton-metres vs rad/s).
-best = cands(1).sum; refIdx = cands(1).ref; fbIdx = cands(1).fb;
-if numel(cands) == 1, return; end
-n = min(numel(cands), 3);
-gap = inf(1, n);
+function [junctions, D] = evaluate_junctions(mdl, cands, stopTime, D) %#ok<INUSD>
+% One run per candidate junction, capped so a model full of sums stays cheap.
+% A candidate is "verified" when the reference and the steady-state output agree
+% in magnitude: that is what separates an error junction from a summing point
+% inside the plant (a torque balance compares newton-metres with rad/s).
+n = min(numel(cands), 5);
+oneCandidate = (numel(cands) == 1);
+junctions = struct('junction', {}, 'ref', {}, 'fb', {}, 'measure', {}, ...
+    'measure_port', {}, 'reference', {}, 'gap', {}, 'verified', {}, 'region', {});
 for k = 1:n
-    [m, mp] = resolved_src_port(cands(k).sum, cands(k).fb);
+    j = cands(k).sum;
+    [m, mp] = resolved_src_port(j, cands(k).fb);
     if isempty(m), continue; end
     [m, mp] = unwrap_sink(m, mdl, mp);
-    if ~jev_instrument(mdl, m, 'jev_junction_probe', mp), continue; end
-    [~, y] = simulate(mdl, stopTime, 'jev_junction_probe');
-    if isempty(y), continue; end
-    yss = abs(median(y(max(1, round(0.8 * numel(y))):end)));
-    rv = reference_value(mdl, cands(k).sum, cands(k).ref);
-    if isfinite(rv) && rv > 1e-9 && yss > 1e-9
-        gap(k) = abs(log(rv / yss));
+    entry = struct('junction', j, 'ref', cands(k).ref, 'fb', cands(k).fb, ...
+        'measure', m, 'measure_port', mp, 'reference', NaN, ...
+        'gap', NaN, 'verified', false, 'region', {{}});
+    [rv, ~] = reference_value(mdl, j, cands(k).ref);
+    entry.reference = rv;
+    ran = false;
+    if jev_instrument(mdl, m, 'jev_junction_probe', mp)
+        [~, y] = simulate(mdl, stopTime, 'jev_junction_probe');
+        if ~isempty(y)
+            ran = true;
+            yss = abs(median(y(max(1, round(0.8 * numel(y))):end)));
+            if isfinite(rv) && rv > 1e-9 && yss > 1e-9
+                % The reference and the measured signal are the same physical
+                % quantity at a real error junction, so their magnitudes are
+                % within one decade.  A torque balance compares newton-metres
+                % with rad/s and fails this; a loop that merely starts from bad
+                % gains still passes, which matters because that is the normal
+                % case for a model somebody wants tuned.
+                entry.gap = abs(log(rv / yss));
+                entry.verified = entry.gap < log(5);
+                entry.region = forward_set(j, m, 12);
+            end
+        end
     end
-end
-[g, win] = min(gap);
-if ~isfinite(g)
-    D.warnings{end+1} = ['the error junction could not be verified by a run; ' ...
-        'keeping the structural best guess'];
-    delete_probe_scope(mdl, 'jev_junction_probe');
-    return
-end
-best = cands(win).sum; refIdx = cands(win).ref; fbIdx = cands(win).fb;
-D.junction_agreement = exp(-g);
-if win > 1
-    D.evidence{end+1} = sprintf(['junction verified by a run: %s ' ...
-        '(reference/output magnitude ratio %.2f)'], ...
-        strrep(best, [mdl '/'], ''), exp(-g));
+    if ~ran && oneCandidate
+        % One structural candidate and no run to check it: keep going and let
+        % the tuner report the real problem (usually missing workspace
+        % variables).  Refusing here would blame the discovery for a model that
+        % simply cannot simulate yet.
+        entry.verified = true;
+    end
+    junctions(end+1) = entry; %#ok<AGROW>
 end
 delete_probe_scope(mdl, 'jev_junction_probe');
+end
+
+function mask = nesting_mask(junctions)
+% A loop is nested in another when its measured signal appears in the other
+% loop's forward path.  Two independent loops never do that to each other.
+n = numel(junctions);
+mask = false(n, 1);
+for i = 1:n
+    if ~junctions(i).verified, continue; end
+    for j = 1:n
+        if i == j || ~junctions(j).verified || isempty(junctions(j).region), continue; end
+        if any(strcmp(junctions(i).measure, junctions(j).region))
+            mask(i) = true;
+        end
+    end
+end
+end
+
+function idx = pick_junction(junctions, opts, mdl)
+% The clearest verified loop, unless the caller named one.  The name may be
+% model-relative ("dSum_a", what D.loops reports) or a full path.
+idx = 0;
+if isfield(opts, 'loop_junction') && ~isempty(opts.loop_junction)
+    want = opts.loop_junction;
+    for k = 1:numel(junctions)
+        short = strrep(junctions(k).junction, [mdl '/'], '');
+        if strcmp(short, want) || strcmp(junctions(k).junction, want)
+            idx = k; return
+        end
+    end
+    return
+end
+best = inf;
+for k = 1:numel(junctions)
+    if junctions(k).verified && junctions(k).gap < best
+        best = junctions(k).gap; idx = k;
+    end
+end
+end
+
+function L = describe_loops(junctions, mdl)
+% Serialisable summary of what was found, for the agent and for --all-loops.
+L = struct('junction', {}, 'measure', {}, 'measure_port', {}, 'reference', {}, ...
+    'gap', {}, 'verified', {});
+for k = 1:numel(junctions)
+    L(end+1) = struct( ...
+        'junction', strrep(junctions(k).junction, [mdl '/'], ''), ...
+        'measure', strrep(junctions(k).measure, [mdl '/'], ''), ...
+        'measure_port', junctions(k).measure_port, ...
+        'reference', junctions(k).reference, ...
+        'gap', junctions(k).gap, ...
+        'verified', junctions(k).verified); %#ok<AGROW>
+end
 end
 
 function delete_probe_scope(mdl, scope)
@@ -517,7 +647,7 @@ end
 % =========================================================================
 %  controller
 % =========================================================================
-function c = pid_block_config(blk, mdl, D)
+function [c, D] = pid_block_config(blk, mdl, D)
 c = struct('kind', 'pid_block', 'block', strrep(blk, [mdl '/'], ''), ...
     'confidence', 0.95, 'form', 'Parallel', 'p', NaN, 'i', NaN, 'd', NaN);
 src = safe_get(blk, 'ControllerParametersSource', 'internal');
@@ -550,7 +680,7 @@ if ~strcmpi(form, 'Parallel') && all(isfinite([c.p c.i c.d]))
 end
 end
 
-function [c, ok] = three_gain_config(mdl, blks, errSum, measure, opts, D)
+function [c, ok, D] = three_gain_config(mdl, blks, errSum, measure, opts, D)
 ok = false;
 c = struct('kind', 'three_gains');
 region = forward_set(errSum, measure, 12);
@@ -573,9 +703,21 @@ if isempty(gains)
     return
 end
 
+% Two numbers the cascade guard reads: a single PID loop has one integrator and
+% three gains between the error and the measurement; a cascade has more.
+nInt = 0;
+for k = 1:numel(region)
+    if any(strcmp(get_param(region{k}, 'BlockType'), ...
+            {'Integrator', 'DiscreteIntegrator'}))
+        nInt = nInt + 1;
+    end
+end
+c.n_integrators = nInt;
+c.n_gains = numel(gains);
+
 cls = cell(size(gains));
 for k = 1:numel(gains)
-    cls{k} = classify_gain(gains{k}, errSum, 10);
+    cls{k} = classify_gain(gains{k}, errSum);
 end
 
 idxP = find(strcmp(cls, 'p'));
@@ -638,38 +780,62 @@ for i = 1:nin
 end
 end
 
-function role = classify_gain(blk, errSum, maxDepth)
+function role = classify_gain(blk, errSum)
+% What sits between this gain and the error junction decides its role.  The walk
+% stops at the junction: without that it would follow the feedback path around
+% the loop and find the integrator of a *different* gain, which is how a plain
+% proportional gain used to be classified as integral.
 role = 'p';
-if has_type_upstream(blk, 'Integrator', maxDepth), role = 'i'; return; end
-if has_type_upstream(blk, 'Derivative', maxDepth), role = 'd'; return; end
-if has_type_upstream(blk, 'DiscreteIntegrator', maxDepth), role = 'i'; return; end
-if has_type_upstream(blk, 'DiscreteDerivative', maxDepth), role = 'd'; return; end
-% a Transfer Fcn of the form 1/s is an integrator drawn as a filter
-if has_integrator_filter_upstream(blk, maxDepth), role = 'i'; end
+if has_type_upstream(blk, 'Integrator', 12, errSum), role = 'i'; return; end
+if has_type_upstream(blk, 'DiscreteIntegrator', 12, errSum), role = 'i'; return; end
+if has_type_upstream(blk, 'Derivative', 12, errSum), role = 'd'; return; end
+if has_derivative_form_upstream(blk, 12, errSum), role = 'd'; return; end
+if has_integrator_form_upstream(blk, 12, errSum), role = 'i'; end
 end
 
-function tf = has_type_upstream(blk, type, depth)
+function tf = has_derivative_form_upstream(blk, depth, stopAt)
+% A Transfer Fcn whose numerator starts with [1 0 ...] is s/(...) - the filtered
+% derivative that most real controllers use instead of a raw Derivative block.
 tf = false;
 if depth <= 0, return; end
 nin = numel(get_param(blk, 'PortHandles').Inport);
 for i = 1:nin
     s = resolved_src(blk, i);
-    if isempty(s), continue; end
+    if isempty(s) || strcmp(s, stopAt), continue; end
+    if strcmp(get_param(s, 'BlockType'), 'TransferFcn')
+        num = safe_get(s, 'Numerator', '');
+        if ~isempty(regexp(num, '^\s*\[\s*1\s+0', 'once'))
+            tf = true; return
+        end
+    end
+    if has_derivative_form_upstream(s, depth - 1, stopAt), tf = true; return; end
+end
+end
+
+function tf = has_type_upstream(blk, type, depth, stopAt)
+tf = false;
+if depth <= 0, return; end
+nin = numel(get_param(blk, 'PortHandles').Inport);
+for i = 1:nin
+    s = resolved_src(blk, i);
+    if isempty(s) || strcmp(s, stopAt), continue; end
     bt = get_param(s, 'BlockType');
     if strcmp(bt, type), tf = true; return; end
-    if strcmp(bt, 'Sum') || strcmp(bt, 'Gain') || strcmp(bt, 'TransferFcn')
-        if has_type_upstream(s, type, depth - 1), tf = true; return; end
+    if any(strcmp(bt, {'Sum', 'Gain', 'TransferFcn', 'Derivative', 'Saturate'}))
+        if has_type_upstream(s, type, depth - 1, stopAt), tf = true; return; end
     end
 end
 end
 
-function tf = has_integrator_filter_upstream(blk, depth)
+function tf = has_integrator_form_upstream(blk, depth, stopAt)
+% A Transfer Fcn whose denominator starts with [1 0 ...] is 1/s drawn as a
+% filter, which is how many hand-built controllers implement the I term.
 tf = false;
 if depth <= 0, return; end
 nin = numel(get_param(blk, 'PortHandles').Inport);
 for i = 1:nin
     s = resolved_src(blk, i);
-    if isempty(s), continue; end
+    if isempty(s) || strcmp(s, stopAt), continue; end
     if strcmp(get_param(s, 'BlockType'), 'TransferFcn')
         den = safe_get(s, 'Denominator', '');
         if ~isempty(regexp(den, '^\s*\[\s*1\s+0\s*\]\s*$', 'once')) || ...
@@ -677,7 +843,7 @@ for i = 1:nin
             tf = true; return
         end
     end
-    if has_integrator_filter_upstream(s, depth - 1), tf = true; return; end
+    if has_integrator_form_upstream(s, depth - 1, stopAt), tf = true; return; end
 end
 end
 
@@ -772,44 +938,16 @@ for k = 1:numel(picked)
         strrep(picked{k}, [mdl '/'], ''), effects(k));
 end
 
-% A gain that does nothing is not a controller gain.  Drop it and say so.
+% A gain that barely moves the response is reported, never removed: a weak
+% derivative term on a slow plant is still a real one, and a missing block would
+% make the tuner write to a default name that does not exist.
 for k = 1:numel(picked)
     if effects(k) < 0.02
-        D.warnings{end+1} = sprintf(['%s does not affect the response when ' ...
-            'doubled (effect %.3f): it is not part of this loop'], ...
-            strrep(picked{k}, [mdl '/'], ''), effects(k));
-        c = drop_role(c, role{k});
+        D.warnings{end+1} = sprintf(['%s barely affects the response when ' ...
+            'doubled (effect %.3f): it may be decorative, or simply weak on ' ...
+            'this plant'], strrep(picked{k}, [mdl '/'], ''), effects(k));
     end
 end
-D.controller = c;
-D.cfg = rmfield_if(D.cfg, {'kp_block', 'ki_block', 'kd_block'});
-D.cfg = build_cfg_from(mdl, D.cfg, c);
-end
-
-function c = drop_role(c, role)
-switch role
-    case 'kp', c.kp_block = '';
-    case 'ki', c.ki_block = '';
-    case 'kd', c.kd_block = '';
-end
-end
-
-function s = rmfield_if(s, fields)
-for k = 1:numel(fields)
-    if isfield(s, fields{k}), s = rmfield(s, fields{k}); end
-end
-end
-
-function c = build_cfg_from(mdl, c, controller)
-if strcmp(controller.kind, 'pid_block')
-    c.controller = 'pid_block';
-    c.pid_block = controller.block;
-    return
-end
-c.controller = 'gains';
-if ~isempty(controller.kp_block), c.kp_block = controller.kp_block; end
-if ~isempty(controller.ki_block), c.ki_block = controller.ki_block; end
-if ~isempty(controller.kd_block), c.kd_block = controller.kd_block; end
 end
 
 function [t, y] = simulate(mdl, stopTime, scope)
@@ -881,7 +1019,7 @@ if isfield(controller, 'classes') && sum(strcmp(controller.classes, 'p')) > 1
 end
 end
 
-function st = model_stop_time(mdl, D)
+function [st, D] = model_stop_time(mdl, D)
 st = num_of(mdl, 'StopTime');
 if ~isfinite(st) || st <= 0
     st = 10;
@@ -930,7 +1068,8 @@ if isempty(idx), b = ''; else, b = list{idx(1)}; end
 end
 
 function opts = with_defaults(opts)
-d = struct('probe', true, 'work_dir', fullfile(tempdir, 'jev_discover'), 'verbose', false);
+d = struct('probe', true, 'work_dir', fullfile(tempdir, 'jev_discover'), ...
+    'verbose', false, 'all_loops', false, 'loop_junction', '');
 f = fieldnames(d);
 for k = 1:numel(f)
     if ~isfield(opts, f{k}), opts.(f{k}) = d.(f{k}); end

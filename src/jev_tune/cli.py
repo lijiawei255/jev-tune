@@ -219,6 +219,33 @@ def cmd_matlab(args) -> int:
 
     if args.probe:
         result = probe()
+    elif getattr(args, "all_loops", False):
+        if not args.model:
+            print("--model is required with --all-loops", file=sys.stderr)
+            return 2
+        from .matlab_runner import run_all_loops
+
+        result = run_all_loops(args.model, iters=args.iters, timeout=args.timeout)
+        if args.json:
+            print(json.dumps(result, indent=2, ensure_ascii=False))
+        elif not result.get("ok"):
+            print(f"error ({result.get('code')}): {result.get('error')}")
+            for w in result.get("warnings") or []:
+                print(f"  ! {w}")
+            for loop in result.get("loops") or []:
+                print(f"  {loop.get('junction')}: {loop.get('code') or loop.get('error')}")
+        else:
+            print(f"loops      {result.get('n_tuned')}/{result.get('n_loops')} tuned")
+            for loop in result.get("loops") or []:
+                tag = "ok  " if loop.get("ok") else "FAIL"
+                start = loop.get("start_J")
+                final = loop.get("final_J")
+                print(f"  [{tag}] {loop.get('junction'):<16} "
+                      f"J {start:.3f} -> {final:.3f}  {loop.get('n_experiments')} exp  "
+                      f"{[round(g, 4) for g in loop.get('gains') or []]}")
+            print(f"target     {result.get('target')}")
+            print(f"wall       {result.get('wall_s', 0):.1f} s")
+        return 0 if result.get("ok") else 2
     else:
         if not args.model:
             print("--model is required (or pass --probe)", file=sys.stderr)
@@ -533,6 +560,12 @@ def build_parser() -> argparse.ArgumentParser:
         "--auto",
         action="store_true",
         help="discover the blocks and the measured signal first",
+    )
+    m.add_argument(
+        "--all-loops",
+        dest="all_loops",
+        action="store_true",
+        help="tune every independent loop in the model, one after another",
     )
     m.add_argument("--config", help="JSON config from `jev-tune discover --out`")
     m.add_argument(

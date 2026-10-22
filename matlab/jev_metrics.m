@@ -7,6 +7,11 @@ function M = jev_metrics(t, y, u, ref, horizon, umax)
 %   `u` may be empty (then the saturation entries are 0).
 
 t = t(:); y = y(:);
+if isempty(t) || isempty(y)
+    % nothing was logged: report "no answer" rather than crashing on y(end)
+    M = nan(1, 9);
+    return
+end
 if isempty(ref) || ~isfinite(ref), ref = 1; end
 if isempty(horizon), horizon = t(end); end
 e = ref - y;

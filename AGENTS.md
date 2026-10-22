@@ -39,6 +39,9 @@ them to rename blocks. Do this:
    At `medium`, quote the candidates and let the user pick.
 4. **Tune.**
    `jev-tune matlab --model <model> --config discover.json --plot before_after.png --write-back --json`
+   If `discover` reported several **independent** loops (a gantry, an oven with
+   zones), use `--all-loops` instead: it tunes each one, carries the gains
+   forward and writes one file with every loop's gains.
 5. **Report, in the user's language:** start cost, final cost, number of
    experiments, the three gains, and the path of `*_tuned.slx`. Numbers come
    from the JSON verbatim; "about 40 % better" is banned, "1.24 → 0.60" is not.
@@ -58,8 +61,11 @@ English, a Chinese-speaking user gets Chinese. Do not translate the JSON keys.
 | `matlab_missing` | no MATLAB on PATH | show both install hints, ask for `MATLAB_EXE` |
 | `model_not_found` | bad path | ask once more |
 | `no_loop` | no feedback loop found | the model may be open-loop; point at `docs/APPLICABILITY.md` |
-| `cascade_unsupported` | several PID blocks | say cascade is out of scope; offer to tune one loop if the user names it |
+| `cascade_unsupported` | several masked PID blocks | say cascade is out of scope; offer inner-then-outer |
+| `cascade_suspect` | two loops nested, or two integrators in one path | **do not tune**; explain the inner-first plan and offer to tune one loop by name |
+| `ambiguous_junction` | no summing junction could be confirmed | the model probably needs workspace variables; ask the user to run it once in Simulink |
 | `ambiguous_controller` | two plausible Kp blocks | list `candidates`, ask which is the controller |
+| `loop_not_found` | `--all-loops` asked for a junction that is not verified | re-run `discover` and use a name from `loops` |
 | `no_signal` | nothing was logged | re-run `discover`; if it still fails, ask which Scope shows the output |
 | `sim_failed`, `model_error` | Simulink refused the model | it needs workspace variables; ask the user to run it once in Simulink |
 | `tune_failed` | anything else | quote `error`; do not guess a fix |
