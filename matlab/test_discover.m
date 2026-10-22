@@ -25,6 +25,7 @@ cases{end+1} = check_nested(workRoot);
 cases{end+1} = check_pid_block(workRoot);
 if doTune
     cases{end+1} = check_autotune(workRoot);
+    cases{end+1} = check_pid_form_equivalence(workRoot);
 end
 
 T = struct('ok', all(cellfun(@(c) c.pass, cases)), 'cases', {cases}, ...
@@ -103,6 +104,36 @@ end
 start = R.history(1).J;
 c.pass = R.final_J <= start + 1e-6 && R.discovery.ok;
 c.detail = sprintf('J %.3f -> %.3f in %d experiments', start, R.final_J, R.n_experiments);
+end
+
+function c = check_pid_form_equivalence(workRoot)
+% The same controller written twice: three Gain blocks, and a masked PID block
+% in the Ideal form (where I and D are times).  Tuning both must land in the
+% same place, otherwise the action space means different things per encoding.
+c = struct('name', 'pid_form', 'pass', false, 'detail', '');
+make_demo_model(workRoot, 'second_order', struct('name', 'tc_par'));
+make_demo_model(workRoot, 'ideal_pid', struct('name', 'tc_ideal2'));
+jPar = tune_once(workRoot, 'tc_par', 'wd_par');
+jIdeal = tune_once(workRoot, 'tc_ideal2', 'wd_ideal2');
+if ~isfinite(jPar) || ~isfinite(jIdeal)
+    c.detail = sprintf('one of the runs failed (par=%g ideal=%g)', jPar, jIdeal);
+    return
+end
+rel = abs(jIdeal - jPar) / max(abs(jPar), 1e-9);
+c.pass = rel < 0.10;
+c.detail = sprintf('parallel J=%.3f, ideal J=%.3f (%.1f%% apart)', jPar, jIdeal, 100 * rel);
+end
+
+function j = tune_once(workRoot, name, wd)
+j = NaN;
+cfg = struct('model', fullfile(workRoot, [name '.slx']), ...
+    'work_dir', fullfile(workRoot, wd), 'iters', 8, 'auto_discover', true);
+job = fullfile(workRoot, [name '_job.json']);
+fid = fopen(job, 'w');
+fwrite(fid, jsonencode(cfg), 'char');
+fclose(fid);
+R = jev_tune_json(job, fullfile(workRoot, [name '_out.json']));
+if R.ok, j = R.final_J; end
 end
 
 % -------------------------------------------------------------------------

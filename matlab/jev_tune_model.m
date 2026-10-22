@@ -130,6 +130,23 @@ if ~reused && isfield(cfg, 'instrument_block') && ~isempty(cfg.instrument_block)
     if ischar(scopes), scopes = {scopes}; end
 end
 
+% ------------------------------------------------------------- PID block form
+% Ideal and Standard forms store I and D as *times*; a multiplicative step on
+% the I parameter then means the opposite of what the head intends.  Switching
+% the copy to the Parallel form with equivalent gains keeps the controller the
+% same and makes the action space mean one thing everywhere.  The user's file is
+% untouched, and jev_writeback does the same conversion when it saves.
+if ~reused && strcmpi(cfg.controller, 'pid_block')
+    blk = [mdlName '/' cfg.pid_block];
+    form = get_param(blk, 'Form');
+    if ~strcmpi(form, 'Parallel')
+        [p0, i0, d0] = parallel_gains(blk);
+        set_param(blk, 'Form', 'Parallel', 'P', num2str(p0), ...
+            'I', num2str(i0), 'D', num2str(d0));
+        fprintf('[jev] PID form %s -> Parallel: P=%g I=%g D=%g\n', form, p0, i0, d0);
+    end
+end
+
 % ---------------------------------------------------------------- reference
 refCmd = 1.0;
 if isnumeric(cfg.ref_source) && isscalar(cfg.ref_source) && isfinite(cfg.ref_source)
@@ -433,6 +450,26 @@ itae = min(max(M(6) / (max(ref, 1e-9) * horizon^2), 0), 3);
 sat_ = min(max(M(8), 0), 1);
 over_ = min(max(M(9), 0), 3);
 J = os_ + (0.5 * ts_ + st_) + 4 * ess_ + itae + sat_ + 0.5 * over_;
+end
+
+function [p, i, d] = parallel_gains(blk)
+% Convert the mask parameters of a PID block to parallel-form gains.
+p = num_of(blk, 'P');
+it = num_of(blk, 'I');
+dt = num_of(blk, 'D');
+if ~isfinite(p), p = 0; end
+if ~isfinite(it), it = 0; end
+if ~isfinite(dt), dt = 0; end
+% Ideal/Standard: P(1 + 1/(I s) + D s/(...))  =>  Kp = P, Ki = P/I, Kd = P*D
+if abs(it) > 1e-12, i = p / it; else, i = 0; end
+d = p * dt;
+end
+
+function v = num_of(blk, param)
+% Mask parameters are often expressions (pi/180, 2*Kp), so str2double would
+% silently return NaN.  str2num evaluates the way Simulink itself does.
+v = str2num(get_param(blk, param)); %#ok<ST2NM>
+if isempty(v) || ~isscalar(v) || ~isnumeric(v), v = NaN; end
 end
 
 function s = short_msg(msg)

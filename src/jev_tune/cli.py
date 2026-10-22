@@ -303,11 +303,20 @@ def cmd_matlab(args) -> int:
                 f"pidtune={result['has_pid_tune']}  at {result['matlab']}"
             )
         else:
+
+            def _num(value, fmt="{:.3f}"):
+                # a diverged experiment is JSON null, not a number
+                try:
+                    return fmt.format(float(value))
+                except (TypeError, ValueError):
+                    return "n/a"
+
+            hist = result.get("history") or [{}]
             print(f"model      {result.get('model')}")
             print(f"gains      {[round(x, 4) for x in result.get('final_gains', [])]}")
             print(
-                f"cost       {result.get('final_J'):.3f}  "
-                f"(start {result.get('history', [{}])[0].get('J', float('nan')):.3f})"
+                f"cost       {_num(result.get('final_J'))}  "
+                f"(start {_num(hist[0].get('J'))})"
             )
             print(
                 f"experiments {result.get('n_experiments')}  "
