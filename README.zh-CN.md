@@ -32,6 +32,13 @@ jev-tune matlab --model MyMotor.slx --auto --plot before_after.png --write-back
 并列出它找到的回路——只调其中一环却报告"成功"，比直接说"不调"更糟。详见
 [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md#一个模型里有多个回路)。
 
+![在不认识的模型上做自动发现](assets/discover.gif)
+
+*这是 `discover` 在 motor-valve benchmark 电机上的全过程，**逐帧都来自模型本身**：误差汇合点由一次
+仿真确认（参考值与稳态输出是同一个物理量），每个增益按"它和汇合点之间有什么"分类，
+再用两次额外仿真确认"把它翻倍是否真的改变响应"。上面这些块名**没有参与任何判断**——
+`Gain_Kp` 改叫 `alpha` 结果完全一样。重新生成用 `scripts/15_make_discovery_gif.py`。*
+
 ## 从哪读起
 
 | 我想…… | 去看 |

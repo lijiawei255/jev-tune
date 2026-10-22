@@ -70,6 +70,13 @@ English, a Chinese-speaking user gets Chinese. Do not translate the JSON keys.
 | `sim_failed`, `model_error` | Simulink refused the model | it needs workspace variables; ask the user to run it once in Simulink |
 | `tune_failed` | anything else | quote `error`; do not guess a fix |
 
+### When discovery fails on a model that should work
+
+That is a bug in this project, not in the user's model. Ask them to open the
+"Discovery failed on a real model" issue template in `.github/ISSUE_TEMPLATE/`
+and paste the `--json` output; it already contains every candidate junction and
+the reason. Do not patch around it silently by hardcoding block names.
+
 ### Before you claim success
 
 `result["ok"]` must be true **and**

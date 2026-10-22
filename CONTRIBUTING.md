@@ -148,3 +148,10 @@ MATLAB 相关工作需要 R2019a+ 与 Simulink；`jev-tune matlab --probe` 会�
 ### 贡献的许可
 
 提交 PR 即表示你同意以本仓库的 MIT 许可发布你的贡献，无需签署额外协议。
+
+## Models that discovery gets wrong
+
+The most useful contribution right now is a model that `jev-tune discover` fails
+on. Open the *Discovery failed on a real model* issue template; the `--json`
+output plus a block list is enough, and you do not need to share a proprietary
+model.

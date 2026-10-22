@@ -49,6 +49,16 @@ tuned one after another with `--all-loops`. A **cascade** is refused on purpose:
 a cascade and reporting success would be worse than saying so. See
 [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md#several-loops-in-one-model).
 
+![discovery on an unseen model](assets/discover.gif)
+
+*What `discover` does on the motor-valve benchmark motor, **step by step and from the model
+itself**: the error junction is confirmed by one run (the reference and the
+steady-state output are the same quantity), each gain is classified by what sits
+between it and that junction, and two extra simulations say whether doubling it
+actually moves the response. The block names above are never used to decide
+anything — `Gain_Kp` could be called `alpha` and the result would be identical.
+Regenerate with `scripts/15_make_discovery_gif.py`.*
+
 ## Where to read next
 
 | I want to… | go to |
