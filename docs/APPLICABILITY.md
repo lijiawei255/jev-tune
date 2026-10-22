@@ -291,3 +291,113 @@ because it only ever claims "the best gain set I actually measured".
 
 **一句话规则**：模型准确、对象近似线性 → 用 `pidtune`；模型拿不到、不可信、或者对象
 非线性且会饱和 → 用本项目，因为它只承诺"我实测过的最好那组增益"。
+
+---
+
+## A Simscape model is not "a model" in the `pidtune` sense
+
+People reasonably assume that building the model is the hard part, and that once
+it exists `pidtune` can use it. It depends which of three things you built:
+
+| what you built | what it is | can `pidtune` use it directly? |
+| :--- | :--- | :--- |
+| a diagram of linear blocks (Gain, Transfer Fcn, Integrator, Sum) | an LTI system | **yes** — `linmod`/`linearize` is exact there |
+| a diagram with saturation, dead zone, friction, backlash, lookup tables | piecewise / nonlinear | **no** — linearise first, which discards all of it |
+| a Simscape network (multibody, electrical, hydraulic, contact) | a high-fidelity nonlinear physical model | **no** — `linearize` at an operating point, numerically |
+
+The trap is the third row. The friction, the backlash and the contact you
+modelled on purpose are exactly what `linearize` throws away, and the linear
+model is only valid in a neighbourhood of the operating point you chose. A
+contact model is piecewise anyway, so linearising it near contact is close to
+meaningless.
+
+**A test you can run in five minutes.** Linearise your model at the operating
+point, put the linear and the nonlinear model side by side, apply the same step,
+and overlay the two responses. If they nearly coincide, treat the model as
+accurate and use `pidtune`. If they diverge — and on a good Simscape model they
+usually do once the input gets large — then `pidtune` gives you a nominal design
+that still has to be verified against the full model.
+
+This is where the trade-off sits, honestly:
+
+* `pidtune` optimises the **linear surrogate**; it is fast, free and reliable
+  *for that surrogate*;
+* this project optimises the **nonlinear response you actually simulate**,
+  because every "experiment" is a full run. It pays for that with experiments
+  (each one costs a simulation, not an equation) and with a cost function that
+  has to be defined.
+
+If you have an accurate linear model, `pidtune` is better and cheaper. The more
+your value comes from Simscape's nonlinearities, the more a closed-loop,
+measurement-driven tuner is worth.
+
+There is a middle route: `systune` with `slTuner` tunes against a Simulink model
+at several operating points and can carry saturation as an explicit constraint.
+It needs Simulink Control Design, and you still have to state the design
+requirement yourself.
+
+
+---
+
+## 在 `pidtune` 的意义上，Simscape 模型不算"模型"
+
+很多人会自然地认为：建模型是难的那一步，建好之后 `pidtune` 就能直接用。这取决于
+你建的是下面三种里的哪一种：
+
+| 你建的是什么 | 它是什么 | `pidtune` 能直接用吗 |
+| :--- | :--- | :--- |
+| 纯线性框图（Gain、Transfer Fcn、Integrator、Sum） | 一个 LTI 系统 | **能**——`linmod`/`linearize` 在这里是精确等价的 |
+| 含饱和、死区、摩擦、齿隙、查表的框图 | 分段 / 非线性 | **不能**——必须先线性化，而线性化会把它们全丢掉 |
+| Simscape 物理网络（多体、电气、液压、接触） | 高保真非线性物理模型 | **不能**——只能在某个工作点做数值线性化 |
+
+坑在第三行。你特意建进去的摩擦、齿隙、接触，恰恰是 `linearize` 扔掉的东西；而线性
+模型只在你选的那个工作点附近成立。接触本身是分段的，在接触点附近线性化几乎没有意义。
+
+**一个五分钟就能做的验证**：把模型在工作点线性化，把线性模型和非线性模型并排放，
+加同一个阶跃，看两条响应。几乎重合 → 可以当"准确模型"，放心用 `pidtune`；明显分叉
+（一个好的 Simscape 模型在输入稍大时通常都会分叉）→ `pidtune` 给你的只是一个名义
+设计，还得回到完整模型上验证。
+
+这个取舍要讲清楚：
+
+* `pidtune` 优化的是**线性代理模型**，对它而言快、免费、可靠；
+* 本项目优化的是**你真正仿出来的非线性响应**，因为每次"实验"就是跑一次完整模型。
+  代价是要花实验次数（一次实验=一次仿真，不是一个方程），且要自己定义代价函数。
+
+有准确的线性模型时，`pidtune` 更好也更便宜。你越是依赖 Simscape 里的非线性，一个
+闭环、靠测量推进的整定器就越值。
+
+还有一条中间路线：`systune` + `slTuner` 可以在多个工作点上对 Simulink 模型整定，
+并且能把饱和作为显式约束。它需要 Simulink Control Design，而且"设计指标"仍然要你自己写。
+
+---
+
+## 换掉 Simulink：适配器的边界在哪
+
+方法是通用的，Simulink 只是"做一次实验"的一种实现：
+
+```
+有界动作（改增益） + 一次测量（跑一次，拿到 t, y, u） + 重复
+```
+
+本仓库随附两个适配器：
+
+| 适配器 | 位置 | 验证程度 |
+| :--- | :--- | :--- |
+| Simulink（用 Fast Restart 跑一次仿真） | `matlab/jev_tune_model.m` | **所有对外数字都来自它** |
+| Python（ODE 积分一个传递函数） | `jev-tune loop --num 1 --den "1 0.6 1"` | CI 每次推送都跑，保证决策链路不只在 MATLAB 里被测 |
+
+要接第三种（真实台架、PLC、别的仿真工具），你只需要提供一个函数：
+
+```python
+def measure(gains) -> tuple[t, y, u]:
+    '''跑一次实验，返回时间、被测量、控制量。'''
+```
+
+然后照 `evaluate.evaluate_head` 的调用方式把它喂给同一个决策头。硬件事在环**不在**
+本项目的设计范围内：它需要限幅、急停和故障注入，是另一个课题，`docs/GENERALIZATION.md`
+里写了哪些场景会失效。
+
+诚实地说：换适配器不会让方法变差，但会稀释**可信度**——README 里的数字全部来自
+Simulink 上的实测。新增适配器时请按同样的标准报告数字，并跑一遍
+`scripts/11_robustness.py` 那样的"不比起点差"检查。

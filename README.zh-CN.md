@@ -7,6 +7,39 @@
 [![decision latency](https://img.shields.io/badge/decision-0.19%20ms-brightgreen)](docs/STEP1_RESULTS.md)
 [![model size](https://img.shields.io/badge/model-200%20KB-lightgrey)](docs/STEP1_RESULTS.md)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+## 让你的 Agent 直接接管
+
+如果你用编程 Agent（Claude Code、Codex、OpenCode、Cursor——任何能执行命令的），
+下面这大半页都不用看。把一句话和你的模型路径丢给它：
+
+> **“用 github.com/lijiawei255/jev-tune 调一下 `D:\work\MyMotor.slx` 的 PID，
+> 然后给我看前后对比曲线。”**
+
+Agent 会读 [`AGENTS.md`](AGENTS.md)，里面第一步就是运行 `jev-tune discover`：
+它**沿着信号图找**（不看块名）增益块、被测量信号和参考值，再用两次额外仿真确认
+自己的猜测：
+
+```bash
+jev-tune discover --model MyMotor.slx --json      # Agent 先跑这个
+jev-tune matlab --model MyMotor.slx --auto --plot before_after.png --write-back
+```
+
+不需要改块名，不需要有个叫 `Scope_Position` 的示波器，也不用自己算参考值。
+如果模型有歧义，命令会如实返回 `confidence: medium` 而不是瞎猜，Agent 只问你一个问题。
+
+## 从哪读起
+
+| 我想…… | 去看 |
+| :--- | :--- |
+| 一分钟内跑起来 | [试一试](#试一试) |
+| 判断我的模型适不适合 | [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md) |
+| 搞清“类型化决策”到底是什么 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| 自己核对数字 | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md)、[`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) |
+| 用 Agent 或 MCP 驱动 | [`AGENTS.md`](AGENTS.md) |
+| 处理没见过的对象族 | [`docs/SPECIALIZE.md`](docs/SPECIALIZE.md) |
+| 批量跑几百个模型 | [`docs/SCALE.md`](docs/SCALE.md) |
+| 和 `pidtune` 公平对比 | [pidtune 那一节](docs/APPLICABILITY.md#如果你已经有准确的模型请直接用-pidtune) |
+
 [![English](https://img.shields.io/badge/README-English-blue)](README.md)
 
 **PID 调参，每一次判断都是"选一个选项"，而不是写一段话。**
@@ -95,7 +128,8 @@ jev-tune demo            # 12 个留出对象，决策头 vs CMA-ES vs Z-N，约
 ```bash
 bash scripts/agent_setup.sh            # 幂等、无交互
 python -m jev_tune.cli status --json   # 退出码 0=就绪，2=缺什么会直接告诉你
-python -m jev_tune.cli matlab --model 你的模型.slx --json
+python -m jev_tune.cli discover --model 你的模型.slx --json
+python -m jev_tune.cli matlab --model 你的模型.slx --auto --json
 ```
 
 或者注册 MCP 服务器，让助手把它当工具直接调：
@@ -104,8 +138,9 @@ python -m jev_tune.cli matlab --model 你的模型.slx --json
 { "mcpServers": { "jev-tune": { "command": "jev-tune-mcp" } } }
 ```
 
-工具：`tune_status`、`tune_probe_matlab`、`tune_simulink`、`tune_demo`。
-`tune_simulink` 接收模型路径，返回最终增益 + 每次实验的代价 + 回滚次数——
+工具：`tune_status`、`tune_probe_matlab`、`tune_discover`、`tune_simulink`、
+`tune_apply_gains`、`tune_demo`。`tune_discover` 告诉助手哪几个块是控制器、
+哪一路信号是被测量；`tune_simulink` 返回最终增益 + 每次实验的代价 + 回滚次数——
 **一次工具调用，而不是二十次**。
 
 ![Agent 在环 vs 决策头](assets/agent_vs_head.png)
@@ -119,9 +154,18 @@ addpath('matlab');
 R = jev_tune_model('你的模型.slx', 'work_dir', 20, 10, 1.0);
 ```
 
-需要根层有 `Gain_Kp`/`Gain_Ki`/`Gain_Kd` 三个块和 `Scope-*` 示波器；如果名字不同，
-用 `cfg.kp_block` 等改（或用 CLI 的 `--kp-block`）。控制器是掩码的
-`PID Controller` 块时，用 `cfg.controller='pid_block'`。
+加 `--auto`（或 cfg.auto_discover=true）时**块名完全无所谓**：发现器沿信号图找
+控制器、被测量信号和参考值，模型没有示波器就在副本上插一个记录点。不加 `--auto`
+时才按根层 `Gain_Kp`/`Gain_Ki`/`Gain_Kd` + `Scope-*` 的老约定走。
+
+### 没有 MATLAB？直接用传递函数
+
+```bash
+jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
+```
+
+同一个决策头、同一套决策契约，只把"做一次实验"换成 ODE 积分。它也是 CI 每次推送
+都会跑的路径，所以决策链路不会只在 MATLAB 里被验证。
 
 ---
 

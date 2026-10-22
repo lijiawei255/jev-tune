@@ -20,6 +20,57 @@ Two runtimes ship in this repo:
 | Python (`src/jev_tune`, `scripts/00`–`09`) | CPU, any OS | conda/venv, torch, scipy |
 | MATLAB (`matlab/jev_tune_model.m`) | MATLAB R2019a+ + Simulink | the trained weights `.mat` |
 
+## If the user only says one sentence
+
+The common request is *"use this project to tune my model"*, from someone who
+knows MATLAB but not shells. Do not send them back to the README, and do not ask
+them to rename blocks. Do this:
+
+1. **Find MATLAB.** `jev-tune status --json`; if `ok` is false follow its `next`
+   field, or set `MATLAB_EXE`. Report the exact path you tried.
+2. **Find the model.** If the user gave a path, use it. If not, look for
+   `*.slx` / `*.mdl` in the working directory, newest first. Exactly one → use
+   it. More than one → **ask once**, with the list. That is the only question
+   you may ask before tuning.
+3. **Discover, do not assume.**
+   `jev-tune discover --model <model> --json --out discover.json`
+   Read `confidence`, `controller`, `measure`, `reference`. At `high`, ask
+   nothing: the signal graph and two confirming simulations already agree.
+   At `medium`, quote the candidates and let the user pick.
+4. **Tune.**
+   `jev-tune matlab --model <model> --config discover.json --plot before_after.png --write-back --json`
+5. **Report, in the user's language:** start cost, final cost, number of
+   experiments, the three gains, and the path of `*_tuned.slx`. Numbers come
+   from the JSON verbatim; "about 40 % better" is banned, "1.24 → 0.60" is not.
+6. **If it fails**, read `code` and follow the table below. Do not retry the
+   same command twice.
+
+Never modify the user's model file. `--write-back` writes `<name>_tuned.slx`
+next to it; the original stays byte-identical.
+
+Respond in the language the user wrote in: an English-speaking user gets
+English, a Chinese-speaking user gets Chinese. Do not translate the JSON keys.
+
+### Error codes
+
+| `code` | meaning | what you do |
+| :--- | :--- | :--- |
+| `matlab_missing` | no MATLAB on PATH | show both install hints, ask for `MATLAB_EXE` |
+| `model_not_found` | bad path | ask once more |
+| `no_loop` | no feedback loop found | the model may be open-loop; point at `docs/APPLICABILITY.md` |
+| `cascade_unsupported` | several PID blocks | say cascade is out of scope; offer to tune one loop if the user names it |
+| `ambiguous_controller` | two plausible Kp blocks | list `candidates`, ask which is the controller |
+| `no_signal` | nothing was logged | re-run `discover`; if it still fails, ask which Scope shows the output |
+| `sim_failed`, `model_error` | Simulink refused the model | it needs workspace variables; ask the user to run it once in Simulink |
+| `tune_failed` | anything else | quote `error`; do not guess a fix |
+
+### Before you claim success
+
+`result["ok"]` must be true **and**
+`result["final_J"] <= result["history"][0]["J"]`. That inequality is the
+project's promise: the tuner never returns a gain set worse than the one it
+started from. If a baseline beats the head, say so.
+
 ## Setup (idempotent, no prompts)
 
 ```bash
@@ -45,13 +96,15 @@ python -m jev_tune.cli matlab --probe --json   # MATLAB release and capabilities
 ## Tune a model
 
 ```bash
-python -m jev_tune.cli matlab --model C:/path/Model.slx --json
+python -m jev_tune.cli matlab --model C:/path/Model.slx --auto --json
 ```
-Options that matter when the model is not the reference one:
+`--auto` runs discovery first, so this works on a model whose blocks are called
+anything at all. Options that matter when discovery is not enough:
 
 | flag | when |
 | :--- | :--- |
-| `--kp-block/--ki-block/--kd-block` | gains are not `Gain_Kp/Gain_Ki/Gain_Kd` |
+| `--config discovered.json` | reuse what `discover --out` found |
+| `--kp-block/--ki-block/--kd-block` | override the discovered gain blocks |
 | `--controller pid_block --pid-block "PID Controller"` | the controller is a masked PID block |
 | `--measure-scope/--input-scope` | scopes are not `Scope_Position/Scope_Current` |
 | `--ref-source 0.5236` | the reference cannot be inferred from `Step × Deg2Rad` |
@@ -94,8 +147,10 @@ MATLAB licence, not the code.
 { "mcpServers": { "jev-tune": { "command": "jev-tune-mcp" } } }
 ```
 
-Tools: `tune_status`, `tune_probe_matlab`, `tune_simulink`, `tune_demo`.
-`tune_simulink` reuses a warm MATLAB; do not spawn one per call.
+Tools: `tune_status`, `tune_probe_matlab`, `tune_discover`, `tune_simulink`,
+`tune_apply_gains`, `tune_demo`. `tune_discover` returns a `config` object
+that `tune_simulink` accepts as-is. `tune_simulink` reuses a warm MATLAB; do
+not spawn one per call.
 
 ## Before pointing it at a user's model
 
@@ -114,6 +169,12 @@ it started from, and `scripts/11_robustness.py` reproduces that claim.
   disables caching in desktop sessions, and `jev_close_all` closes everything
   safely. Never call `close_system` on a Fast-Restart model directly.
 * Report numbers, not adjectives. If a baseline beats the head, say so.
+* Ask at most one question before tuning (the model path, or a block the
+  discoverer could not separate). Everything else is a discovered fact.
+* Reply in the user's language; never answer a Chinese question with English
+  prose or the other way round.
+* `jev-tune discover` is cheap (seconds) and safe (it works on a copy). Prefer
+  it over reading the model with your own heuristics.
 
 ## Documentation languages
 

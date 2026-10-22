@@ -4,15 +4,23 @@ function out = jev_tune_json(cfgPath, outPath)
 %   jev_tune_json('job.json', 'result.json')
 %
 %   job.json keys (all optional except model):
-%     model        full path to the .slx / .mdl
-%     work_dir     scratch folder (default: tempdir)
-%     iters        maximum experiments (default 20)
-%     stop_time    simulation horizon in seconds (default: model StopTime)
-%     step_gain    trust-region multiplier (default 1.0)
-%     kp_block / ki_block / kd_block      root-level gain block names
-%     measure_scope / input_scope         scope block names
-%     ref_source   'auto' or a number
-%     u_max        actuator limit used for the saturation feature
+%     model            full path to the .slx / .mdl
+%     work_dir         scratch folder (default: tempdir)
+%     iters            maximum experiments (default 20)
+%     stop_time        simulation horizon in seconds (default: model StopTime)
+%     step_gain        trust-region multiplier (default 1.0)
+%     auto_discover    find the blocks, the measured signal and the reference
+%                      first, instead of relying on default names
+%     kp_block / ki_block / kd_block          gain block names (paths allowed)
+%     controller       'gains' (three blocks) or 'pid_block'
+%     pid_block        masked PID block name
+%     measure_scope / input_scope             logging scope names
+%     instrument_block tap this block with a Scope on the working copy
+%     ref_source       'auto' or a number
+%     u_max            actuator limit used for the saturation feature
+%
+%   Explicit keys always win over what discovery proposes: the user (or the
+%   agent acting for them) has the last word.
 %
 %   This is the bridge the Python CLI and the MCP server call; it keeps the
 %   MATLAB side free of any argument parsing.
@@ -24,17 +32,32 @@ workDir = getfield_default(cfg, 'work_dir', tempdir());
 iters = getfield_default(cfg, 'iters', 20);
 stepGain = getfield_default(cfg, 'step_gain', 1.0);
 stopTime = getfield_default(cfg, 'stop_time', []);
+autoDiscover = logical(getfield_default(cfg, 'auto_discover', false));
 
 mcfg = cfg;
-mcfg = rmfield_safe(mcfg, {'model', 'work_dir', 'iters', 'stop_time', 'step_gain'});
+mcfg = rmfield_safe(mcfg, {'model', 'work_dir', 'iters', 'stop_time', ...
+    'step_gain', 'auto_discover'});
 
 t0 = tic;
+discovery = struct('used', false);
 try
+    if autoDiscover
+        [discovery, mcfg, stopTime] = discover_first(cfg.model, mcfg, stopTime, workDir);
+        if ~discovery.ok
+            out = struct('ok', false, 'code', discovery.code, ...
+                'error', discovery.error, 'warnings', {discovery.warnings}, ...
+                'discovery', discovery, 'wall_s', toc(t0));
+            write_json(out, outPath);
+            return
+        end
+    end
+
     % stopTime stays empty on purpose: jev_tune_model reads it from the model
     % it has already loaded, so this wrapper never pays a second load_system
     R = jev_tune_model(cfg.model, workDir, iters, stopTime, stepGain, mcfg);
     out = struct();
     out.ok = true;
+    out.code = '';
     out.model = cfg.model;
     out.final_gains = R.final_gains(:).';
     out.final_J = R.final_J;
@@ -50,19 +73,107 @@ try
         out.warnings{end+1} = sprintf(['stopTime %.2f s is far from the 10 s training horizon; ' ...
             'the response features may be out of distribution (retrain or rescale the metrics)'], R.stopTime);
     end
+    if discovery.used
+        out.discovery = discovery;
+        out.warnings = [out.warnings, discovery.warnings];
+    end
     if isfield(R, 'timings'), out.timings = R.timings; end
     out.history = history_struct(R.hist);
+    out.trace = trace_struct(R);
     out.wall_s = toc(t0);
-    if isfield(R, 'timings'), out.timings = R.timings; end
 catch err
     out = struct();
     out.ok = false;
     out.error = err.message;
     out.identifier = err.identifier;
+    out.code = error_code(err.identifier);
+    out.hint = error_hint(out.code);
+    if discovery.used, out.discovery = discovery; end
     out.wall_s = toc(t0);
-    if isfield(R, 'timings'), out.timings = R.timings; end
 end
 
+write_json(out, outPath);
+end
+
+% --------------------------------------------------------------------------- %
+function [discovery, mcfg, stopTime] = discover_first(mdlPath, mcfg, stopTime, workDir)
+%DISCOVER_FIRST  Ask jev_discover what the model looks like, then merge.
+D = jev_discover(mdlPath, struct('probe', true, ...
+    'work_dir', fullfile(workDir, 'discover')));
+
+discovery = struct('used', true, 'ok', D.ok, 'confidence', D.confidence, ...
+    'warnings', {D.warnings}, 'evidence', {D.evidence});
+if isfield(D, 'code'), discovery.code = D.code; else, discovery.code = ''; end
+if ~D.ok
+    discovery.error = D.error;
+    return
+end
+discovery.error = '';
+discovery.error_junction = getfield_default(D, 'error_junction', '');
+discovery.measure_block = getfield_default(D, 'measure_block', '');
+discovery.reference = getfield_default(D, 'reference', NaN);
+discovery.reference_source = getfield_default(D, 'reference_source', '');
+if isfield(D, 'controller')
+    c = D.controller;
+    discovery.controller_kind = c.kind;
+    if strcmp(c.kind, 'pid_block')
+        discovery.pid_block = c.block;
+        discovery.pid_form = c.form;
+    else
+        discovery.kp_block = c.kp_block;
+        discovery.ki_block = c.ki_block;
+        discovery.kd_block = c.kd_block;
+    end
+end
+if isfield(D, 'probe')
+    discovery.probe = D.probe;
+end
+
+% Explicit keys win: only fill in what the caller did not set.
+if isfield(D, 'cfg')
+    names = fieldnames(D.cfg);
+    for k = 1:numel(names)
+        if strcmp(names{k}, 'model'), continue; end
+        if strcmp(names{k}, 'stop_time')
+            if isempty(stopTime), stopTime = D.cfg.stop_time; end
+        elseif ~isfield(mcfg, names{k}) || isempty(mcfg.(names{k}))
+            mcfg.(names{k}) = D.cfg.(names{k});
+        end
+    end
+end
+end
+
+function code = error_code(identifier)
+code = 'tune_failed';
+if isempty(identifier), return; end
+switch identifier
+    case 'jev:no_signal', code = 'no_signal';
+    case 'jev:instrument', code = 'instrument_failed';
+    case 'jev:ref', code = 'no_reference';
+    otherwise
+        if startsWith(identifier, 'Simulink:'), code = 'model_error'; end
+end
+end
+
+function hint = error_hint(code)
+switch code
+    case 'no_signal'
+        hint = ['nothing was logged as the measurement: run "jev-tune discover" ' ...
+            'to find the right block, or pass measure_scope/instrument_block'];
+    case 'instrument_failed'
+        hint = ['could not attach a logging Scope; pass measure_scope with the ' ...
+            'name of an existing Scope or To Workspace block'];
+    case 'no_reference'
+        hint = 'pass ref_source with the numeric reference value';
+    case 'model_error'
+        hint = ['Simulink refused the model: check that it compiles and that ' ...
+            'the workspace variables it needs are defined'];
+    otherwise
+        hint = 'see the error message; the model may not be supported (cascade, MIMO)';
+end
+end
+
+function write_json(out, outPath)
 % write-then-rename so a client never reads a half-written file
 tmpPath = [outPath '.tmp'];
 fid = fopen(tmpPath, 'w');
@@ -74,7 +185,6 @@ fclose(fid);
 movefile(tmpPath, outPath, 'f');
 end
 
-% --------------------------------------------------------------------------- %
 function s = getfield_default(s, name, default)
 if isfield(s, name) && ~isempty(s.(name))
     s = s.(name);
@@ -91,8 +201,24 @@ for i = 1:numel(names)
 end
 end
 
-function name = bdroot_name(path)
-[~, name] = fileparts(path);
+function tr = trace_struct(R)
+% The plot needs the shape of the response, not the whole recording: two traces
+% downsampled to a few hundred points keep the JSON small enough to print.
+tr = struct('reference', R.ref);
+if ~isempty(R.best_t) && ~isempty(R.best_y)
+    tr.best = thin(R.best_t, R.best_y, R.final_J);
+end
+if ~isempty(R.hist) && ~isempty(R.hist(1).t)
+    tr.start = thin(R.hist(1).t, R.hist(1).y, R.hist(1).J);
+end
+end
+
+function s = thin(t, y, J)
+t = t(:).'; y = y(:).';
+n = numel(t);
+keep = max(2, round(n / 600));
+idx = 1:keep:n;
+s = struct('t', t(idx), 'y', y(idx), 'J', J);
 end
 
 function h = history_struct(hist)

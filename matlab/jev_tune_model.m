@@ -36,6 +36,8 @@ defaults = struct( ...
     'scale_block', 'Deg2Rad', ...
     'controller', 'gains', ...     % 'gains' (three blocks) | 'pid_block'
     'pid_block', 'PID Controller', ...
+    'instrument_block', '', ...    % tap this block on the working copy
+    'instrument_port', 1, ...      % which output port to tap
     'keep_loaded', false);         % true => leave the model compiled for reuse
 f = fieldnames(defaults);
 for i = 1:numel(f)
@@ -109,6 +111,25 @@ if ~reused
     end
 end
 
+% ------------------------------------------------------------- instrument
+% A model that logs nothing usable needs no manual edit: discovery reports
+% which block carries the measured signal, and the tap is added to the copy
+% (never to the user's file).  The copy is already loaded here, so the Scope
+% exists before the model is initialised, which is what logging requires.
+if ~reused && isfield(cfg, 'instrument_block') && ~isempty(cfg.instrument_block)
+    tap = [mdlName '/' cfg.instrument_block];
+    tapPort = 1;
+    if isfield(cfg, 'instrument_port') && ~isempty(cfg.instrument_port)
+        tapPort = cfg.instrument_port;
+    end
+    if ~jev_instrument(mdlName, tap, cfg.measure_scope, tapPort)
+        warning('jev:instrument', ...
+            'could not tap %s; pass measure_scope explicitly', cfg.instrument_block);
+    end
+    scopes = get_param(find_system(mdlName, 'SearchDepth', 1, 'BlockType', 'Scope'), 'Name');
+    if ischar(scopes), scopes = {scopes}; end
+end
+
 % ---------------------------------------------------------------- reference
 refCmd = 1.0;
 if isnumeric(cfg.ref_source) && isscalar(cfg.ref_source) && isfinite(cfg.ref_source)
@@ -151,8 +172,16 @@ else
     tuGuess = nan(size(kpGrid));
     for i = 1:numel(kpGrid)
         apply([kpGrid(i), 0, 0]);
-        [t, y, ~] = sweepOnce();
-        [oscScore(i), tuGuess(i)] = oscillation_score(t, y);
+        try
+            [t, y, ~] = sweepOnce();
+            [oscScore(i), tuGuess(i)] = oscillation_score(t, y);
+        catch err
+            % an unstable point may not integrate at all; that is still an
+            % informative "no oscillation to measure here" answer
+            fprintf('[jev] Ku sweep: Kp=%.3g did not simulate (%s)\n', ...
+                kpGrid(i), short_msg(err.message));
+            oscScore(i) = 0; tuGuess(i) = NaN;
+        end
     end
     ok = find(oscScore >= 3, 1, 'last');
     if isempty(ok)
@@ -179,9 +208,20 @@ hist = struct('gains', {}, 'M', {}, 'J', {}, 't', {}, 'y', {}, 'u', {}, 'step', 
 
 for it = 0:iters-1
     apply(gains);
-    [t, y, u] = runOnce();
-    M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
-    J = jev_cost(M, stopTime, refCmd);
+    % A candidate gain set may simply not simulate: a divergent loop, a
+    % singularity, an algebraic loop that only appears at high gain.  That is a
+    % normal event in tuning, not a reason to abandon the run, so it is scored
+    % as an infinitely bad candidate and handed to the safety gate.
+    simOK = true;
+    try
+        [t, y, u] = runOnce();
+        M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
+        J = jev_cost(M, stopTime, refCmd);
+    catch err
+        simOK = false;
+        t = []; y = []; u = []; M = nan(1, 9); J = inf;
+        fprintf('[jev] iter %2d  simulation failed (%s)\n', it, short_msg(err.message));
+    end
 
     if J < bestJ - 1e-3
         bestJ = J; bestGains = gains; bestY = y; bestT = t; bestU = u;
@@ -196,7 +236,7 @@ for it = 0:iters-1
 
     % ---- deterministic safety gate (noul is advice, this is the veto)
     event = "step";
-    if J > max(3 * bestJ + 1, 8) && nRollbacks < 4
+    if (J > max(3 * bestJ + 1, 8) || ~simOK) && nRollbacks < 4
         gains = max(bestGains * 0.6, 1e-4);
         nRollbacks = nRollbacks + 1;
         event = "rollback";
@@ -207,6 +247,12 @@ for it = 0:iters-1
         hist(end).step = zeros(1, 3); hist(end).event = event;
         prevAction = zeros(1, 3); prevCost = J;
         continue
+    end
+    if ~simOK
+        % the gate is exhausted and the model still will not run: stop instead
+        % of feeding empty signals to the feature builder
+        fprintf('[jev] stopping: the model does not simulate at these gains\n');
+        break
     end
 
     [feats, curves] = jev_state(M, t, y, u, gains, gzn, ku, tu, ...
@@ -238,9 +284,18 @@ end
 
 % ---------------------------------------------------------------- finish
 apply(bestGains);
-[t, y, u] = runOnce();
-M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
-J = jev_cost(M, stopTime, refCmd);
+try
+    [t, y, u] = runOnce();
+    M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
+    J = jev_cost(M, stopTime, refCmd);
+catch err
+    % the best set is the one that ran before; keep its numbers rather than
+    % failing at the very last step
+    fprintf('[jev] re-running the best gains failed (%s); keeping the recorded result\n', ...
+        short_msg(err.message));
+    t = bestT; y = bestY; u = bestU; J = bestJ;
+    M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
+end
 if J < bestJ
     % we re-ran the best gains, so `gains` already equals bestGains
     bestJ = J; bestY = y; bestT = t; bestU = u;
@@ -329,6 +384,11 @@ end
 function [t, y, u] = run_and_extract(mdlName, stopTime, cfg)
 out = sim(mdlName, 'StopTime', num2str(stopTime));
 [t, y] = pick_signal(out, cfg.measure_scope);
+if isempty(t)
+    error('jev:no_signal', ...
+        ['nothing was logged as "%s"; run jev-tune discover to find the right ' ...
+         'block, or pass measure_scope / instrument_block'], cfg.measure_scope);
+end
 [~, u] = pick_signal(out, cfg.input_scope);
 if isempty(u), u = zeros(size(t)); end
 end
@@ -373,6 +433,13 @@ itae = min(max(M(6) / (max(ref, 1e-9) * horizon^2), 0), 3);
 sat_ = min(max(M(8), 0), 1);
 over_ = min(max(M(9), 0), 3);
 J = os_ + (0.5 * ts_ + st_) + 4 * ess_ + itae + sat_ + 0.5 * over_;
+end
+
+function s = short_msg(msg)
+% Simulink error messages carry a long hyperlink; keep the console readable.
+s = regexprep(msg, '<a href="[^"]*">', '');
+s = regexprep(s, '</a>', '');
+if numel(s) > 160, s = [s(1:157) '...']; end
 end
 
 function p = softmax_local(z)

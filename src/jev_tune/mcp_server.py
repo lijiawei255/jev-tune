@@ -80,8 +80,66 @@ TOOLS = [
                 "input_scope": {"type": "string", "default": "Scope_Current"},
                 "ref_source": {"description": "'auto' or a number"},
                 "u_max": {"type": "number"},
+                "auto_discover": {
+                    "type": "boolean",
+                    "description": "run tune_discover first and use what it finds",
+                },
+                "controller": {"type": "string", "enum": ["gains", "pid_block"]},
+                "pid_block": {"type": "string"},
+                "instrument_block": {"type": "string"},
+                "instrument_port": {"type": "integer"},
             },
             "required": ["model"],
+        },
+    },
+    {
+        "name": "tune_discover",
+        "description": (
+            "Find the PID gains, the measured signal and the reference inside a "
+            "Simulink model, with a confidence level and the evidence behind it. "
+            "Call this before tune_simulink when the model does not use the "
+            "default block names. Returns a `config` object that tune_simulink "
+            "accepts as-is. Takes ~5-60 s (one MATLAB start)."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model": {"type": "string", "description": "absolute path to the .slx"},
+                "probe": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "confirm each candidate gain with two extra simulations",
+                },
+                "work_dir": {"type": "string"},
+            },
+            "required": ["model"],
+        },
+    },
+    {
+        "name": "tune_apply_gains",
+        "description": (
+            "Write a gain set into a copy of the model (<name>_tuned.slx). The "
+            "user's file is never modified. Use after tune_simulink so the user "
+            "can open the result in Simulink."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "model": {"type": "string"},
+                "gains": {
+                    "type": "array",
+                    "items": {"type": "number"},
+                    "description": "[Kp, Ki, Kd]",
+                },
+                "controller": {"type": "string", "enum": ["gains", "pid_block"]},
+                "kp_block": {"type": "string"},
+                "ki_block": {"type": "string"},
+                "kd_block": {"type": "string"},
+                "pid_block": {"type": "string"},
+                "out_dir": {"type": "string"},
+                "suffix": {"type": "string", "default": "_tuned"},
+            },
+            "required": ["model", "gains"],
         },
     },
     {
@@ -164,6 +222,8 @@ def _tune_simulink(args: dict) -> dict:
     for key in ("stop_time", "work_dir"):
         if args.get(key) not in (None, ""):
             cfg[key] = args[key]
+    if args.get("auto_discover"):
+        cfg["auto_discover"] = True
     for key in (
         "kp_block",
         "ki_block",
@@ -172,10 +232,41 @@ def _tune_simulink(args: dict) -> dict:
         "input_scope",
         "ref_source",
         "u_max",
+        "controller",
+        "pid_block",
+        "instrument_block",
+        "instrument_port",
     ):
         if key in args and args[key] not in (None, ""):
             cfg[key] = args[key]
     return tune_with_worker(cfg, timeout=float(args.get("timeout", 300)))
+
+
+def _tune_discover(args: dict) -> dict:
+    from .matlab_runner import run_discover
+
+    return run_discover(
+        args["model"],
+        work_dir=args.get("work_dir") or None,
+        probe=bool(args.get("probe", True)),
+        timeout=float(args.get("timeout", 600)),
+    )
+
+
+def _tune_apply_gains(args: dict) -> dict:
+    from .matlab_runner import run_writeback
+
+    gains = [float(g) for g in args.get("gains") or []]
+    if len(gains) != 3:
+        return {"ok": False, "code": "bad_gains", "error": "gains must be [Kp, Ki, Kd]"}
+    return run_writeback(
+        args["model"],
+        gains,
+        controller=args.get("controller", "gains"),
+        blocks={k: args.get(k) for k in ("kp_block", "ki_block", "kd_block", "pid_block")},
+        out_dir=args.get("out_dir") or None,
+        suffix=args.get("suffix", "_tuned"),
+    )
 
 
 def _tune_demo(args: dict) -> dict:
@@ -202,7 +293,9 @@ def _tune_demo(args: dict) -> dict:
 HANDLERS = {
     "tune_status": lambda a: _status(),
     "tune_probe_matlab": lambda a: _probe(),
+    "tune_discover": _tune_discover,
     "tune_simulink": _tune_simulink,
+    "tune_apply_gains": _tune_apply_gains,
     "tune_demo": _tune_demo,
 }
 

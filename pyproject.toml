@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jev-tune"
-version = "0.1.0"
+version = "0.2.0"
 description = "System-1 (Jev-style) decision heads for control-parameter autotuning"
 readme = "README.md"
 requires-python = ">=3.10"

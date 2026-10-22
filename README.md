@@ -20,6 +20,42 @@ A 200 KB model reads the step response and returns one bounded gain step in
 > 200 KB numeric head trained in this repo; Laya is only useful as an
 > optional text backend.
 
+## Let your agent do it
+
+If you use a coding agent (Claude Code, Codex, OpenCode, Cursor — anything that
+can run a shell), you do not need the rest of this file. Paste one sentence,
+with your own model path:
+
+> **"Use github.com/lijiawei255/jev-tune to tune the PID gains in
+> `C:\work\MyMotor.slx`, then show me the before/after curve."**
+
+The agent reads [`AGENTS.md`](AGENTS.md), which tells it to run `jev-tune
+discover` first. Discovery follows the signal graph — not block names — to find
+the gains, the measured signal and the reference, then confirms the guess with
+two extra simulations:
+
+```bash
+jev-tune discover --model MyMotor.slx --json      # what the agent runs first
+jev-tune matlab --model MyMotor.slx --auto --plot before_after.png --write-back
+```
+
+No block renames, no scope called `Scope_Position`, no reference typed by hand.
+When the model is ambiguous the command says `confidence: medium` instead of
+guessing, and the agent asks you one question.
+
+## Where to read next
+
+| I want to… | go to |
+| :--- | :--- |
+| see it run in a minute | [Try it](#try-it) |
+| know whether my model qualifies | [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md) |
+| understand the decision contract | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| check the numbers myself | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md), [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) |
+| drive it from an agent or MCP | [`AGENTS.md`](AGENTS.md) |
+| handle a plant family it has not seen | [`docs/SPECIALIZE.md`](docs/SPECIALIZE.md) |
+| run hundreds of models | [`docs/SCALE.md`](docs/SCALE.md) |
+| compare honestly with `pidtune` | [the pidtune section](docs/APPLICABILITY.md#if-you-already-have-an-accurate-model-use-pidtune) |
+
 ![seven methods racing on the same plants](assets/race.gif)
 
 *Seven ways to tune the same 40 unseen plants. **Every number is measured**:
@@ -105,7 +141,8 @@ Point your assistant at [`AGENTS.md`](AGENTS.md). The short form:
 ```bash
 bash scripts/agent_setup.sh            # idempotent, no prompts
 python -m jev_tune.cli status --json   # exit 0 = ready, 2 = exact fix printed
-python -m jev_tune.cli matlab --model YourModel.slx --json   # tune it
+python -m jev_tune.cli discover --model YourModel.slx --json
+python -m jev_tune.cli matlab --model YourModel.slx --auto --json
 ```
 
 Or register the MCP server so the agent can call it as a tool:
@@ -114,9 +151,11 @@ Or register the MCP server so the agent can call it as a tool:
 { "mcpServers": { "jev-tune": { "command": "jev-tune-mcp" } } }
 ```
 
-Tools exposed: `tune_status`, `tune_probe_matlab`, `tune_simulink`, `tune_demo`.
-`tune_simulink` takes the model path and returns the final gains, the cost at
-every experiment, and rollback count — one tool call instead of twenty.
+Tools exposed: `tune_status`, `tune_probe_matlab`, `tune_discover`,
+`tune_simulink`, `tune_apply_gains`, `tune_demo`. `tune_discover` tells the
+agent which blocks are the controller and which signal is measured;
+`tune_simulink` returns the final gains, the cost at every experiment and the
+rollback count. One tool call instead of twenty.
 
 ![agent in the loop vs agent as supervisor](assets/agent_vs_head.png)
 
@@ -132,9 +171,22 @@ addpath('matlab');
 R = jev_tune_model('path/to/YourModel.slx', 'work_dir', 20, 10, 2.5);
 ```
 
-Needs root-level `Gain_Kp`/`Gain_Ki`/`Gain_Kd` blocks and `Scope-*` blocks.
-Fast Restart is enabled for you; the decision runs in-process in MATLAB, with no
-Python dependency at runtime.
+With `--auto` the block names do not matter: discovery follows the signal
+graph to find the controller, the measured signal and the reference, and taps a
+logging Scope on a copy if the model has none. Without `--auto` it expects
+root-level `Gain_Kp`/`Gain_Ki`/`Gain_Kd` and `Scope-*` blocks. Fast Restart is
+enabled for you; the decision runs in-process in MATLAB, with no Python
+dependency at runtime.
+
+### No MATLAB? Tune a transfer function instead
+
+```bash
+jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
+```
+
+Same head, same decision contract, a different plant adapter: the experiment is
+an ODE integration instead of a Simulink run. It is also what CI exercises on
+every push, so the decision path is never only tested through MATLAB.
 
 ---
 

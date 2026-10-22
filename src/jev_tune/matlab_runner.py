@@ -185,6 +185,84 @@ def run_batch(jobs: list[dict], *, timeout: int = 3600) -> list[dict]:
     return results
 
 
+def run_discover(
+    model: str,
+    *,
+    work_dir: str | None = None,
+    probe: bool = True,
+    timeout: int = 600,
+) -> dict:
+    """Find the gains, the measured signal and the reference in a model.
+
+    Returns the same JSON shape as ``jev-tune discover --json``: block paths,
+    a confidence level, the evidence behind it, and a ``config`` object that
+    ``run_job`` accepts unchanged.
+    """
+    info = find_matlab()
+    if not info.ok:
+        return {"ok": False, "code": "matlab_missing",
+                "error": "MATLAB not found; set MATLAB_EXE or add matlab to PATH"}
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        cfg_file = tmp_path / "discover.json"
+        out_file = tmp_path / "discover.out.json"
+        cfg = {"model": str(Path(model).resolve()), "probe": bool(probe)}
+        if work_dir:
+            cfg["work_dir"] = work_dir
+        cfg_file.write_text(json.dumps(cfg), encoding="utf-8")
+        code = (
+            f"addpath('{MATLAB_DIR.as_posix()}'); "
+            f"jev_discover_json('{cfg_file.as_posix()}','{out_file.as_posix()}');"
+        )
+        proc = run_matlab(code, timeout=timeout, matlab=info)
+        if not out_file.is_file():
+            return {"ok": False, "code": "discover_failed",
+                    "error": "MATLAB produced no result file",
+                    "stderr": proc.stderr[-2000:], "stdout": proc.stdout[-2000:]}
+        result = json.loads(out_file.read_text(encoding="utf-8"))
+        result["matlab"] = str(info.executable)
+        return result
+
+
+def run_writeback(
+    model: str,
+    gains: list[float],
+    *,
+    controller: str = "gains",
+    blocks: dict | None = None,
+    out_dir: str | None = None,
+    suffix: str = "_tuned",
+    timeout: int = 300,
+) -> dict:
+    """Write tuned gains into ``<name><suffix>.slx`` next to the original."""
+    info = find_matlab()
+    if not info.ok:
+        return {"ok": False, "code": "matlab_missing",
+                "error": "MATLAB not found; set MATLAB_EXE"}
+    cfg = {"controller": controller, "suffix": suffix}
+    if blocks:
+        cfg.update({k: v for k, v in blocks.items() if v})
+    if out_dir:
+        cfg["out_dir"] = out_dir
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        cfg_file = tmp_path / "wb.json"
+        out_file = tmp_path / "wb.out.json"
+        job = {"model": str(Path(model).resolve()), "gains": list(gains), "cfg": cfg}
+        cfg_file.write_text(json.dumps(job), encoding="utf-8")
+        code = (
+            f"addpath('{MATLAB_DIR.as_posix()}'); "
+            f"j = jsondecode(fileread('{cfg_file.as_posix()}')); "
+            f"jev_writeback(j.model, j.gains, j.cfg, '{out_file.as_posix()}');"
+        )
+        proc = run_matlab(code, timeout=timeout, matlab=info)
+        if not out_file.is_file():
+            return {"ok": False, "code": "writeback_failed",
+                    "error": "MATLAB produced no result file",
+                    "stderr": proc.stderr[-2000:]}
+        return json.loads(out_file.read_text(encoding="utf-8"))
+
+
 def probe(*, timeout: int = 180) -> dict:
     info = find_matlab()
     if not info.ok:
