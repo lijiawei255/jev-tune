@@ -147,7 +147,9 @@ def generated_documents() -> list[dict]:
                                   ("22_calibrate_only","calibrate_only.json","CALIBRATE_ONLY.md"),
                                   ("25_joint_risk","joint_risk.json","JOINT_RISK.md"),
                                   ("26_cp_diagnosis","cp_diagnosis.json","CP_DIAGNOSIS.md"),
-                                  ("29_joint_risk_rollout","joint_risk_rollout.json","JOINT_RISK_ROLLOUT.md")]:
+                                  ("29_joint_risk_rollout","joint_risk_rollout.json","JOINT_RISK_ROLLOUT.md"),
+                                  ("30_rollout_diagnosis","rollout_diagnosis.json","ROLLOUT_DIAGNOSIS.md"),
+                                  ("31_trajectory_risk","trajectory_risk.json","TRAJECTORY_RISK.md")]:
         source=f"research/results/{artifact}"
         checked('generated:'+doc,'Full bilingual document rendered from JSON',source,
                 lambda:compare_document(number,artifact,doc),
@@ -172,6 +174,36 @@ def generated_documents() -> list[dict]:
     checked('generated:APPLICABILITY.md','Bilingual robustness data and narrative',
             'research/results/robustness.json',compare_applicability,
             'both robustness sections match','stale robustness table/narrative')
+    checked('generated:trajectory_summaries','Complete bilingual trajectory sections and claim sources',
+            'research/results/trajectory_risk.json + research/results/rollout_diagnosis.json',
+            lambda:not generator('33_sync_trajectory_docs').check_generated_sections(ROOT),
+            'all generated trajectory sections and source definitions match',
+            'stale trajectory section or missing registered source; run scripts/33_sync_trajectory_docs.py --check')
+    return rows
+
+
+def trajectory_evidence() -> list[dict]:
+    """Recompute retrospective diagnosis and verify prospective raw study."""
+    rows=[]
+    for name,artifact,function in [('30_rollout_diagnosis','rollout_diagnosis.json','diagnosis'),
+                                   ('32_verify_trajectory_risk','trajectory_risk.json','study')]:
+        source='research/results/'+artifact
+        try:
+            spec=importlib.util.spec_from_file_location(name,ROOT/'scripts'/(name+'.py'))
+            module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+            payload=json.loads((ROOT/source).read_text(encoding='utf-8'))
+            if function=='diagnosis':
+                ok=module.same_evidence(payload,module.build_diagnosis(ROOT))
+                detail='retrospective evidence recomputed from original raw' if ok else 'diagnosis differs from original raw'
+            else:
+                module.ROOT=ROOT
+                checks=module.verify_payload(payload)
+                ok=bool(checks) and all(value is True for value in checks.values())
+                detail='raw trajectories, model refit, stage CP, paired histories and ledger verified' if ok else 'prospective study integrity failed'
+        except Exception as exc:
+            ok=False; detail=f'{type(exc).__name__}: {exc}'
+        rows.append({'id':'evidence:'+artifact,'text':'Independent evidence reconstruction',
+                     'ok':ok,'value':None,'source':source,'detail':detail})
     return rows
 
 
@@ -455,7 +487,7 @@ def main() -> int:
                 "source": claim["source"],
             }
         )
-    for checker in (benchmark_tables,generated_documents,decision_evidence,rollout_evidence,performance_diagnosis_evidence):
+    for checker in (benchmark_tables,generated_documents,decision_evidence,rollout_evidence,performance_diagnosis_evidence,trajectory_evidence):
         try:
             checked_rows=checker()
         except Exception as exc:

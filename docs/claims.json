@@ -1221,6 +1221,199 @@
           "format": ".6f"
         }
       ]
+    },
+    {
+      "id": "diagnosis_path_n",
+      "label": "Retrospective fixed paths / 事后固定轨迹数",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "fixed_path_feasibility.n",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "text": "Retrospective fixed paths / 事后固定轨迹数",
+      "value": 1024.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis_mandatory_harm",
+      "label": "Paths whose full optimum requires a harmful transition / 保留完整路径最优必须经过有害转移的轨迹数",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "fixed_path_feasibility.mandatory_harm_plants",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "text": "Paths whose full optimum requires a harmful transition / 保留完整路径最优必须经过有害转移的轨迹数",
+      "value": 700.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis_mandatory_harm_rate",
+      "label": "Retrospective minimum harmed fraction for preserving all optima / 事后保留全部最优的最低有害轨迹比例",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "fixed_path_feasibility.minimum_empirical_trajectory_harm_rate",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "text": "Retrospective minimum harmed fraction for preserving all optima / 事后保留全部最优的最低有害轨迹比例",
+      "value": 0.68359375,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis_roundoff_margin",
+      "label": "Fixed-path mean-gap lower bound minus binary64 roundoff / 固定路径均值差下界减binary64舍入余量",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "fixed_path_feasibility.gap_lower_bound_minus_roundoff",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "text": "Fixed-path mean-gap lower bound minus binary64 roundoff / 固定路径均值差下界减binary64舍入余量",
+      "value": 6.2669415916433e-06,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis_stage1_gap_share",
+      "label": "Stage 1 arithmetic share of old final-cost gap, not causal / 旧最终代价差按第1步分组的算术占比，非因果",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "evaluation.gap_by_rejection_stage[rejection_stage=1].share_of_total_gap",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "text": "Stage 1 arithmetic share of old final-cost gap, not causal / 旧最终代价差按第1步分组的算术占比，非因果",
+      "value": 0.6160802268542339,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis_stage1_qhat",
+      "label": "Old stage 1 calibration qhat / 旧第1步校准qhat",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "calibration[stage=1].qhat",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "text": "Old stage 1 calibration qhat / 旧第1步校准qhat",
+      "value": 0.994453120322275,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis_stage2_gap_share",
+      "label": "Stage 2 arithmetic share of old final-cost gap, not causal / 旧最终代价差按第2步分组的算术占比，非因果",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "evaluation.gap_by_rejection_stage[rejection_stage=2].share_of_total_gap",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "text": "Stage 2 arithmetic share of old final-cost gap, not causal / 旧最终代价差按第2步分组的算术占比，非因果",
+      "value": 0.35595922678293757,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis_stage2_qhat",
+      "label": "Old stage 2 calibration qhat / 旧第2步校准qhat",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "calibration[stage=2].qhat",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "text": "Old stage 2 calibration qhat / 旧第2步校准qhat",
+      "value": 0.9999885486695114,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis_stage3_gap_share",
+      "label": "Stage 3 arithmetic share of old final-cost gap, not causal / 旧最终代价差按第3步分组的算术占比，非因果",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "evaluation.gap_by_rejection_stage[rejection_stage=3].share_of_total_gap",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "text": "Stage 3 arithmetic share of old final-cost gap, not causal / 旧最终代价差按第3步分组的算术占比，非因果",
+      "value": 0.02796054636282841,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis_stage3_qhat",
+      "label": "Old stage 3 calibration qhat / 旧第3步校准qhat",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "calibration[stage=3].qhat",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "text": "Old stage 3 calibration qhat / 旧第3步校准qhat",
+      "value": 1.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis_zero_coefficients",
+      "label": "Exactly zero fitted risk coefficients / 拟合风险头中精确零系数数目",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "feature_shift.zero_coefficients",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "reduce": "count:index",
+      "text": "Exactly zero fitted risk coefficients / 拟合风险头中精确零系数数目",
+      "value": 7.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "diagnosis_minimum_reached",
+      "label": "Minimum reached count for finite empirical rank, not useful acceptance / 经验秩有限的最低到达数，不保证有效接纳",
+      "source": "research/results/rollout_diagnosis.json",
+      "path": "sampling.minimum_reached_for_finite_rank",
+      "reproduce": "python scripts/30_rollout_diagnosis.py",
+      "text": "Minimum reached count for finite empirical rank, not useful acceptance / 经验秩有限的最低到达数，不保证有效接纳",
+      "value": 199.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     }
   ]
 }

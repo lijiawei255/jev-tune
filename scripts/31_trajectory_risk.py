@@ -202,6 +202,10 @@ def run_study(args):
     spec = protocol['specification']
     if spec != fixed_specification():
         raise SystemExit('Frozen protocol/configuration differs')
+    calibration = json.loads((ROOT/'models/calibration.json').read_text(encoding='utf-8'))
+    if (sha256(ROOT/'models/jev_head.pt') != spec['proposal']['checkpoint_sha256'] or
+            calibration['choice_temperature'] != spec['proposal']['choice_temperature']):
+        raise SystemExit('Frozen proposal checkpoint or temperatures changed')
     if RESULT.exists():
         raise SystemExit('Published result already exists; use verifier/render, never overwrite evaluation')
     progress_path = ROOT/'data/trajectory_risk/progress.json'
@@ -209,6 +213,25 @@ def run_study(args):
         p = json.loads(progress_path.read_text(encoding='utf-8'))
         if p['protocol'] != protocol:
             raise SystemExit('Checkpoint belongs to a different protocol')
+        # Resumption may add verifiers/docs, but cannot mix numerical runtimes.
+        for filename, recorded in p['manifest']['file_sha256'].items():
+            normalized = filename.replace('\\', '/')
+            if not (normalized.startswith('src/jev_tune/') or normalized.endswith(
+                    ('scripts/25_joint_risk.py', 'models/jev_head.pt', 'models/calibration.json'))):
+                continue
+            path = Path(filename)
+            path = path if path.is_absolute() else ROOT/path
+            raw_bytes = path.read_bytes()
+            candidates = {hashlib.sha256(raw_bytes).hexdigest()}
+            if path.suffix in ('.py', '.json'):
+                lf = raw_bytes.replace(b'\r\n', b'\n')
+                candidates.update(hashlib.sha256(b).hexdigest() for b in (lf, lf.replace(b'\n', b'\r\n')))
+            if recorded not in candidates:
+                raise SystemExit('Numerical dependency changed since collection: '+filename)
+        import importlib.metadata
+        for package, version in p['manifest']['packages'].items():
+            if importlib.metadata.version(package) != version:
+                raise SystemExit('Numerical package changed since collection: '+package)
     else:
         p = {'protocol': protocol, 'protocol_sha256': sha256(PROTOCOL),
              'protocol_canonical_sha256': canonical_hash(protocol), 'training': {'datasets': {}},
@@ -219,6 +242,31 @@ def run_study(args):
     sampler = _load_script('25_joint_risk').independent_plants
     old = load_model(json.loads((ROOT/'research/results/joint_risk.json').read_text(encoding='utf-8'))['risk_model'])
     raw_by_path = {r['path']: r for r in p['raw_files']}
+    if p['raw_files'] and 'runner_invocations' not in p:
+        snapshot = ROOT/'research/protocols/trajectory_risk_sources/collection_runner.py'
+        original_hash = next(v for k, v in p['manifest']['file_sha256'].items()
+                             if k.replace('\\', '/') == 'scripts/31_trajectory_risk.py')
+        if sha256(snapshot) != original_hash:
+            raise SystemExit('Original executing runner snapshot does not match collection manifest')
+        p['runner_invocations'] = [{'phase': 'training_calibration',
+            'source_path': str(snapshot.relative_to(ROOT)).replace('\\', '/'),
+            'source_sha256': original_hash, 'started_utc': p['started_utc'],
+            'raw_files': [r['path'] for r in p['raw_files']]}]
+    # Preserve the source of every invocation; code-documentation changes must
+    # not erase the source that actually produced earlier numerical evidence.
+    source_bytes = Path(__file__).read_bytes()
+    source_digest = hashlib.sha256(source_bytes).hexdigest()
+    phase = ('full_study' if not p['raw_files'] and args.stop_after == 'evaluate' else
+             'evaluation' if args.stop_after == 'evaluate' else 'training_calibration')
+    snapshot = ROOT/'research/protocols/trajectory_risk_sources'/f'{phase}_{source_digest[:16]}.py'
+    if snapshot.exists() and snapshot.read_bytes() != source_bytes:
+        raise SystemExit('Executing runner snapshot differs from recorded content')
+    snapshot.parent.mkdir(parents=True, exist_ok=True)
+    snapshot.write_bytes(source_bytes)
+    invocation = {'phase': phase, 'source_path': str(snapshot.relative_to(ROOT)).replace('\\', '/'),
+        'source_sha256': source_digest, 'started_utc': datetime.now(timezone.utc).isoformat(),
+        'raw_files': [], 'reused_raw_files': []}
+    p.setdefault('runner_invocations', []).append(invocation)
 
     def checkpoint():
         write_json(progress_path, p)
@@ -250,6 +298,10 @@ def run_study(args):
                      **{key: run[key] for key in ('mode', 'horizon', 'selector', 'feature_mode')}}
             p['raw_files'].append(entry)
             raw_by_path[relative] = entry
+            if invocation is not None:
+                invocation['raw_files'].append(relative)
+        elif invocation is not None:
+            invocation['reused_raw_files'].append(relative)
         return run, relative
 
     train_settings = spec['training']

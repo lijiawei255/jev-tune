@@ -322,6 +322,13 @@ def evidence_documents():
 def main():
     path = ROOT / "docs/claims.json"
     registry = json.loads(path.read_text(encoding="utf-8"))
+    # The separate v2 generator owns complete prose blocks, not claim markers
+    # inside them. Keep the original v1 failure section and registry intact.
+    trajectory_spec = importlib.util.spec_from_file_location(
+        'trajectory_docs', ROOT / 'scripts/33_sync_trajectory_docs.py')
+    trajectory_docs = importlib.util.module_from_spec(trajectory_spec)
+    trajectory_spec.loader.exec_module(trajectory_docs)
+    trajectory_docs.register_available_claims(registry, ROOT)
     if (ROOT / 'research/results/joint_risk_rollout.json').is_file():
         existing = {claim['id'] for claim in registry['claims']}
         for identifier, (source_path, label) in ROLLOUT_CLAIMS.items():
@@ -408,6 +415,8 @@ and physical robot/medical/MCU/FPGA validation. No success is inferred for them.
 """
     (ROOT / "docs/CLAIMS.md").write_text(text, encoding="utf-8")
     evidence_documents()
+    if (ROOT / trajectory_docs.TRAJECTORY).is_file():
+        trajectory_docs.sync_documents(ROOT)
 
 
 if __name__ == "__main__":
