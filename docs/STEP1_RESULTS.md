@@ -107,6 +107,30 @@ needs; the accounting rules are in `docs/BENCHMARK.md`.
   0.451 — essentially the same, which is the useful result: the oracle information
   is not what carries it.
 
+## KPI 3b — frozen test family (never used for a decision)
+
+`two_mass` above is the **validation** family: the lookahead net was rejected on
+it and the v1/v3 vocabulary comparison was made on it. The **test** family is
+`thermal_deadtime`: a fixed 120-plant grid, first-order + large dead time, no RNG,
+defined after training and evaluated once.
+
+| method | final J (median) | p90 | × reference | success | sims to target | experiments |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| hill climb, same vocabulary | **1.711** | **2.447** | **1.14** | **27 %** | 9.5 | 20 |
+| **Jev head** | 1.737 | 2.871 | 1.30 | 16 % | 13.0 | 20 |
+| Bayesian opt. | 1.877 | 2.662 | 1.32 | 5 % | 13.0 | 20 |
+| CMA-ES | 1.976 | 2.879 | 1.36 | 4 % | 16.0 | 20 |
+| identify → `pidtune` | 2.330 | 3.064 | 1.49 | 1 % | 2.0 | 2 |
+| Z-N | 2.682 | 3.374 | 1.76 | 0 % | inf | 1 |
+
+**Reading:** the head is **second**, not first. A greedy climb over the same seven
+multipliers reaches a lower median and a lighter tail; the head still beats BO,
+CMA-ES and the one-shot classical tuners. The 7-run Kp sweep recovered Ku on
+**0 of 120** plants (the sweep window is shorter than the dead time), so the
+`swept` rows fall back — `jev_head_swept` to the analytic Ku/Tu, `swept_zn` to
+Ku = 1 (which is why it is worse than plain Z-N). `docs/BENCHMARK.md` records what
+this does and does not buy.
+
 ## The vocabulary + zoo changes (what the two levers actually did)
 
 | iteration | vocabulary | zoo | head median | head p90 | sims to target |
@@ -287,6 +311,27 @@ Laya 的数字与出处：Laya 仓库的 `BENCHMARKS.md` 报告**出厂 ECE 0.46
   所以它在表里。**如果你已经有准确模型，用 `pidtune`。**
 * 用**实测** Ku/Tu（7 次扫描，计入预算）的决策头是 0.451，几乎相同——这反而是有用的
   结论：真正撑住性能的不是那份特权信息。
+
+### KPI 3b — 冻结测试族（从未用于任何决策）
+
+上面的 `two_mass` 是**验证族**：前瞻价值网在它上面被否掉、词表 v1/v3 的比较也在它上面
+做的。**测试族**是 `thermal_deadtime`：120 株固定网格、一阶 + 大延迟、无随机数，在训练
+之后定义、只评一次。
+
+| 方法 | 最终 J（中位） | p90 | × 参考 | 成功率 | 达目标实验数 | 实验预算 |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 同词表爬山 | **1.711** | **2.447** | **1.14** | **27%** | 9.5 | 20 |
+| **Jev 决策头** | 1.737 | 2.871 | 1.30 | 16% | 13.0 | 20 |
+| 贝叶斯优化 | 1.877 | 2.662 | 1.32 | 5% | 13.0 | 20 |
+| CMA-ES | 1.976 | 2.879 | 1.36 | 4% | 16.0 | 20 |
+| 辨识 → `pidtune` | 2.330 | 3.064 | 1.49 | 1% | 2.0 | 2 |
+| Z-N | 2.682 | 3.374 | 1.76 | 0% | inf | 1 |
+
+**怎么读：** 决策头是**第二**，不是第一。同词表的贪心爬山中位更低、尾部更轻；决策头仍然
+打赢 BO、CMA-ES 与经典一次性整定。7 次 Kp 扫描在 120 株里 **0 株**恢复出 Ku（扫描窗口
+比死区时间短），所以两个 `swept` 行走的是回退路径——`jev_head_swept` 退回解析 Ku/Tu，
+`swept_zn` 退回 Ku=1（因此它比纯 Z-N 还差）。这个族买到什么、没买到什么，写在
+`docs/BENCHMARK.md`。
 
 ### 词表 + 动物园的两次改动（两条杠杆到底做了什么）
 

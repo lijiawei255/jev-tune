@@ -255,6 +255,9 @@ models/*
 !models/jev_head_weights.mat
 !models/meta.json
 !models/calibration.json
+# the ablation's regression control (A0); committed so `17_ablation.py` does not
+# have to retrain it for four minutes before reproducing the table
+!models/ablation_a0.pt
 # specialists are per-project artefacts, not part of the release
 models/specialized/
 research/bench/_tmp/

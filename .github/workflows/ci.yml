@@ -27,13 +27,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install numpy scipy scikit-learn pytest pillow matplotlib onnxruntime
+          pip install numpy scipy scikit-learn pytest pytest-cov pillow matplotlib onnxruntime
           pip install -e . --no-deps
 
       - name: Run the test suite
         env:
           PYTHONPATH: src
-        run: python -m pytest -q
+        run: python -m pytest -q --cov --cov-report=term --cov-fail-under=66
 
       - name: Published numbers still match their artifacts
         env:

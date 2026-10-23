@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jev-tune"
-version = "0.4.0"
+version = "0.4.1"
 description = "Jev-inspired typed-decision model for PID autotuning (choice / score / noul, 0.2 ms on CPU); not affiliated with TypeSafe AI"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -36,7 +36,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pandas>=2.1", "matplotlib>=3.8", "pillow>=10.0"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "pandas>=2.1", "matplotlib>=3.8", "pillow>=10.0"]
 onnx = ["onnx>=1.16", "onnxruntime>=1.18"]
 
 [project.scripts]
@@ -49,3 +49,17 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.coverage.run]
+source = ["jev_tune"]
+# These three modules only do anything when MATLAB is installed; the GitHub
+# runners have no licence, so counting them turns the coverage gate into a
+# measure of "do we have MATLAB" rather than "is the code tested".
+omit = [
+  "*/jev_tune/matlab_runner.py",
+  "*/jev_tune/matlab_worker.py",
+  "*/jev_tune/matlab_baseline.py",
+]
+
+[tool.coverage.report]
+skip_covered = true

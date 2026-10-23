@@ -127,7 +127,7 @@ experiments (~0.55 s of simulation); the stall detector stopped the loop at nine
 | **What it does** | picks the next PID gain step from the response it just measured, and holds when it is not confident |
 | **How fast** | **0.19 ms** for the model forward, **0.73 ms** for a complete typed decision (ONNX, 1 CPU thread; p99 1.36 ms) vs **5.34 s** per turn for a hosted LLM agent (measured, 40 calls) |
 | **How few experiments** | **5 experiments** on a real Simulink motor cut the cost from **1.238 to 0.598** (the recorded run; with the corrected gain sweep the same model starts better and the tuner returns the lab's own gains instead — [why](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)); the result is never worse than the better of the start and the gains your model already had |
-| **How it generalises** | on a plant family it never saw (120 plants, **20 experiments for every method**), **0.440** median cost and **p90 1.038** vs **0.567 / 1.510** for Bayesian optimisation and **1.705 / 2.519** for CMA-ES |
+| **How it generalises** | **validation family** (120 plants, used during design): **0.440** median / **1.038** p90 vs 0.567 / 1.705 for BO and CMA-ES. **Frozen test family** (120 thermal + dead-time plants, never used for any decision): **1.737** — **second**, behind a same-vocabulary hill climb at **1.711**, ahead of BO 1.877 and CMA-ES 1.976 |
 
 ![before and after](assets/before_after.png)
 
@@ -325,9 +325,10 @@ breakdown, the blocking/concurrency trade-off and the version matrix:
 
 ## Benchmarks
 
-**Held-out family (120 plants, two-mass resonance, never seen in training)**
-Target = 1.05 × a 240-simulation CMA-ES reference. **Every method gets 20
-experiments**, including the priors it needs.
+**Validation family (120 two-mass plants, 20 experiments for every method).**
+This family was used for two design decisions — rejecting the lookahead value
+net, and comparing vocabulary v1 with v3 — so it is a validation set, not a
+clean test.
 
 | method | final cost (median) | p90 | × reference | success | sims to target | experiments |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -340,6 +341,28 @@ experiments**, including the priors it needs.
 | CMA-ES | 1.705 | 2.519 | 3.58 | 13 % | 4.0 | 20 |
 | simplex | 2.037 | 2.879 | 4.43 | 7 % | 4.0 | 20 |
 | Ziegler-Nichols (analytic Ku/Tu) | 2.322 | 3.082 | 5.74 | 6 % | 1.0 | 1 |
+
+**Frozen test family (120 thermal plants with large dead time).** Generated from
+a fixed grid with **no RNG**, defined after the head was trained, and evaluated
+**once**; no design decision was made on it.
+
+| method | final cost (median) | p90 | × reference | success | sims to target | experiments |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| hill climb over the same vocabulary | **1.711** | **2.447** | **1.14** | **27 %** | 9.5 | 20 |
+| **Jev head** | 1.737 | 2.871 | 1.30 | 16 % | 13.0 | 20 |
+| Bayesian optimisation | 1.877 | 2.662 | 1.32 | 5 % | 13.0 | 20 |
+| CMA-ES | 1.976 | 2.879 | 1.36 | 4 % | 16.0 | 20 |
+| identify → `pidtune` | 2.330 | 3.064 | 1.49 | 1 % | 2.0 | 2 |
+| Ziegler-Nichols | 2.682 | 3.374 | 1.76 | 0 % | inf | 1 |
+
+**Reading the two tables together.** On the family it was validated on, the head
+is the best method that does not know the model. On a frozen family it had never
+seen, it is **second**: a plain greedy hill climb over the same seven gain
+multipliers reaches a lower median and a much lighter tail. So the honest claim is
+"a useful default that beats the classical one-shot tuners and BO/CMA-ES at this
+budget", not "the best tuner on unseen plants". The 7-run Ku/Tu sweep failed to
+recover Ku on 0/120 thermal plants (the sweep window is shorter than the dead
+time), so the two `swept` rows fall back and should be read with that in mind.
 
 **Real Simulink model (lab DC motor)**
 

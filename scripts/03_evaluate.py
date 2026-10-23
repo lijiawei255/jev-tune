@@ -70,6 +70,12 @@ def main():
     ap.add_argument("--plants", type=int, default=120)
     ap.add_argument("--heldout", action="store_true", default=True)
     ap.add_argument(
+        "--family",
+        default="",
+        help="evaluate one family by name (e.g. thermal_deadtime, the frozen "
+        "test family); default: the held-out family",
+    )
+    ap.add_argument(
         "--budget",
         type=int,
         default=20,
@@ -79,16 +85,29 @@ def main():
     ap.add_argument("--seed", type=int, default=7)
     ap.add_argument("--models", default="models")
     ap.add_argument("--out", default="research/results")
-    ap.add_argument("--table", default="research/results/benchmark_table.md")
+    ap.add_argument("--table", default="")
     args = ap.parse_args()
 
     Path(args.out).mkdir(parents=True, exist_ok=True)
-    fams = HELDOUT_FAMILIES if args.heldout else TRAIN_FAMILIES
+    if args.family:
+        fams = (args.family,)
+        tag = args.family
+    else:
+        fams = HELDOUT_FAMILIES if args.heldout else TRAIN_FAMILIES
+        tag = "heldout" if args.heldout else "train"
+    table_path = args.table or (
+        "research/results/benchmark_table.md"
+        if not args.family
+        else f"research/results/benchmark_table_{tag}.md"
+    )
     plants = sample_plants(
-        args.plants, seed=args.seed, families=fams, heldout=args.heldout
+        args.plants,
+        seed=args.seed,
+        families=fams,
+        heldout=args.heldout and not args.family,
     )
     print(
-        f"[eval] {plants.n} plants: {sorted(set(plants.family))} (heldout={args.heldout}),"
+        f"[eval] {plants.n} plants: {sorted(set(plants.family))} ({tag}),"
         f" budget {args.budget} experiments/plant"
     )
 
@@ -234,14 +253,12 @@ def main():
             f"{r['budget']:>8d}"
         )
 
-    out = (
-        Path(args.out)
-        / f"eval_{'heldout' if args.heldout else 'train'}_{args.plants}.json"
-    )
+    out = Path(args.out) / f"eval_{tag}_{args.plants}.json"
     payload = {
         "n_plants": plants.n,
         "families": sorted(set(plants.family)),
-        "heldout": bool(args.heldout),
+        "evaluation": tag,
+        "heldout": bool(args.heldout and not args.family),
         "budget_per_plant": args.budget,
         "ref_budget": args.ref_budget,
         "reference_j_median": float(np.median(j_ref)),
@@ -271,8 +288,8 @@ def main():
         }
 
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    Path(args.table).write_text(_markdown(payload, args), encoding="utf-8")
-    print(f"\n[eval] wrote {out} and {args.table}")
+    Path(table_path).write_text(_markdown(payload, args), encoding="utf-8")
+    print(f"\n[eval] wrote {out} and {table_path}")
 
 
 def _markdown(payload: dict, args) -> str:
@@ -310,12 +327,23 @@ def _markdown(payload: dict, args) -> str:
         "installation does not have); `jev_head_swept` pays the 7-run Kp sweep "
         "the Simulink bridge does and is charged 7 of its 20 experiments.",
         "",
-        "`relay_zn` is not in this table: on this plant family the relay did not "
-        "sustain a limit cycle, so the row would have been a constant gain set "
-        "rather than a relay tuner. `swept_zn` replaces it and is charged 8 "
-        "experiments (7-point sweep + one verification run).",
+        "`relay_zn` is kept in `baselines.py` but not reported: on the held-out "
+        "family the relay did not sustain a limit cycle, so the row would have "
+        "been a constant gain set rather than a relay tuner. `swept_zn` replaces "
+        "it and is charged 8 experiments (7-point sweep + one verification run).",
         "",
     ]
+    recovered = payload.get("sweep_recovered")
+    if recovered is not None and recovered < payload["n_plants"]:
+        lines += [
+            f"**The Kp sweep only recovered Ku on {recovered} of "
+            f"{payload['n_plants']} plants.** `jev_head_swept` falls back to the "
+            "analytic Ku/Tu for the rest, so on those plants it is the oracle "
+            "head minus seven experiments; `swept_zn` falls back to Ku = 1, which "
+            "is why its row is far worse than plain Z-N. Read both rows with "
+            "that in mind.",
+            "",
+        ]
     return "\n".join(lines)
 
 

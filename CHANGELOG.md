@@ -3,6 +3,43 @@
 All notable changes to this project. Numbers quoted here are measured, and the
 file that produced them is named next to them.
 
+## [0.4.1] - 2026-10-24
+
+### Added
+
+* **A frozen test family (P3).** `plants.TEST_FAMILIES` adds `thermal_deadtime`:
+  120 first-order plants with large dead time, generated from a fixed parameter
+  grid with **no RNG**, so there is no seed to drift. It was defined after the
+  shipped head was trained and evaluated once. `two_mass` is relabelled the
+  **validation** family, because it was used to reject the lookahead net and to
+  compare vocabulary v1 with v3.
+* `scripts/03_evaluate.py --family thermal_deadtime` and
+  `research/results/eval_thermal_deadtime_120.json`. The result: the head is
+  **second** on this family — 1.737 median against 1.711 for a plain hill climb
+  over the same vocabulary (p90 2.871 vs 2.447); it is still ahead of BO (1.877),
+  CMA-ES (1.976) and the one-shot classical tuners. README, `STEP1_RESULTS.md`
+  and `BENCHMARK.md` now state that, and say which numbers played a role in
+  design decisions.
+* **A coverage gate**: `pytest --cov --cov-fail-under=66`, measured at 69 % with
+  the three MATLAB-only modules omitted (they cannot execute on a runner without
+  a licence). 19 new tests: baselines, expert rollouts, identification,
+  scenarios, the MCP handshake and the end-to-end evaluate script.
+* `models/ablation_a0.pt` is committed, so reproducing `docs/ABLATION.md` does
+  not retrain the regression control for four minutes.
+
+### Fixed
+
+* `03_evaluate.py` skipped `jev_head_swept` instead of crashing when the budget
+  cannot pay for the 7-run Ku/Tu sweep.
+* `run_bo` clamps its initial design to the budget (a budget below 6 used to
+  spend more experiments than it was given); `run_simplex` no longer overshoots
+  on its last iteration. At 20 experiments both are unchanged.
+* `docs/CLAIMS.md` still quoted `2.242 → 1.884` for the valve specialist in its
+  main table; the reproducible figure is 2.207.
+* The generated C test vectors used `sin`/`cos`, which differ in the last ULP
+  between libm builds, so `test_vectors.json` was not byte-reproducible across
+  platforms. They now use exact arithmetic only.
+
 ## [0.4.0] - 2026-10-23
 
 This release is mostly about making the published numbers true and putting the

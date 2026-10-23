@@ -30,7 +30,7 @@
     },
     {
       "id": "heldout_budget",
-      "text": "20 experiments per plant for every method in the held-out table",
+      "text": "20 experiments per plant for every method, in both benchmark tables",
       "source": "research/results/eval_heldout_120.json",
       "path": "budget_per_plant",
       "value": 20,
@@ -39,7 +39,7 @@
     },
     {
       "id": "heldout_head_median",
-      "text": "0.440 median cost on 120 held-out plants at 20 experiments",
+      "text": "validation family (two_mass, used for design decisions): 0.440 median cost on 120 plants at 20 experiments",
       "source": "research/results/eval_heldout_120.json",
       "path": "rows[method=jev_head].final_cost_median",
       "value": 0.44,
@@ -89,6 +89,42 @@
       "path": "rows[method=shrunk_zn].final_cost_median",
       "value": 1.29,
       "tol": 0.001,
+      "reproduce": "same"
+    },
+    {
+      "id": "test_head_median",
+      "text": "frozen test family (thermal + dead time, never used for any decision): 1.737 median at 20 experiments",
+      "source": "research/results/eval_thermal_deadtime_120.json",
+      "path": "rows[method=jev_head].final_cost_median",
+      "value": 1.737,
+      "tol": 0.001,
+      "reproduce": "python scripts/03_evaluate.py --family thermal_deadtime --plants 120 --budget 20"
+    },
+    {
+      "id": "test_hill_median",
+      "text": "on that family a same-vocabulary hill climb is first at 1.711, so the head is second",
+      "source": "research/results/eval_thermal_deadtime_120.json",
+      "path": "rows[method=vocab_hill].final_cost_median",
+      "value": 1.711,
+      "tol": 0.001,
+      "reproduce": "same"
+    },
+    {
+      "id": "test_bo_median",
+      "text": "Bayesian optimisation on the frozen test family: 1.877 at 20 experiments",
+      "source": "research/results/eval_thermal_deadtime_120.json",
+      "path": "rows[method=bo].final_cost_median",
+      "value": 1.877,
+      "tol": 0.001,
+      "reproduce": "same"
+    },
+    {
+      "id": "test_sweep_recovered",
+      "text": "the 7-run Kp sweep recovered Ku on 0 of 120 thermal plants; the swept rows fall back",
+      "source": "research/results/eval_thermal_deadtime_120.json",
+      "path": "sweep_recovered",
+      "value": 0,
+      "tol": 0,
       "reproduce": "same"
     },
     {

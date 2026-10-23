@@ -17,7 +17,7 @@ $ python scripts/16_check_claims.py
   [ok  ] decision_ms                0.1892 vs 0.189 (tol 0.01)
   [ok  ] heldout_head_median        0.439579 vs 0.44 (tol 0.001)
   ...
-33/33 claims match their artifacts
+37/37 claims match their artifacts
 ```
 
 ## The table
@@ -26,12 +26,16 @@ $ python scripts/16_check_claims.py
 | :--- | ---: | :--- | :--- |
 | model forward (ONNX, 1 thread) | 0.189 ms | `research/results/latency.json` | `scripts/04_export_onnx.py` |
 | complete typed decision | 0.73 ms (p99 1.36) | `latency.json`, `hardware.json` | `scripts/04_export_onnx.py`, `21_hardware.py` |
-| held-out median cost, 120 plants | 0.440 (p90 1.038) | `research/results/eval_heldout_120.json` | `scripts/03_evaluate.py --plants 120 --budget 20` |
-| every method's budget | 20 experiments | same file → `budget_per_plant` | same |
-| Bayesian optimisation, same budget | 0.567 | same | same |
+| validation family, median cost | 0.440 (p90 1.038) | `research/results/eval_heldout_120.json` | `scripts/03_evaluate.py --plants 120 --budget 20` |
+| every method's budget | 20 experiments | both eval JSONs → `budget_per_plant` | same |
+| Bayesian optimisation, same budget | 0.567 | `eval_heldout_120.json` | same |
 | CMA-ES, same budget | 1.705 | same | same |
 | identify → `pidtune` | 0.742 (2 experiments) | same | same |
 | shrunken Z-N | 1.290 (1 experiment) | same | same |
+| frozen test family (thermal), head | 1.737 | `research/results/eval_thermal_deadtime_120.json` | `scripts/03_evaluate.py --family thermal_deadtime` |
+| frozen test family, hill climb | **1.711** (so the head is second) | same | same |
+| frozen test family, BO | 1.877 | same | same |
+| Kp sweep recovered on the test family | 0 of 120 | same → `sweep_recovered` | same |
 | typed vs regression head | 0.439 vs 0.494 | `research/results/ablation.json` | `scripts/17_ablation.py` |
 | abstention coverage / threshold | 0.62 at `tau_act = 0.35` | `research/results/abstention.json` | `scripts/20_abstention.py` |
 | 40-plant race, head / CMA-ES | 0.463 / 1.569 | `research/results/race.json` | `scripts/12_make_race.py` |
@@ -95,12 +99,16 @@ changes later.
 | :--- | ---: | :--- | :--- |
 | 模型前向（ONNX，单线程） | 0.189 ms | `research/results/latency.json` | `scripts/04_export_onnx.py` |
 | 完整类型化决策 | 0.73 ms（p99 1.36） | `latency.json`、`hardware.json` | `scripts/04_export_onnx.py`、`21_hardware.py` |
-| 120 株留出对象中位代价 | 0.440（p90 1.038） | `research/results/eval_heldout_120.json` | `scripts/03_evaluate.py --plants 120 --budget 20` |
-| 每个方法的预算 | 20 次实验 | 同文件 → `budget_per_plant` | 同上 |
-| 贝叶斯优化（同预算） | 0.567 | 同上 | 同上 |
+| 验证族中位代价 | 0.440（p90 1.038） | `research/results/eval_heldout_120.json` | `scripts/03_evaluate.py --plants 120 --budget 20` |
+| 每个方法的预算 | 20 次实验 | 两个 JSON → `budget_per_plant` | 同上 |
+| 贝叶斯优化（同预算） | 0.567 | `eval_heldout_120.json` | 同上 |
 | CMA-ES（同预算） | 1.705 | 同上 | 同上 |
 | 辨识 → `pidtune` | 0.742（2 次实验） | 同上 | 同上 |
 | 缩小 Z-N | 1.290（1 次实验） | 同上 | 同上 |
+| 冻结测试族（热工）决策头 | 1.737 | `research/results/eval_thermal_deadtime_120.json` | `scripts/03_evaluate.py --family thermal_deadtime` |
+| 冻结测试族 同词表爬山 | **1.711**（所以决策头是第二） | 同上 | 同上 |
+| 冻结测试族 贝叶斯优化 | 1.877 | 同上 | 同上 |
+| 测试族上 Kp 扫描恢复数 | 0/120 | 同上 → `sweep_recovered` | 同上 |
 | 类型化 vs 回归头 | 0.439 vs 0.494 | `research/results/ablation.json` | `scripts/17_ablation.py` |
 | 弃权覆盖率 / 阈值 | 0.62，`tau_act = 0.35` | `research/results/abstention.json` | `scripts/20_abstention.py` |
 | 40 对象对比，本项目 / CMA-ES | 0.463 / 1.569 | `research/results/race.json` | `scripts/12_make_race.py` |
@@ -165,6 +173,12 @@ why there is an issue template for exactly that.
 
 > The typed-interface question used to be item 1 on this list. It is measured
 > now: `docs/ABLATION.md`.
+>
+> A clean test family is the other half-measure: 0.4.1 froze `thermal_deadtime`
+> (fixed grid, no RNG) after the head was trained and evaluated it once. That
+> removes seed drift and design reuse, but it is not a preregistered study — the
+> model already existed when the family was chosen. `docs/BENCHMARK.md` says so
+> in the same words.
 
 ## 没有做的对照
 
@@ -180,3 +194,7 @@ why there is an issue template for exactly that.
 开了一个 issue 模板收这类反馈。
 
 > 类型化接口那条原来在本节第一条，现在已实测：`docs/ABLATION.md`。
+>
+> 干净的测试族是另一半：0.4.1 在训练之后冻结了 `thermal_deadtime`（固定网格、
+> 无随机数）并只评一次。它消除了种子漂移与设计复用，但不是预注册研究——选定这个族时
+> 模型已经存在。`docs/BENCHMARK.md` 用的是同样的措辞。
