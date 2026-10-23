@@ -180,7 +180,7 @@ def verify_run(run, model, qhats=None, *, collect_step=None, diagnostic=True, pr
                 require(np.allclose(c['commanded_step'], commanded, rtol=1e-12, atol=1e-12)
                         and np.allclose(c['gains'], g, rtol=1e-12, atol=1e-12), context + ': bounded complete action')
                 key = gain_key(c['gains']); first = seen.setdefault(key, c['index'])
-                require(c['equivalent_to'] == first and c['changed'] == (key != gain_key(current_g)), context + ': exact candidate equivalence')
+                require(c['equivalent_to'] == first and c['changed'] is (key != gain_key(current_g)), context + ': exact candidate equivalence')
                 applied = np.log10(np.asarray(c['gains']) / current_g)
                 x = np.asarray(c['features'], float)
                 require(x.shape == (44,) and np.isfinite(x).all(), context + ': feature shape/finiteness')
@@ -229,6 +229,9 @@ def verify_run(run, model, qhats=None, *, collect_step=None, diagnostic=True, pr
                 if bucket is None:
                     require(not c['simulation_performed'] and not c['cache_hit'] and c['cost_after'] is None,
                             context + ': unrequested candidate observation')
+                    require(all(c[field] is None for field in ('measurement_kind', 'label', 'observed_finite',
+                                                              'harmful', 'harmful_gt2pct')),
+                            context + ': unmeasured candidate cannot contain an outcome')
                     continue
                 require(c['observed_finite'] is True and c['cost_after'] is not None and math.isfinite(c['cost_after']),
                         context + ': nonfinite candidate observation')
@@ -260,6 +263,10 @@ def verify_run(run, model, qhats=None, *, collect_step=None, diagnostic=True, pr
                               'observed_finite', 'harmful', 'harmful_gt2pct', 'measurement_id',
                               'measurement_source_kind', 'measurement_source_stage'):
                     require(same(t[field], chosen[field]), context + ': selected observation ' + field)
+            else:
+                for field in ('simulation_performed', 'cache_hit', 'measurement_kind', 'cost_after',
+                              'label', 'observed_finite', 'harmful', 'harmful_gt2pct'):
+                    require(same(t[field], chosen[field]), context + ': unmeasured selected observation ' + field)
             if executed:
                 require(mode in ('training', 'monitor') or (t['accepted'] and not target), context + ': rejected execution')
                 if mode in ('gated', 'collect') and chosen['label'] == 1:
@@ -356,8 +363,11 @@ def verify_runner_invocations(payload, manifest_hashes):
     require(covered == set(entries), 'raw shards lack unique executing runner provenance')
 
 
-def verify_payload(payload):
+def verify_payload(payload, *, require_final=False):
     """Validate a complete study before or after acceptance fields are attached."""
+    if require_final:
+        require(all(key in payload for key in ('acceptance', 'deployment', 'completed_utc', 'integrity')),
+                'published evidence lacks final acceptance/deployment/completion/integrity')
     protocol_path = ROOT / 'research/protocols/trajectory_risk_v2.json'
     protocol = json.loads(protocol_path.read_text(encoding='utf-8'))
     spec = protocol['specification']
@@ -591,11 +601,16 @@ def verify_payload(payload):
             'primary_candidate': primary, 'generic_python_c_matlab_enabled': False,
             'failed_criteria': acceptance['failed'], 'scope': spec['scope']}
         require(payload['deployment'] == deployment, 'deployment scope/status disagrees with fixed acceptance')
-    return {name: True for name in ('frozen_protocol_and_sources', 'independent_seed_domains',
+    checks = {name: True for name in ('frozen_protocol_and_sources', 'independent_seed_domains',
         'training_and_temperature_refit', 'risk_features_and_model_probabilities',
         'complete_action_selected_before_cp', 'full_prediction_sets_and_harm_inclusion',
         'stagewise_reached_calibration_and_fixed_quota', 'matched_operating_histories_and_stops',
         'exact_cache_and_simulation_ledger', 'raw_summaries_and_primary_only_acceptance')}
+    if require_final:
+        require(payload['integrity'] == checks, 'published integrity registry differs from independent checks')
+        require(datetime.fromisoformat(payload['completed_utc']) >=
+                datetime.fromisoformat(payload['runner_invocations'][-1]['started_utc']), 'published completion predates final invocation')
+    return checks
 
 
 def main():
@@ -605,7 +620,7 @@ def main():
     args = parser.parse_args()
     try:
         path = args.result if args.result.is_absolute() else ROOT / args.result
-        checks = verify_payload(json.loads(path.read_text(encoding='utf-8')))
+        checks = verify_payload(json.loads(path.read_text(encoding='utf-8')), require_final=True)
         result = {'ok': all(checks.values()), 'checks': checks}
     except (OSError, ValueError, KeyError, TypeError, IndexError, NotImplementedError) as exc:
         result = {'ok': False, 'error': f'{type(exc).__name__}: {exc}'}

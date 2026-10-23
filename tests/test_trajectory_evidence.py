@@ -138,6 +138,9 @@ def test_collect_uses_only_reached_selected_actions_and_no_padding(synthetic):
         mode='collect', collect_step=1, diagnostic=False)
     verifier.verify_run(held, model.as_dict(), [1.], collect_step=1, diagnostic=False)
     assert held['collected']['labels'] == []
+    held['transitions'][0]['cost_after'] = .01
+    with pytest.raises(ValueError, match='unmeasured selected observation'):
+        verifier.verify_run(held, model.as_dict(), [1.], collect_step=1, diagnostic=False)
 
 
 def test_unchanged_stops_and_no_later_action_is_allowed(synthetic):
@@ -192,3 +195,8 @@ def test_runner_snapshots_cover_each_shard_once_and_do_not_reclassify_reuse(tmp_
     path.write_text('changed runner\n')
     with pytest.raises(ValueError, match='snapshot hash'):
         verifier.verify_runner_invocations(payload, {'scripts/31_trajectory_risk.py': digest})
+
+
+def test_published_result_cannot_omit_failed_acceptance_or_deployment_status():
+    with pytest.raises(ValueError, match='lacks final acceptance'):
+        verifier.verify_payload({'risk_model': {}}, require_final=True)

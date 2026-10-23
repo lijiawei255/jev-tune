@@ -197,7 +197,7 @@ def trajectory_evidence() -> list[dict]:
                 detail='retrospective evidence recomputed from original raw' if ok else 'diagnosis differs from original raw'
             else:
                 module.ROOT=ROOT
-                checks=module.verify_payload(payload)
+                checks=module.verify_payload(payload,require_final=True)
                 ok=bool(checks) and all(value is True for value in checks.values())
                 detail='raw trajectories, model refit, stage CP, paired histories and ledger verified' if ok else 'prospective study integrity failed'
         except Exception as exc:
