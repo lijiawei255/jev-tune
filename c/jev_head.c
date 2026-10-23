@@ -8,6 +8,7 @@
 #include "jev_head.h"
 
 #include <math.h>
+#include <stddef.h>
 
 #include "jev_head_weights.h"
 
