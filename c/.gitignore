@@ -1,0 +1,4 @@
+*.exe
+*.o
+test_forward
+test_features

@@ -21,18 +21,26 @@
 
 ONNX Runtime, 1 thread, batch 1, 2 000 repetitions:
 
-| backend | p50 | p95 | p99 | size |
+| what is timed | p50 | p95 | p99 | size |
 | :--- | ---: | ---: | ---: | ---: |
-| ONNX Runtime (CPU) | **0.188 ms** | 0.233 ms | 0.503 ms | 168 KB |
-| PyTorch eager (CPU) | 1.668 ms | — | — | 206 KB |
+| model forward (`session.run`) | **0.189 ms** | 0.243 ms | 0.449 ms | 168 KB |
+| complete typed decision (forward + softmax + `Choice/Score/Noul` + decode) | **0.73 ms** | 0.99 ms | 1.36 ms | — |
+| PyTorch eager, forward only | 1.67 ms | — | — | 206 KB |
 
-Parity between the ONNX graph and PyTorch: max abs difference **7.6e-06**.
-Target was "decision < 1 ms"; measured **0.19 ms**, ~5× inside budget.
+The **0.19 ms** is the model; the **0.73 ms** is what the loop pays per decision in
+Python, and the second is the number to quote for an end-to-end budget. Parity
+between the ONNX graph and PyTorch: max abs difference **7.6e-06**.
+Target was "decision < 1 ms"; the forward is ~5× inside it, the typed decision is
+inside it at p50 and slightly over at p99.
 
-Full iteration on the lab model: decision 0.19 ms + Simulink Fast Restart run
+Full iteration on the lab model: decision + Simulink Fast Restart run
 **111 ms** (StopTime = 10 s, measured in `research/bench/`) ≈ 0.11 s.
 Without Fast Restart the same model costs 869 ms per run, so the bridge — not
 the model — would dominate.
+
+Parameter count and multiply-accumulates: **40 683** and **83 584** per decision
+(`docs/COMPUTE.md`), with the C99 reference at 4.5 KB of code + 159 KB of weights
+and 16 B of static RAM.
 
 ## KPI 2 — calibration
 
@@ -46,36 +54,58 @@ Temperature fitted on a 10 % held-out split of the rollouts:
 | `score` | 0.994 | — | — | — |
 | `noul` | 0.969 | — | — | — |
 
-ECE ≈ 0.02 is what makes `score`-based early stopping and `noul`-based gating
-meaningful. Laya ships at ECE 0.466 for comparison.
+ECE ≈ 0.02 is what makes a threshold on `choice` meaningful. **What this ECE
+measures:** agreement between the predicted distribution and the *expert's step
+label*, on a held-out 10 % split of the rollouts. It does **not** measure whether
+executing the step lowered the cost; that is a different quantity, and it is
+measured separately in `docs/ABSTENTION.md` (outcome ECE 0.28 for the executed
+decisions — much worse, and the honest number to use when choosing an abstention
+threshold).
+
+The Laya figure, with its source: Laya's own benchmark page reports **ECE 0.466
+as shipped** and 0.081 after a temperature refit
+(`BENCHMARKS.md` in the Laya repository, "Calibration" table). It is quoted as
+context for what a shipped typed-decision model looks like; it was not measured
+here, and the tasks and datasets differ.
+
+The temperatures are ≈1.0 (0.996 / 0.919 / 0.958), so applying them changes
+little; `scripts/17_ablation.py` has an `A2T_no_calib` row that measures the
+difference instead of assuming it.
 
 ## KPI 3 — held-out benchmark (120 plants, unseen family)
 
 Target = 1.05 × a strong CMA-ES reference (240 simulations/plant, median J =
-0.365). All methods see the same cost function, the same Z-N starting point and
-the same simulation accounting.
+0.365). **Every method spends 20 experiments per plant**, including the priors it
+needs; the accounting rules are in `docs/BENCHMARK.md`.
 
-| method | final J (median) | final J (p90) | × reference | success | sims/plant |
-| :--- | ---: | ---: | ---: | ---: | ---: |
-| **Jev head** | **0.468** | 1.037 | **1.29** | **45 %** | **20** |
-| Bayesian opt. | 0.567 | 1.510 | 1.56 | 35 % | 20 |
-| identify → `pidtune` | 0.742 | 1.705 | 1.91 | 29 % | 2 |
-| relay autotune | 0.906 | **0.935** | 2.36 | 37 % | 2 |
-| CMA-ES | 1.813 | 2.618 | 3.75 | 10 % | 18 |
-| simplex | 2.037 | 2.879 | 4.43 | 7 % | 20 |
-| Z-N | 2.322 | 3.082 | 5.74 | 6 % | 1 |
+| method | final J (median) | final J (p90) | × reference | success | sims to target | experiments |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Jev head** | **0.440** | **1.038** | **1.31** | **41 %** | **5.0** | 20 |
+| Bayesian opt. | 0.567 | 1.510 | 1.56 | 35 % | 8.5 | 20 |
+| identify → `pidtune` | 0.742 | 1.705 | 1.91 | 29 % | 2.0 | 2 |
+| shrunken Z-N | 1.290 | 1.905 | 4.48 | 30 % | 1.0 | 1 |
+| Z-N from a measured Ku/Tu | 1.860 | 2.791 | 2.99 | 16 % | 8.0 | 8 |
+| hill climb, same vocabulary | 1.463 | 2.212 | 2.35 | 15 % | 5.0 | 20 |
+| CMA-ES | 1.705 | 2.519 | 3.58 | 13 % | 4.0 | 20 |
+| simplex | 2.037 | 2.879 | 4.43 | 7 % | 4.0 | 20 |
+| Z-N (analytic Ku/Tu) | 2.322 | 3.082 | 5.74 | 6 % | 1.0 | 1 |
 
 **Reading**
 
 * The head has the lowest median cost of every method that does not know the
-  model — 3.9× better than CMA-ES at the same simulation budget, 5.0× better
-  than Z-N, and it reaches 1.05× of the 240-simulation reference after a
+  model — 3.9× better than CMA-ES at the same experiment count and 5.3× better
+  than Z-N — and it reaches 1.05× of the 240-simulation reference after a
   **median of 5 experiments**.
-* It no longer has a heavy tail either: p90 1.04 against BO's 1.51 and relay's
-  0.94. The one baseline that still beats it in the tail is relay autotuning,
-  which costs two experiments but cannot improve on them.
-* `identify → pidtune` reaches 0.747 in **two** simulations. Any claim about
+* It also has the lightest tail: p90 1.038 against BO's 1.510. The relay row that
+  used to be here was removed because the relay never formed a limit cycle on
+  this family (0/120 plants), so the row was a constant gain set rather than a
+  relay tuner.
+* `identify → pidtune` reaches 0.742 in **two** simulations. Any claim about
   learned tuning has to survive that comparison, which is why it is in the table.
+  If you already have an accurate model, use `pidtune`.
+* The head with a **measured** Ku/Tu (7-run sweep, charged to its budget) is
+  0.451 — essentially the same, which is the useful result: the oracle information
+  is not what carries it.
 
 ## The vocabulary + zoo changes (what the two levers actually did)
 
@@ -87,7 +117,9 @@ the same simulation accounting.
 
 > All three rows were measured with the lookahead value net enabled. That net
 > was later found to hurt and is now off by default, which lifts v3 to
-> **0.468 / p90 1.037** — the numbers in the benchmark table above.
+> 0.468 / p90 1.037 at **25** experiments. Those rows are therefore **not**
+> comparable to the 20-experiment table above; the v3 row at 20 experiments is
+> 0.440 (with abstention) or 0.468 (without).
 
 v2 is the strongest on this benchmark. v3 is shipped anyway because it is the
 one that transfers to the real Simulink motor (see `docs/STEP4_RESULTS.md`):
@@ -107,7 +139,7 @@ same cost function.
 
 | | agent in the loop | Jev head |
 | :--- | ---: | ---: |
-| median latency per decision | **5.34 s** (p90 8.98 s) | **0.19 ms** |
+| median latency per decision | **5.34 s** (p90 8.98 s) | **0.73 ms** (typed decision) |
 | wall clock, 20 experiments | ~107 s | ~8 s |
 | answers unusable (format) | **13 / 40** | 0 |
 | median cost reached | 1.606 | **0.577** |
@@ -187,16 +219,22 @@ parallel, training 15 min, evaluation 4 min).
 
 ONNX Runtime，单线程，batch=1，2 000 次重复：
 
-| 后端 | p50 | p95 | p99 | 体积 |
+| 计时对象 | p50 | p95 | p99 | 体积 |
 | :--- | ---: | ---: | ---: | ---: |
-| ONNX Runtime（CPU） | **0.188 ms** | 0.233 ms | 0.503 ms | 168 KB |
-| PyTorch eager（CPU） | 1.668 ms | — | — | 206 KB |
+| 模型前向（`session.run`） | **0.189 ms** | 0.243 ms | 0.449 ms | 168 KB |
+| 完整类型化决策（前向 + softmax + `Choice/Score/Noul` + 解码） | **0.73 ms** | 0.99 ms | 1.36 ms | — |
+| PyTorch eager，仅前向 | 1.67 ms | — | — | 206 KB |
 
-ONNX 图与 PyTorch 的最大绝对偏差 **7.6e-06**。目标是"决策 < 1 ms"，实测 **0.19 ms**。
+**0.19 ms 是模型本身**，**0.73 ms 是回路每次决策实际付的代价**（Python 侧），做端到端
+预算时应引用后者。ONNX 图与 PyTorch 的最大绝对偏差 **7.6e-06**。目标是"决策 < 1 ms"：
+前向约在预算内 5 倍，完整类型化决策 p50 在预算内、p99 略超。
 
-那台实验课电机的完整一次迭代：决策 0.19 ms + Fast Restart 仿真 **111 ms**（StopTime=10 s，
+那台实验课电机的完整一次迭代：决策 + Fast Restart 仿真 **111 ms**（StopTime=10 s，
 见 `research/bench/`）≈ 0.11 s。不开 Fast Restart 同样模型每次 869 ms——瓶颈会是桥接
 而不是模型。
+
+参数量与乘加数：**40 683** 与 **83 584**/次决策（`docs/COMPUTE.md`）；C99 参考实现为
+4.5 KB 代码 + 159 KB 权重、16 B 静态 RAM。
 
 ### KPI 2：概率校准
 
@@ -210,32 +248,45 @@ ONNX 图与 PyTorch 的最大绝对偏差 **7.6e-06**。目标是"决策 < 1 ms"
 | `score` | 0.994 | — | — | — |
 | `noul` | 0.969 | — | — | — |
 
-ECE ≈ 0.02 是让"按 `score` 早停、按 `noul` 熔断"真正可行的前提。作为对比，
-Laya 出厂 ECE 是 0.466。
+ECE ≈ 0.02 是让 `choice` 上的阈值有意义的前提。**这个 ECE 衡量的是什么：** 预测分布
+与**专家动作标签**在留出 10% 切分上的一致程度。它**不**衡量"执行这一步是否降低了
+代价"——那是另一个量，单独测在 `docs/ABSTENTION.md`（已执行决策的结果 ECE 为 0.28，
+差得多，而选弃权阈值时该用的是后者）。
+
+Laya 的数字与出处：Laya 仓库的 `BENCHMARKS.md` 报告**出厂 ECE 0.466**、温度重拟合后
+0.081（"Calibration" 表）。这里只把它当作"一个已发布的类型化决策模型长什么样"的
+参照；它不是本仓库测的，任务与数据也不同。
+
+温度≈1.0（0.996 / 0.919 / 0.958），应用它们影响很小；`scripts/17_ablation.py` 有
+`A2T_no_calib` 一行把它测出来，而不是假设。
 
 ### KPI 3：留出基准（120 株，未见族）
 
-目标 = 1.05 × 强 CMA-ES 参考（240 次仿真/株，中位 J = 0.365）。所有方法同一代价
-函数、同一 Z-N 起点、同一仿真记账。
+目标 = 1.05 × 强 CMA-ES 参考（240 次仿真/株，中位 J = 0.365）。**所有方法每株 20 次
+实验**，包括它需要的先验；记账规则见 `docs/BENCHMARK.md`。
 
-| 方法 | 最终 J（中位） | J（p90） | × 参考 | 成功率 | 仿真次数/株 |
-| :--- | ---: | ---: | ---: | ---: | ---: |
-| **Jev 决策头** | **0.468** | 1.037 | **1.29** | **45%** | **20** |
-| 贝叶斯优化 | 0.567 | 1.510 | 1.56 | 35% | 20 |
-| 辨识 → `pidtune` | 0.742 | 1.705 | 1.91 | 29% | 2 |
-| 继电自整定 | 0.906 | **0.935** | 2.36 | 37% | 2 |
-| CMA-ES | 1.813 | 2.618 | 3.75 | 10% | 18 |
-| 单纯形 | 2.037 | 2.879 | 4.43 | 7% | 20 |
-| Z-N | 2.322 | 3.082 | 5.74 | 6% | 1 |
+| 方法 | 最终 J（中位） | J（p90） | × 参考 | 成功率 | 达目标实验数 | 实验预算 |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Jev 决策头** | **0.440** | **1.038** | **1.31** | **41%** | **5.0** | 20 |
+| 贝叶斯优化 | 0.567 | 1.510 | 1.56 | 35% | 8.5 | 20 |
+| 辨识 → `pidtune` | 0.742 | 1.705 | 1.91 | 29% | 2.0 | 2 |
+| 缩小 Z-N | 1.290 | 1.905 | 4.48 | 30% | 1.0 | 1 |
+| 实测 Ku/Tu 的 Z-N | 1.860 | 2.791 | 2.99 | 16% | 8.0 | 8 |
+| 同词表爬山 | 1.463 | 2.212 | 2.35 | 15% | 5.0 | 20 |
+| CMA-ES | 1.705 | 2.519 | 3.58 | 13% | 4.0 | 20 |
+| 单纯形 | 2.037 | 2.879 | 4.43 | 7% | 4.0 | 20 |
+| Z-N（解析 Ku/Tu） | 2.322 | 3.082 | 5.74 | 6% | 1.0 | 1 |
 
 **怎么读**
 
-* 在不掌握模型的那些方法里，决策头中位代价最优——同预算下比 CMA-ES 好 3.9 倍、
-  比 Z-N 好 5.0 倍；达到 240 次参考的 1.05 倍只需**中位 5 次实验**。
-* 尾部也不再重：p90 1.04，对比 BO 的 1.51、继电的 0.94。唯一在尾部仍胜出的基线是
-  继电自整定——它只花两次实验，但也就止步于那两次。
-* `辨识 → pidtune` 只用 **2 次**仿真就到 0.747。任何"学习型调参"的主张都必须
-  过这一关，所以它在表里。
+* 在不掌握模型的那些方法里，决策头中位代价最优——同实验次数下比 CMA-ES 好 3.9 倍、
+  比 Z-N 好 5.3 倍；达到 240 次参考的 1.05 倍只需**中位 5 次实验**。
+* 尾部也最轻：p90 1.038，对比 BO 的 1.510。表里原来的继电行已删除——继电在这族上
+  从未形成极限环（0/120 株），那一行其实是固定增益组，不是继电整定。
+* `辨识 → pidtune` 只用 **2 次**仿真就到 0.742。任何"学习型调参"的主张都必须过这一关，
+  所以它在表里。**如果你已经有准确模型，用 `pidtune`。**
+* 用**实测** Ku/Tu（7 次扫描，计入预算）的决策头是 0.451，几乎相同——这反而是有用的
+  结论：真正撑住性能的不是那份特权信息。
 
 ### 词表 + 动物园的两次改动（两条杠杆到底做了什么）
 
@@ -245,8 +296,9 @@ Laya 出厂 ECE 是 0.466。
 | v2 | **7 档对数（×0.5…×2.0）** | 5 族 + 位置环 | **0.316** | **0.606** | **5** |
 | v3（发布版） | 7 档对数 | 6 族 + **变执行器余量** | 0.569 | 2.911 | 6 |
 
-> 上面三行都是在启用了前瞻价值网时测的。该网络后来被发现有害，现已默认关闭，
-> 关闭后 v3 提升到 **0.468 / p90 1.037**——即上面基准表里的数字。
+> 上面三行都是在启用了前瞻价值网时测的。该网络后来被发现有害，现已默认关闭，关闭后
+> v3 在 **25** 次实验下是 0.468 / p90 1.037，因此这三行**不能**与上面的 20 次实验表
+> 直接比；v3 在 20 次实验下是 0.440（含弃权）或 0.468（不含弃权）。
 
 v2 在该基准上最强。之所以发布 v3，是因为**只有它能迁移到真实 Simulink 电机**
 （见 `docs/STEP4_RESULTS.md`）：紧执行器才是实验台的真实情况，只训练宽松执行器
@@ -262,7 +314,7 @@ README 里对比的"把大模型接进环路"原本是个假设（每次 3 秒�
 
 | | Agent 在环 | Jev 决策头 |
 | :--- | ---: | ---: |
-| 单次决策延迟（中位） | **5.34 秒**（p90 8.98 秒） | **0.19 毫秒** |
+| 单次决策延迟（中位） | **5.34 秒**（p90 8.98 秒） | **0.73 毫秒**（完整类型化决策） |
 | 20 次实验的总耗时 | 约 107 秒 | 约 8 秒 |
 | 输出无法解析 | **13 / 40** | 0 |
 | 达到的中位代价 | 1.606 | **0.577** |

@@ -54,14 +54,24 @@ ORANGE = "#e67e22"
 
 TARGET_J = 0.60
 PER_EXPERIMENT_S = 0.4  # measured on lab model (Fast Restart, 10 s)
-LLM_TURN_S = 3.0  # assumption, labelled everywhere
+
+
+def measured_llm_turn(default: float = 3.0) -> tuple[float, int | None]:
+    """The hosted-model turn, from the run that measured it (not a constant."""
+    p = Path(__file__).resolve().parents[1] / "research/results/agent_baseline_900.json"
+    if p.is_file():
+        a = json.loads(p.read_text(encoding="utf-8-sig"))["agent"]
+        return float(a["latency_median"]), int(a["parse_failures"])
+    return default, None
+
+
+LLM_TURN_S, LLM_PARSE_FAILURES = measured_llm_turn()
 
 
 def load_head(models: str) -> JevHead:
-    head = JevHead(n_actions=7)
-    head.load_state_dict(torch.load(Path(models) / "jev_head.pt", map_location="cpu"))
-    head.eval()
-    return head
+    from jev_tune.decision import load_backend
+
+    return load_backend(models).model
 
 
 def collect(plants_n: int, seed: int, models: str) -> dict:
@@ -93,10 +103,10 @@ def collect(plants_n: int, seed: int, models: str) -> dict:
     record("relay", lambda: run_relay(plants), "relay autotune")
     record("grid", lambda: run_grid(plants, x0, batch=5), "grid sweep (125)")
     record("simplex", lambda: run_simplex(plants, x0, budget=20), "simplex")
-    record("cmaes", lambda: run_cmaes(plants, x0, budget=18, lam=6), "CMA-ES")
+    record("cmaes", lambda: run_cmaes(plants, x0, budget=20, lam=4), "CMA-ES")
     record("bo", lambda: run_bo(plants, x0, budget=20, n_init=6), "Bayesian opt.")
     record(
-        "head", lambda: evaluate_head(head, plants, gzn, ku, tu, iters=20), "Jev head"
+        "head", lambda: evaluate_head(head, plants, gzn, ku, tu, budget=20), "Jev head"
     )
 
     return {
@@ -106,9 +116,14 @@ def collect(plants_n: int, seed: int, models: str) -> dict:
         "runs": runs,
         "assumptions": {
             "llm_turn_s": LLM_TURN_S,
+            "llm_parse_failures": LLM_PARSE_FAILURES,
             "per_experiment_s": PER_EXPERIMENT_S,
             "target_j": TARGET_J,
-            "note": "per-experiment time measured on lab model; LLM turn is assumed",
+            "note": (
+                "per-experiment time measured on lab model; LLM turn read from "
+                "research/results/agent_baseline_900.json (3.0 s fallback if that "
+                "artifact is missing)"
+            ),
         },
     }
 

@@ -1,5 +1,10 @@
 """Response metrics -> scalar cost.
 
+**Testbed-specific (PID).** The weights below encode what "a good step response"
+means for a servo loop. A different domain defines a different cost; the decision
+shell does not care which one it is given, as long as the expert and the loop use
+the same.
+
 The cost is the training target for the expert search and the scoring rule for
 every baseline, so it has to be scale-free across the plant zoo.
 """

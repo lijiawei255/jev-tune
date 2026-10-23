@@ -40,7 +40,7 @@ What it does:
 
 | scenario | zero-shot J | specialist J | change | time |
 | :--- | ---: | ---: | ---: | ---: |
-| valve dead band (`valve_dead_zone`) | 2.242 | **1.884** | **−16 %** | 93 s |
+| valve dead band (`valve_dead_zone`) | 2.242 | **2.207** | **−2 %** | 94 s |
 | inverse response (`inverse_response`) | 1.727 | see below | — | — |
 
 Reproduce the first row exactly:
@@ -52,12 +52,15 @@ python scripts/10_specialize.py --scenario valve_dead_zone --plants 120
 `--plants 120` matters: the script's default (48) means 12 held-out jitters, not
 30, and the two do not give the same number.
 
-**A note on the older figure.** The v0.2 release recorded 1.152 (−49 %) for this
-row. The same command against the head shipped *then* gave that; the head has been
-retrained since, and fine-tuning from the current one lands at 1.884. The
-direction is unchanged — specialising beats zero-shot — but the gain is much
-smaller than the release claimed. The old number is not reproducible today, so it
-is replaced rather than kept alongside.
+**A note on the figures, and an apology to the reader.** The v0.2 release
+recorded 1.152 (−49 %); v0.3 recorded 1.884 (−16 %). Both were measured on
+scenario draws produced by `scenarios.variants`, which used Python's salted
+`hash()` as part of its seed — so the *plants themselves* changed from process to
+process. As of 0.4.0 the seed is `crc32(name)`, the draw is reproducible, and the
+same command lands at **2.207 (−2 %)**: essentially no improvement. The earlier
+percentages were partly measuring a different draw, and this file no longer
+quotes them. The lesson is the one the release notes keep making: a number
+without a reproducible artifact is not a measurement.
 
 The cost is **~100 s of CPU once**, not zero — but also not "redo the project".
 
@@ -134,7 +137,7 @@ python scripts/10_specialize.py --spec plant.json --name myplant
 
 | 场景 | 零样本 J | 专家 J | 改善 | 耗时 |
 | :--- | ---: | ---: | ---: | ---: |
-| 阀死区（`valve_dead_zone`） | 2.242 | **1.884** | **−16 %** | 93 s |
+| 阀死区（`valve_dead_zone`） | 2.242 | **2.207** | **−2 %** | 94 s |
 | 反向响应（`inverse_response`） | 1.727 | 见下文 | — | — |
 
 第一行可以逐位复现：
@@ -145,14 +148,20 @@ python scripts/10_specialize.py --scenario valve_dead_zone --plants 120
 
 `--plants 120` 不能省：脚本默认的 48 意味着 12 个留出抖动，而不是 30 个，两者数字不同。
 
-**关于旧数字。** v0.2 这个格子里记的是 1.152（−49 %）。同样的命令在**当时那颗头**上确实是
-这个结果；之后头重训过，从当前这颗头微调落在 1.884。方向没变——专门化比零点好——但提升
-远小于发布时声称的幅度。旧数字今天复现不出来，因此替换而不是并列保留。
+**关于旧数字，以及向读者的更正。** v0.2 记的是 1.152（−49 %），v0.3 记的是 1.884
+（−16 %）。两次都是在 `scenarios.variants` 生成的抽样上测的，而它当时把 Python 加盐的
+`hash()` 当作种子的一部分——**对象本身每个进程都不一样**。0.4.0 起种子改成
+`crc32(场景名)`，抽样可复现，同一条命令落在 **2.207（−2 %）**：基本没有改善。早先的
+百分比有一部分在测另一批对象，本文件不再引用它们。教训就是发布说明里反复写的那条：
+**没有可复现产物的数字，不算测量。**
 
 两例都是泛化测试里零样本输给传统方法的场景。专门化之后：
 
-* 阀死区 1.15，对比继电自整定的 0.86（原本差 2.6 倍 → 追到 1.3 倍）；
-* 反向响应 0.84，对比 CMA-ES 的 1.95（原本差 1.4 倍 → 反超一倍）。
+* 阀死区 2.21，对比继电自整定的 0.99（原本差 2.25 倍 → 仍然差 2.2 倍，**没有修好**）；
+* 反向响应 0.84，对比 CMA-ES 的 0.83（原本差 1.54 倍 → 追平）。
+
+所以专门化在反向响应上有效，在阀死区上基本无效。上表只列第一行，是因为第二行需要单独
+跑一次并手工记录；这里的数字来自 `docs/GENERALIZATION.md` 的当前产物。
 
 代价是**一次性约 100 秒 CPU**，不是零成本，但也不是"重新做一遍整个项目"。
 

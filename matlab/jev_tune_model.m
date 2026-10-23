@@ -392,12 +392,44 @@ for it = 0:iters-1
     step = zeros(1, 3);
     mult = [0.50, 0.70, 0.87, 1.00, 1.15, 1.43, 2.00];
     d = log10(mult);
+    % the fitted temperature from models/calibration.json travels in the .mat
+    % file, so this loop decodes the same distribution as the Python evaluator
+    if isfield(W, 'temperature') && numel(W.temperature) >= 3
+        temp = W.temperature(:).';
+    else
+        temp = ones(1, 3);
+    end
+    % abstention thresholds travel with the weights too
+    if isfield(W, 'tau_act')
+        tauAct = W.tau_act(1);
+    else
+        tauAct = 0;
+    end
+    if isfield(W, 'tau_esc')
+        tauEsc = W.tau_esc(1);
+    else
+        tauEsc = 0;
+    end
+    nEscalated = 0;
     for ax = 1:3
-        p = softmax_local(out.choice(:, ax, 1)).';
+        p = softmax_local(out.choice(:, ax, 1) / temp(ax)).';
         mu = p * d.';
         v = max(p * (d.^2).' - mu^2, 0);
-        gate = 1 / (1 + v / var(d));
-        step(ax) = min(max(stepGain * mu * gate, -0.32), 0.32);
+        % var(d, 1) is the population variance; numpy's np.var is the same
+        % normalisation, while MATLAB's default var() divides by N-1 and made
+        % the shrink 6 % different from the Python loop
+        gate = 1 / (1 + v / var(d, 1));
+        proposed = min(max(stepGain * mu * gate, -0.32), 0.32);
+        % explicit abstention, same thresholds as decode.AbstainPolicy:
+        % hold the axis (delta = 0) when the calibrated p_max is too low
+        if max(p) < tauAct
+            step(ax) = 0;
+            if max(p) < tauEsc
+                nEscalated = nEscalated + 1;
+            end
+        else
+            step(ax) = proposed;
+        end
     end
 
     hist(end+1).gains = gains; hist(end).M = M; hist(end).J = J; %#ok<AGROW>
@@ -445,6 +477,7 @@ R = struct('model', mdlName, 'stopTime', stopTime, 'iters', iters, ...
     'ku', ku, 'tu', tu, 'gzn', gzn, 'ref', refCmd, ...
     'own_gains', gOwn, 'own_J', ownJ, ...
     'final_gains', bestGains, 'final_J', bestJ, 'n_rollbacks', nRollbacks, 'stepGain', stepGain, ...
+    'n_escalations', nEscalated, ...
     'hist', hist, 'scopes', {scopes}, 'best_t', bestT, 'best_y', bestY, 'best_u', bestU);
 R.timings = T;
 save(fullfile(workDir, 'tune_result.mat'), 'R');

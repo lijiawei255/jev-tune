@@ -1,6 +1,6 @@
 cff-version: 1.2.0
-title: "jev-tune: System-1 typed decisions for PID autotuning"
-message: "If you use this software, please cite it as below."
+title: "jev-tune: a Jev-inspired typed-decision model for PID autotuning"
+message: "If you use this software, please cite this version (and, once a DOI is minted, the archived release it points to)."
 type: software
 authors:
   - family-names: "Li"
@@ -9,19 +9,22 @@ license: MIT
 repository-code: "https://github.com/lijiawei255/jev-tune"
 url: "https://github.com/lijiawei255/jev-tune"
 abstract: >-
-  A CPU-only PID autotuner in which each decision is a Jev-style typed decision
-  (choice / score / noul) produced by a 200 KB numeric head in 0.19 ms, instead
-  of an autoregressive language-model call. Ships a Python simulator, a Simulink
-  bridge that runs the head inside MATLAB, an MCP server, and benchmarks against
-  Ziegler-Nichols, relay autotuning, CMA-ES, Bayesian optimisation and MATLAB
-  pidtune.
+  A CPU-only PID autotuner in which each decision is a typed judgement
+  (choice / score / noul) produced by a 200 KB numeric head in about 0.2 ms,
+  instead of an autoregressive language-model call. The project borrows Jev's
+  interface (TypeSafe AI) and none of its weights, text encoder or API; it is
+  not affiliated with TypeSafe AI. Ships a Python simulator, a Simulink bridge
+  that runs the head inside MATLAB, an MCP server, a documented benchmark at a
+  common experiment budget, and a limitations document that includes the
+  negative results.
 keywords:
   - PID tuning
-  - system identification
-  - Simulink
   - control engineering
-  - decision model
-  - Jev
-  - onnx
-version: 0.2.0
-date-released: "2026-10-22"
+  - Simulink
+  - MATLAB
+  - typed decisions
+  - Jev-inspired
+  - ONNX
+  - CPU inference
+version: 0.4.0
+date-released: "2026-10-23"

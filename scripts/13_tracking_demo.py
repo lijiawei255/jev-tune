@@ -32,10 +32,9 @@ OBJECTIVE = "disturbance"
 
 
 def load_head(models: str) -> JevHead:
-    head = JevHead(n_actions=7)
-    head.load_state_dict(torch.load(Path(models) / "jev_head.pt", map_location="cpu"))
-    head.eval()
-    return head
+    from jev_tune.decision import load_backend
+
+    return load_backend(models).model
 
 
 def ramp_cost(plants, gains, *, horizon=10.0, ref=1.0):
@@ -68,8 +67,12 @@ def main():
 
     # expert rollouts on the *tracking* task
     data, _, _, _ = generate(
-        train_p, steps=args.steps, seed=args.seed, verbose=False,
-        objective=OBJECTIVE, **SIM,
+        train_p,
+        steps=args.steps,
+        seed=args.seed,
+        verbose=False,
+        objective=OBJECTIVE,
+        **SIM,
     )
     print(
         f"[track] {len(data.feats)} states ({time.perf_counter() - t0:.0f}s)",
@@ -99,7 +102,8 @@ def main():
             value=None,
             use_value_filter=False,
             seed=args.seed,
-            objective=OBJECTIVE, **SIM,
+            objective=OBJECTIVE,
+            **SIM,
         )
         results[name] = float(np.median(r.best_j))
         print(f"[track] {name:<20} median J {results[name]:.3f}", flush=True)

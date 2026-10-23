@@ -342,6 +342,72 @@ def ultimate_gain(
     return ku, tu
 
 
+def _oscillation(y: np.ndarray, horizon: float) -> tuple[np.ndarray, np.ndarray]:
+    """Sustained-oscillation test on a batch of resampled traces.
+
+    Returns ``(is_oscillating, period)``.  Deliberately conservative: a decaying
+    transient must not be mistaken for a limit cycle, because Ku is read off the
+    *first* oscillating sweep point.
+    """
+    n, m = y.shape
+    t = np.linspace(0.0, horizon, m)
+    tail = y[:, m // 2 :]
+    tt = t[m // 2 :]
+    d = np.diff(tail, axis=1)
+    s = np.sign(d)
+    s = np.where(s == 0, 1.0, s)
+    flips = np.abs(np.diff(s, axis=1)) > 0
+    extrema = np.concatenate(
+        [np.zeros((n, 1), bool), flips, np.zeros((n, 1), bool)], axis=1
+    )
+    count = extrema.sum(axis=1)
+
+    amp = tail.max(axis=1) - tail.min(axis=1)
+    scale = np.maximum(np.abs(y).max(axis=1), 1e-6)
+    big = amp > 0.02 * scale
+    enough = count >= 4
+
+    period = np.full(n, np.nan)
+    for i in np.where(big & enough)[0]:
+        ti = tt[extrema[i]]
+        if ti.size >= 4:
+            period[i] = 2.0 * float(np.median(np.diff(ti)))
+    return big & enough & np.isfinite(period), period
+
+
+def estimate_ultimate_gain(
+    plants: PlantSet,
+    *,
+    lo: float = 0.05,
+    hi: float = 50.0,
+    n_grid: int = 7,
+    horizon: float = 4.0,
+) -> tuple[np.ndarray, np.ndarray, int]:
+    """Ku/Tu the way the Simulink bridge gets them: a P-only Kp sweep.
+
+    This is an *experiment*, not free information: it costs ``n_grid``
+    closed-loop runs per plant, so any method that uses it must charge them to
+    its budget.  ``scenarios.ultimate_gain`` is the analytic oracle.
+
+    Returns ``(ku, tu, simulations_per_plant)``; Ku is the first grid point at
+    which the loop sustains a limit cycle, exactly like ``jev_tune_model.m``.
+    """
+    grid = np.logspace(np.log10(lo), np.log10(hi), n_grid)
+    osc = np.zeros((n_grid, plants.n), dtype=bool)
+    per = np.full((n_grid, plants.n), np.nan)
+    zeros = np.zeros(plants.n)
+    for i, kp in enumerate(grid):
+        g = np.column_stack([np.full(plants.n, kp), zeros, zeros])
+        res = simulate(plants, g, horizon=horizon, n_curve=N_CURVE)
+        osc[i], per[i] = _oscillation(res["y_curve"], horizon)
+
+    has = osc.any(axis=0)
+    first = np.argmax(osc, axis=0)
+    ku = np.where(has, grid[first], np.nan)
+    tu = np.where(has, per[first, np.arange(plants.n)], np.nan)
+    return ku, tu, n_grid
+
+
 def simulate(
     plants: PlantSet,
     gains: np.ndarray,

@@ -4,12 +4,30 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jev-tune"
-version = "0.3.1"
-description = "System-1 (Jev-style) decision heads for control-parameter autotuning"
+version = "0.4.0"
+description = "Jev-inspired typed-decision model for PID autotuning (choice / score / noul, 0.2 ms on CPU); not affiliated with TypeSafe AI"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "JIAWEI LI" }]
+keywords = [
+  "PID tuning",
+  "autotuning",
+  "control systems",
+  "Simulink",
+  "typed decisions",
+  "selective prediction",
+  "ONNX",
+  "CPU inference",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Topic :: System :: Hardware",
+]
 dependencies = [
   "numpy>=1.26",
   "scipy>=1.11",

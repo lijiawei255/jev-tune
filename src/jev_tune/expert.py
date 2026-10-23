@@ -3,12 +3,13 @@
 Earlier versions used a CMA-ES walk, but its annealed step size made 80 % of the
 labels "hold", which is a useless thing to imitate.  The expert here evaluates
 **every action in the vocabulary the decoder can actually emit** (three axes x
-five multiplicative steps), so the imitation target is well posed and the
-one-step lookahead data is exactly the candidate set used at inference.
+seven multiplicative steps = 21 single-axis probes), so the imitation target is
+well posed and the one-step lookahead data is exactly the candidate set used at
+inference.
 
-Per plant and per step: 15 single-axis probes + 1 combined probe = 16
-simulations.  The combined probe doubles as the next state, so a 20-step
-trajectory costs 321 simulations.
+Per plant and per step: 21 single-axis probes + 1 combined probe = 22
+simulations.  A 20-step trajectory therefore costs 20 x 22 + 1 = 441
+simulations, which is why the dataset is the expensive part of this project.
 """
 
 from __future__ import annotations

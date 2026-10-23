@@ -43,9 +43,10 @@ def main():
     n = len(data.feats)
     print(f"[train] {n:,} states, {len(data.act_state):,} lookahead rows", flush=True)
 
-    # label balance: are all five steps actually represented?
+    # label balance: are all the vocabulary's steps actually represented?
+    n_bins = int(data.choice.max()) + 1
     for axis, name in enumerate(("Kp", "Ki", "Kd")):
-        counts = np.bincount(data.choice[:, axis], minlength=5)
+        counts = np.bincount(data.choice[:, axis], minlength=n_bins)
         print(
             f"[train] {name} step label distribution: {np.round(counts / counts.sum(), 3)}",
             flush=True,
@@ -134,9 +135,16 @@ def main():
     }
     Path(args.out_dir).mkdir(parents=True, exist_ok=True)
     (Path(args.out_dir) / "meta.json").write_text(
-        json.dumps({"n_actions": int(max(5, data.choice.max() + 1)),
-                    "n_feats": int(data.feats.shape[1]),
-                    "n_curve": int(data.curves.shape[-1])}, indent=2), encoding="utf-8")
+        json.dumps(
+            {
+                "n_actions": int(max(5, data.choice.max() + 1)),
+                "n_feats": int(data.feats.shape[1]),
+                "n_curve": int(data.curves.shape[-1]),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     (Path(args.out_dir) / "calibration.json").write_text(
         json.dumps(calib, indent=2), encoding="utf-8"
     )

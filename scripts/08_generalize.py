@@ -23,10 +23,11 @@ from jev_tune.scenarios import names, variants
 
 
 def load_head(models: str, n_actions: int = 7) -> JevHead:
-    head = JevHead(n_actions=n_actions)
-    head.load_state_dict(torch.load(f"{models}/jev_head.pt", map_location="cpu"))
-    head.eval()
-    return head
+    # one loader for every entry point: it attaches the fitted temperatures so
+    # `evaluate_head` applies the same calibration as the headline benchmark
+    from jev_tune.decision import load_backend
+
+    return load_backend(models).model
 
 
 def safe_gzn(ku: np.ndarray, tu: np.ndarray) -> np.ndarray:

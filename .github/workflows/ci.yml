@@ -47,6 +47,28 @@ jobs:
           python -m jev_tune.cli status --json || test $? -eq 2
           python -m jev_tune.cli demo --plants 4 --json
 
+  c-parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install what the exporter needs
+        run: |
+          python -m pip install --upgrade pip
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy scipy
+          pip install -e . --no-deps
+      # gcc is preinstalled on ubuntu-latest; this compiles the C99 reference
+      # and checks forward, feature assembly and resampling against Python
+      - name: C99 reference matches Python
+        env:
+          PYTHONPATH: src
+        run: python scripts/18_export_c.py --verify
+
   docs:
     runs-on: ubuntu-latest
     steps:

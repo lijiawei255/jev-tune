@@ -104,18 +104,31 @@ SPECS = {
     "inverted_pendulum": ([1.0], [1.0, 0.0, -2.0], dict(delay_s=0.01, u_max=25.0)),
     "sharp_resonance": (
         [200.0**2],
-        list(np.convolve([1.0, 2 * 0.4 * 6.0, 36.0], [1.0, 2 * 0.02 * 200.0, 200.0**2])),
+        list(
+            np.convolve([1.0, 2 * 0.4 * 6.0, 36.0], [1.0, 2 * 0.02 * 200.0, 200.0**2])
+        ),
         dict(delay_s=0.012, u_max=2.5),
     ),
-    "noisy_sensor": ([1.0], [0.2, 1.0], dict(delay_s=0.03, noise_sigma=0.01, u_max=1.6)),
-    "valve_dead_zone": ([0.8], [0.5, 1.0], dict(delay_s=0.05, dead_zone=0.05, u_max=1.6)),
+    "noisy_sensor": (
+        [1.0],
+        [0.2, 1.0],
+        dict(delay_s=0.03, noise_sigma=0.01, u_max=1.6),
+    ),
+    "valve_dead_zone": (
+        [0.8],
+        [0.5, 1.0],
+        dict(delay_s=0.05, dead_zone=0.05, u_max=1.6),
+    ),
     "flexible_arm": (
         [120.0**2],
-        list(np.convolve(
-            np.convolve([1.0, 2 * 0.02 * 120.0, 120.0**2],
-                        [1.0, 2 * 0.03 * 160.0, 160.0**2]),
-            [1.0, 0.05],
-        )),
+        list(
+            np.convolve(
+                np.convolve(
+                    [1.0, 2 * 0.02 * 120.0, 120.0**2], [1.0, 2 * 0.03 * 160.0, 160.0**2]
+                ),
+                [1.0, 0.05],
+            )
+        ),
         dict(delay_s=0.008, u_max=2.5),
     ),
     "inverse_response": (
@@ -140,9 +153,16 @@ def names() -> list[str]:
 
 
 def variants(name: str, n: int = 4, seed: int = 0) -> PlantSet:
-    """n jittered draws of one scenario (+-20 % gain, +-20 % delay)."""
+    """n jittered draws of one scenario (+-20 % gain, +-20 % delay).
+
+    The per-scenario offset must be stable across processes, so it comes from
+    crc32 of the name, not Python's `hash()` (which is salted per interpreter and
+    silently made every out-of-zoo result non-reproducible).
+    """
+    import zlib
+
     num, den, kw = SPECS[name]
-    rng = np.random.default_rng(hash(name) % 2**31 + seed)
+    rng = np.random.default_rng(zlib.crc32(name.encode("utf-8")) + seed)
     plants = []
     for _ in range(n):
         num_v = np.array(num, float) * 10 ** rng.uniform(-0.3, 0.3)
@@ -160,6 +180,7 @@ def _stack(plants) -> PlantSet:
     # scenarios of different orders have different coefficient widths: pad to
     # a common length before concatenating (highest power first, so pad left)
     nd = max(p.num.shape[1] for p in plants)
+
     def _pad(a):
         if a.shape[1] == nd:
             return a
@@ -167,6 +188,7 @@ def _stack(plants) -> PlantSet:
 
     # state-space realisations also differ in order
     ns = max(p.a.shape[1] for p in plants)
+
     def _grow(a, n):
         out = np.zeros((a.shape[0], n, n))
         k = a.shape[1]

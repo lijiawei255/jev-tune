@@ -1,5 +1,9 @@
 """State construction: numeric features + resampled traces.
 
+**Testbed-specific (PID).** Everything in this file is about step responses,
+gain ratios and ultimate-gain features. A port to another domain replaces this
+module wholesale; the decision shell in `decision.py` / `decode.py` does not.
+
 The state is what the decision head sees.  Two channels:
 
 * ``feats`` -- 20 hand-crafted, scale-free descriptors (human tuning language)

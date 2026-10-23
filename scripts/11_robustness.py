@@ -37,16 +37,9 @@ from jev_tune.scenarios import variants
 
 
 def load_head(models: str) -> JevHead:
-    meta = Path(models) / "meta.json"
-    n_actions = 7
-    if meta.is_file():
-        n_actions = int(
-            json.loads(meta.read_text(encoding="utf-8-sig")).get("n_actions", 7)
-        )
-    m = JevHead(n_actions=n_actions)
-    m.load_state_dict(torch.load(Path(models) / "jev_head.pt", map_location="cpu"))
-    m.eval()
-    return m
+    from jev_tune.decision import load_backend
+
+    return load_backend(models).model
 
 
 def run_group(head, plants, label, *, gate: bool, seed: int = 0):

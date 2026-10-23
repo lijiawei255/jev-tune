@@ -12,13 +12,17 @@
 
 **PID autotuning where each decision is a typed judgement, not a paragraph.**
 A 200 KB model reads the step response and returns one bounded gain step in
-**0.19 ms on a laptop CPU** — no autoregressive LLM, no cloud, no GPU.
+**0.19 ms on a laptop CPU** — no autoregressive LLM, no cloud, no GPU. The
+shipped loop also **holds** a gain axis when its calibrated confidence is low;
+it does not touch the plant when it is unsure.
 
-> **What "Jev" means here.** It uses the *Jev interface* — the three typed
-> primitives `choice` / `score` / `noul` with calibrated probabilities — not
-> the hosted Jev model or Laya's 421 M text encoder. The runtime policy is a
-> 200 KB numeric head trained in this repo; Laya is only useful as an
-> optional text backend.
+> **Jev-inspired, not affiliated.** It uses the *Jev interface* — the three typed
+> primitives `choice` / `score` / `noul` with calibrated probabilities — not the
+> hosted Jev model or Laya's 421 M text encoder. The runtime policy is a 200 KB
+> numeric head trained in this repo; Laya is only mentioned as a text baseline
+> that was never wired in. This project is **not affiliated with, endorsed by, or
+> sponsored by TypeSafe AI**. What is borrowed and what is not:
+> [`docs/JEV_MAPPING.md`](docs/JEV_MAPPING.md).
 
 ## Let your agent do it
 
@@ -85,6 +89,12 @@ Regenerate with `scripts/15_make_discovery_gif.py`.*
 | know why my model will not tune | `jev-tune doctor --model <file>` |
 | know whether my model qualifies | [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md) |
 | understand the decision contract | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| see what is borrowed from Jev, and what is not | [`docs/JEV_MAPPING.md`](docs/JEV_MAPPING.md) |
+| know whether the typed path actually helps | [`docs/ABLATION.md`](docs/ABLATION.md) |
+| know what "hold when unsure" costs | [`docs/ABSTENTION.md`](docs/ABSTENTION.md) |
+| check the compute numbers (MACs, RAM, int8) | [`docs/COMPUTE.md`](docs/COMPUTE.md) |
+| borrow the pattern for another domain | [`docs/TRANSFER.md`](docs/TRANSFER.md) |
+| check how the budget is accounted | [`docs/BENCHMARK.md`](docs/BENCHMARK.md) |
 | check the numbers myself | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md), [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md), [`docs/CLAIMS.md`](docs/CLAIMS.md) |
 | drive it from an agent or MCP | [`AGENTS.md`](AGENTS.md) |
 | handle a plant family it has not seen | [`docs/SPECIALIZE.md`](docs/SPECIALIZE.md) |
@@ -114,10 +124,10 @@ experiments (~0.55 s of simulation); the stall detector stopped the loop at nine
 
 | | |
 | :--- | :--- |
-| **What it does** | picks the next PID gain step from the response it just measured |
-| **How fast** | **0.19 ms** per decision (ONNX, 1 CPU thread) vs **5.34 s** per turn for a hosted LLM agent (measured, 40 plants) |
+| **What it does** | picks the next PID gain step from the response it just measured, and holds when it is not confident |
+| **How fast** | **0.19 ms** for the model forward, **0.73 ms** for a complete typed decision (ONNX, 1 CPU thread; p99 1.36 ms) vs **5.34 s** per turn for a hosted LLM agent (measured, 40 calls) |
 | **How few experiments** | **5 experiments** on a real Simulink motor cut the cost from **1.238 to 0.598** (the recorded run; with the corrected gain sweep the same model starts better and the tuner returns the lab's own gains instead — [why](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)); the result is never worse than the better of the start and the gains your model already had |
-| **How it generalises** | on a plant family it never saw (120 plants), **0.468** median cost vs **1.813** for CMA-ES at the same 20-simulation budget |
+| **How it generalises** | on a plant family it never saw (120 plants, **20 experiments for every method**), **0.440** median cost and **p90 1.038** vs **0.567 / 1.510** for Bayesian optimisation and **1.705 / 2.519** for CMA-ES |
 
 ![before and after](assets/before_after.png)
 
@@ -135,19 +145,25 @@ was wrong in three ways and has since been fixed — see the correction in
 parse the answer") costs seconds per iteration, and the number is buried in
 prose. Here the model emits three Jev primitives — `choice` for the step,
 `score` for "how good is this response", `noul` for "is this step safe" — so the
-decision is a probability vector you can threshold, log and calibrate. Measured
-ECE after temperature fitting: **0.02** on two axes, **0.031** on the worst one.
+decision is a probability vector you can threshold, log and calibrate. That
+threshold is used **before** the plant is touched: `docs/ABSTENTION.md` measures
+the coverage/cost trade-off of holding.
 
 **vs. classical autotune.** Ziegler-Nichols and relay autotuning give you one
 shot with no feedback. This keeps iterating, and it learns the *policy* once
 across a whole family of plants, so a new plant needs no re-tuning of the tuner.
 
-**vs. Bayesian optimisation.** BO re-fits a surrogate at every step. This is
-amortised: one forward pass, and at the same simulation budget it reaches a lower
-median cost than BO (0.468 vs 0.567) and a lower tail (p90 1.037 vs 1.510). The
-one baseline whose tail is better is relay autotuning (p90 0.935) — two
-experiments instead of twenty, and it never blows up, which is why it is in the
-table rather than in a footnote.
+**vs. Bayesian optimisation and a same-size regression head.** At the same 20
+experiments the head is at 0.440 median / 1.038 p90, BO at 0.567 / 1.510 and
+CMA-ES at 1.705 / 2.519. Against a **regression head with the same encoder, the
+same data and the same budget** the typed path is 0.439 vs 0.494, with a much
+lighter tail (p90 1.039 vs 1.508) — that ablation is
+[`docs/ABLATION.md`](docs/ABLATION.md), and it also shows that the deterministic
+safety gate contributes nothing on this plant family.
+
+**Why not just `pidtune`?** If you have an accurate model, use `pidtune`: two
+experiments reach 0.742 here, and [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md#if-you-already-have-an-accurate-model-use-pidtune)
+says so. This is for the case where you do not.
 
 **When your plant is outside the training zoo** the head is not magic: it fails
 on dead bands, inverse response and open-loop unstable plants (documented in
@@ -158,8 +174,10 @@ on dead bands, inverse response and open-loop unstable plants (documented in
 python scripts/10_specialize.py --scenario valve_dead_zone --name valve
 ```
 
-Measured on a family the head had never seen: median cost **2.242 → 1.884 (−16 %)** after ~95 s of CPU on 30 held-out
-jitters. Details: `docs/SPECIALIZE.md` — the v0.2 figure of −49 % came
+Measured on a family the head had never seen: median cost **2.242 → 2.207 (−2 %)** after ~95 s of CPU on 30 held-out
+jitters — i.e. the specialist is not a fix for this family. The v0.2/v0.3 figures
+(−49 %, −16 %) were measured on scenario draws that were not reproducible before
+0.4.0; `docs/SPECIALIZE.md` says so and no longer quotes them. Details: `docs/SPECIALIZE.md` — the v0.2 figure of −49 % came
 from a head that has since been retrained, and does not reproduce.
 
 ---
@@ -308,16 +326,20 @@ breakdown, the blocking/concurrency trade-off and the version matrix:
 ## Benchmarks
 
 **Held-out family (120 plants, two-mass resonance, never seen in training)**
-Target = 1.05 × a 240-simulation CMA-ES reference.
+Target = 1.05 × a 240-simulation CMA-ES reference. **Every method gets 20
+experiments**, including the priors it needs.
 
-| method | final cost (median) | p90 | × reference | sims/plant |
-| :--- | ---: | ---: | ---: | ---: |
-| **Jev head** | **0.468** | 1.037 | **1.29** | 20 |
-| Bayesian optimisation | 0.567 | 1.510 | 1.56 | 20 |
-| identify → `pidtune` | 0.742 | 1.705 | 1.91 | 2 |
-| relay autotune | 0.906 | **0.935** | 2.36 | 2 |
-| CMA-ES | 1.813 | 2.618 | 3.75 | 18 |
-| Ziegler-Nichols | 2.322 | 3.082 | 5.74 | 1 |
+| method | final cost (median) | p90 | × reference | success | sims to target | experiments |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| **Jev head** | **0.440** | **1.038** | **1.31** | **41 %** | **5.0** | 20 |
+| Bayesian optimisation | 0.567 | 1.510 | 1.56 | 35 % | 8.5 | 20 |
+| identify → `pidtune` | 0.742 | 1.705 | 1.91 | 29 % | 2.0 | 2 |
+| shrunken Z-N (factors chosen on the training zoo) | 1.290 | 1.905 | 4.48 | 30 % | 1.0 | 1 |
+| Z-N from a measured Ku/Tu (7-run sweep) | 1.860 | 2.791 | 2.99 | 16 % | 8.0 | 8 |
+| hill climb over the same vocabulary | 1.463 | 2.212 | 2.35 | 15 % | 5.0 | 20 |
+| CMA-ES | 1.705 | 2.519 | 3.58 | 13 % | 4.0 | 20 |
+| simplex | 2.037 | 2.879 | 4.43 | 7 % | 4.0 | 20 |
+| Ziegler-Nichols (analytic Ku/Tu) | 2.322 | 3.082 | 5.74 | 6 % | 1.0 | 1 |
 
 **Real Simulink model (lab DC motor)**
 
@@ -334,46 +356,80 @@ Full numbers, caveats and reproduction: [`docs/STEP1_RESULTS.md`](docs/STEP1_RES
 
 ## What is not tested
 
-Three comparisons this project does not make. They are listed here so nobody has
+Two comparisons this project does not make. They are listed here so nobody has
 to infer the boundaries from the benchmark:
 
 | not tested | why it matters | what would close it |
 | :--- | :--- | :--- |
-| **The typed interface against a plain regression head** | Same features, same data, same budget, one difference: `choice/score/noul` versus regressing the three gains directly. Without it, "typed decision" is a design with measured *properties* (calibrated, thresholdable, 0.19 ms) and no measured *performance advantage* over a small non-typed policy of the same size | one training run on the same `data/expert_train.npz` |
 | **A language model that is not on the network** | The only language baseline is a hosted API — 5.34 s per turn, 13 of 40 answers unparseable — which mixes the language layer with the round trip and the parsing | a local 1.5B–4B model in the same loop |
 | **An external user** | Every model in the benchmarks is ours. "You can point it at your project" is a design goal with a test suite behind it, not something observed | one colleague's model |
 
-The first one is the interesting gap: it decides whether the interface is a
-performance claim or an engineering one. Both are worth having; only one is
-measured. See [`docs/CLAIMS.md`](docs/CLAIMS.md#what-is-not-tested).
+The typed-interface question used to be on this list. It is now measured:
+[`docs/ABLATION.md`](docs/ABLATION.md) compares the shipped head with a
+same-size regression head and with every intermediate decode, all at 20
+experiments. The answer is in that file, including where the typed path does
+*not* help.
+
+## Related work
+
+The lineage this project sits in, with the caveat that it cites them as context,
+not as validation of anything measured here:
+
+* **Jev / TypeSafe AI** — the `choice` / `score` / `noul` interface and the idea
+  of a calibrated, typed answer instead of generated text
+  ([architecture](https://www.jevtypesafeai.com/jev/architecture)). This
+  repository borrows the interface, not the model.
+* **Laya / Convai Innovations** — a 421 M open typed-decision assessor, used here
+  only as the published calibration reference (ECE 0.466 as shipped) and as the
+  text baseline that was planned but never wired in.
+* **Early neural PID tuning** — Ruano (1992) and the neural/iterative-relay line;
+  Leva & Piroddi (ACC 2004). These establish that a learned mapping from response
+  to gains is an old idea; what is new here is the typed-decision interface and
+  the calibration/abstention story, not the idea of learning to tune.
+* **Reinforcement-learning tuning** — including the stability-preserving RL
+  tuning line and the industrial RL-tuning patents (US 10,915,073,
+  US 11,307,562). Those optimise a policy end to end; this predicts one bounded
+  step from a small labelled dataset.
+* **Runtime assurance** — the Simplex architecture (Seto, Krogh, Sha & Chutinan,
+  ACC 1998) and shielding (Alshiekh et al., AAAI 2018). The deterministic gate in
+  `evaluate.py` is a primitive version of the same idea.
+* **Calibration and abstention** — temperature scaling (Guo et al., 2017),
+  selective prediction (Geifman & El-Yaniv, NeurIPS 2017), conformal risk control
+  (Angelopoulos et al., arXiv:2208.02814). `docs/ABSTENTION.md` measures the
+  coverage/cost trade-off; it does not implement a conformal guarantee.
 
 ## Repository layout
 
 ```
 src/jev_tune/
-  plants.py      plant zoo + vectorised closed-loop simulation
-  metrics.py     response -> scalar cost
-  state.py       20 features + 2x64 traces
-  primitives.py  Choice / Score / Noul   (the only output surface)
-  decode.py      expected-value decode, trust region, interval refinement
+  primitives.py  Choice / Score / Noul           (domain-agnostic shell)
+  decision.py    backend protocol, question registry, temperature  (shell)
+  decode.py      expectation, variance shrink, explicit abstention (shell)
+  evaluate.py    budget accounting, gate, per-decision trace      (shell)
+  plants.py      plant zoo + vectorised closed-loop simulation    (PID testbed)
+  metrics.py     response -> scalar cost                          (PID testbed)
+  state.py       20 features + 2x64 traces                        (PID testbed)
+  expert.py      coordinate line search over the vocabulary       (PID testbed)
   model.py       the decision head and the lookahead value net
-  train.py       dataset -> head (+ expert.py, the rule-based demonstrator)
-  baselines.py   Z-N, relay, simplex, CMA-ES, BO
+  train.py       dataset -> head
+  baselines.py   Z-N, swept Z-N, shrunken Z-N, relay, hill climb, simplex, CMA-ES, BO
   identified.py  identify -> pidtune (the practitioner baseline)
   discover.py    find the gains, signal and reference of an unknown model
-  evaluate.py    held-out loop used by the benchmarks
   plot.py        the before/after figure
   scenarios.py   10 out-of-zoo scenarios, for generalisation
   simulink.py, matlab_runner.py, matlab_worker.py   MATLAB bridge and worker
   mcp_server.py  the seven MCP tools
   cli.py         status / demo / doctor / discover / matlab / loop / batch / check
+c/               C99 inference reference + language-neutral test vectors
 matlab/          Fast Restart bridge, hand-written forward pass, test_discover.m
 scripts/         00 merge chunks, 00b relabel, 01 dataset, 02 train, 03 evaluate,
-                 04 onnx, 05 report, 06 matlab weights, 07 demo assets,
+                 04 onnx + latency, 05 report, 06 matlab weights, 07 demo assets,
                  08 generalise, 09 arch figure, 10 specialize, 11 robustness,
                  12 race, 13 tracking demo, 14 agent baseline, 15 gifs,
-                 16 check claims
-docs/            research report, architecture, step results, claims, examples
+                 16 check claims, 17 ablation, 18 export C, 20 abstention,
+                 21 hardware, 22 calibrate-only
+docs/            architecture, benchmark accounting, step results, claims,
+                 JEV mapping, transfer guide, ablation, abstention, compute
 assets/          the GIFs and figures used above
 ```
 

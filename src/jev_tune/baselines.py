@@ -3,6 +3,14 @@
 Every method returns the same ``BaselineResult`` so the comparison table can be
 built mechanically: wall-clock, simulations used, and best-so-far cost after
 each evaluation batch.
+
+Budget honesty (see ``docs/BENCHMARK.md``):
+
+* ``eval_axis`` is the number of closed-loop simulations spent *per plant*,
+  including the ones a method needs to estimate its own priors;
+* every competitor in ``scripts/03_evaluate.py`` gets the same budget;
+* the head's training cost is paid once, off-line, and is **not** in its
+  per-plant budget -- that asymmetry is stated in the README rather than hidden.
 """
 
 from __future__ import annotations
@@ -11,6 +19,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from .decode import ActionSpace
 from .metrics import cost_from_metrics
 from .plants import PlantSet, simulate, ultimate_gain
 
@@ -73,14 +82,61 @@ def run_zn(plants: PlantSet, variant: str = "classic") -> BaselineResult:
     )
 
 
+def run_shrunk_zn(plants: PlantSet, factors) -> BaselineResult:
+    """Z-N scaled by a fixed triple, e.g. ``(0.3, 0.1, 1.0)``.
+
+    One simulation at deployment.  ``choose_zn_shrink`` picks the triple on the
+    *training* families; that selection is a prior, like the head's weights, and
+    its cost is reported separately instead of being hidden.
+    """
+    f = np.asarray(factors, dtype=float)
+    g = zn_gains(plants) * f
+    j = _eval(plants, g)
+    return BaselineResult(
+        name="shrunk_zn",
+        gains=g,
+        best_j=j,
+        history=j[:, None],
+        eval_axis=np.array([1.0]),
+    )
+
+
+def choose_zn_shrink(
+    train_plants: PlantSet,
+    *,
+    kp=(0.15, 0.25, 0.35, 0.5, 0.75),
+    ki=(0.02, 0.05, 0.1, 0.25, 0.5),
+    kd=(0.25, 0.5, 1.0, 2.0),
+) -> tuple[tuple[float, float, float], float, int]:
+    """Grid-search the Z-N scale triple on the training zoo.
+
+    Returns ``(factors, median_train_cost, simulations_per_train_plant)``.
+    """
+    best, best_j = None, np.inf
+    for a in kp:
+        for b in ki:
+            for c in kd:
+                j = _eval(train_plants, zn_gains(train_plants) * np.array([a, b, c]))
+                m = float(np.median(j))
+                if m < best_j:
+                    best, best_j = (a, b, c), m
+    return best, best_j, len(kp) * len(ki) * len(kd)
+
+
 # --------------------------------------------------------------------------- #
 # Relay feedback autotune (Astrom-Hagglund)
 # --------------------------------------------------------------------------- #
 
 
-def run_relay(
+def relay_estimate(
     plants: PlantSet, *, horizon: float = 30.0, ts: float = 5e-3
-) -> BaselineResult:
+) -> tuple[np.ndarray, np.ndarray]:
+    """Astrom-Hagglund relay experiment: Ku, Tu from the limit cycle.
+
+    This *is* one experiment on the real loop (a relay is wired around the
+    controller and the oscillation is measured), so callers that feed these
+    numbers to another method must count one simulation for it.
+    """
     n = plants.n
     nsteps = int(horizon / ts)
     x = np.zeros((n, plants.a.shape[1]))
@@ -122,8 +178,15 @@ def run_relay(
                     tu[i] = period
                     ku[i] = 4 * d[i] / (np.pi * amp)
     bad = ~np.isfinite(ku) | ~np.isfinite(tu)
-    ku = np.where(bad, 1.0, ku)
-    tu = np.where(bad, 1.0, tu)
+    return np.where(bad, np.nan, ku), np.where(bad, np.nan, tu)
+
+
+def run_relay(
+    plants: PlantSet, *, horizon: float = 30.0, ts: float = 5e-3
+) -> BaselineResult:
+    ku, tu = relay_estimate(plants, horizon=horizon, ts=ts)
+    ku = np.where(np.isfinite(ku), ku, 1.0)
+    tu = np.where(np.isfinite(tu), tu, 1.0)
     g = np.column_stack([0.6 * ku, 1.2 * ku / tu, 0.075 * ku * tu])
     j = _eval(plants, g)
     return BaselineResult(
@@ -131,7 +194,7 @@ def run_relay(
         gains=g,
         best_j=j,
         history=j[:, None],
-        eval_axis=np.array([2.0]),
+        eval_axis=np.array([2.0]),  # relay experiment + one verification run
     )
 
 
@@ -235,13 +298,14 @@ def run_cmaes(
     best = np.full(n, np.inf)
     evals = 0
     idx = np.arange(n)
-    for _ in range(max(1, budget // lam)):
-        cand = opt.ask(lam, rng)
-        flat = plants.take(np.tile(idx, lam))
+    while evals < budget:
+        m = min(lam, budget - evals)
+        cand = opt.ask(m, rng)
+        flat = plants.take(np.tile(idx, m))
         j = _eval(flat, (10 ** np.clip(cand, LOG_LO, LOG_HI)).reshape(-1, 3)).reshape(
-            lam, n
+            m, n
         )
-        evals += lam
+        evals += m
         opt.tell(cand, j)
         best = np.minimum(best, j.min(axis=0))
         history.append(best.copy())
@@ -321,6 +385,73 @@ def run_bo(
     )
 
 
+def run_swept_zn(
+    plants: PlantSet, *, horizon: float = 4.0, n_grid: int = 7
+) -> BaselineResult:
+    """Z-N from Ku/Tu measured by a Kp sweep (what the Simulink bridge does).
+
+    The sweep is 7 deliberately unstable runs, so the row is charged 8
+    experiments (7 + one verification run) instead of pretending Ku is free.
+    """
+    from .plants import estimate_ultimate_gain
+
+    ku, tu, sims = estimate_ultimate_gain(plants, horizon=horizon, n_grid=n_grid)
+    ok = np.isfinite(ku) & np.isfinite(tu) & (ku > 0) & (tu > 0)
+    ku = np.where(ok, ku, 1.0)
+    tu = np.where(ok, tu, 1.0)
+    g = np.column_stack([0.6 * ku, 1.2 * ku / tu, 0.075 * ku * tu])
+    j = _eval(plants, g)
+    return BaselineResult(
+        name="swept_zn",
+        gains=g,
+        best_j=j,
+        history=j[:, None],
+        eval_axis=np.array([float(sims + 1)]),
+    )
+
+
+def run_vocab_hill(
+    plants: PlantSet,
+    x0: np.ndarray,
+    *,
+    budget: int = 20,
+    space: ActionSpace | None = None,
+) -> BaselineResult:
+    """Greedy hill climb over the *same* vocabulary the head emits.
+
+    Each experiment probes one (axis, multiplier) candidate in a fixed
+    round-robin order (one step of Kp, Ki, Kd at 0.5x, then at 0.7x, ...),
+    accepts the candidate if it lowers the cost, and stops when the budget is
+    spent.  No prior, no model, same action space, same number of experiments:
+    this is the cheapest honest "is the learned prior doing anything" control.
+    """
+    space = space or ActionSpace()
+    n = plants.n
+    gains = np.asarray(x0, dtype=float).copy()
+    best = _eval(plants, gains)
+    history = [best.copy()]
+    axis_ = [1.0]
+
+    order = [(axis, k) for k in range(space.k) for axis in range(3)]
+    for i, (axis, k) in enumerate(order[: max(0, budget - 1)], start=2):
+        trial = gains.copy()
+        trial[:, axis] = np.clip(trial[:, axis] * space.multipliers[k], 1e-4, 1e3)
+        jt = _eval(plants, trial)
+        better = jt < best
+        best = np.where(better, jt, best)
+        gains = np.where(better[:, None], trial, gains)
+        history.append(best.copy())
+        axis_.append(float(i))
+
+    return BaselineResult(
+        name="vocab_hill",
+        gains=gains,
+        best_j=best,
+        history=np.column_stack(history),
+        eval_axis=np.asarray(axis_),
+    )
+
+
 def run_grid(
     plants: PlantSet,
     x0: np.ndarray,
@@ -367,8 +498,13 @@ __all__ = [
     "BaselineResult",
     "zn_gains",
     "run_zn",
+    "run_shrunk_zn",
+    "choose_zn_shrink",
+    "relay_estimate",
     "run_relay",
+    "run_swept_zn",
     "run_simplex",
+    "run_vocab_hill",
     "run_cmaes",
     "run_bo",
     "run_grid",

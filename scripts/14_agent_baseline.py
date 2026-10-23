@@ -243,11 +243,9 @@ def main():
     )
     print(f"[agent] median best J {np.median(agent['best_j']):.3f}", flush=True)
 
-    head = JevHead(n_actions=7)
-    head.load_state_dict(
-        torch.load(Path(args.models) / "jev_head.pt", map_location="cpu")
-    )
-    head.eval()
+    from jev_tune.decision import load_backend
+
+    head = load_backend(args.models)
     ku, tu = ultimate_gain(plants)
     gzn = np.column_stack([0.6 * ku, 1.2 * ku / np.maximum(tu, 1e-9), 0.075 * ku * tu])
     hres = evaluate_head(

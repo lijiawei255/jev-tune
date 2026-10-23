@@ -141,19 +141,18 @@ def cmd_demo(args) -> int:
     ku, tu = ultimate_gain(plants)
     gzn = np.column_stack([0.6 * ku, 1.2 * ku / tu, 0.075 * ku * tu])
 
-    head = JevHead(n_actions=_n_actions(weights.parent))
-    head.load_state_dict(torch.load(weights, map_location="cpu"))
-    head.eval()
+    from .decision import load_backend
 
+    head = load_backend(weights.parent)
     zn = run_zn(plants)
-    cma = run_cmaes(plants, zn_gains(plants), budget=18, lam=6, seed=args.seed)
+    cma = run_cmaes(plants, zn_gains(plants), budget=20, lam=4, seed=args.seed)
     hr = evaluate_head(
         head,
         plants,
         gzn,
         ku,
         tu,
-        iters=20,
+        budget=20,
         value=None,
         use_value_filter=False,
         seed=args.seed,
@@ -163,9 +162,10 @@ def cmd_demo(args) -> int:
         "ok": True,
         "plants": plants.n,
         "families": sorted(set(plants.family)),
+        "budget": 20,
         "cost_median": {
             "jev_head": float(np.median(hr.best_j)),
-            "cmaes_18sims": float(np.median(cma.best_j)),
+            "cmaes_20sims": float(np.median(cma.best_j)),
             "zn": float(np.median(zn.best_j)),
         },
         "improvement_vs_zn": float(np.median(zn.best_j) / np.median(hr.best_j)),
@@ -486,11 +486,9 @@ def cmd_loop(args) -> int:
     ku, tu = ultimate_gain(plant)
     gzn = np.array([[0.6 * ku[0], 1.2 * ku[0] / tu[0], 0.075 * ku[0] * tu[0]]])
 
-    import torch
+    from .decision import load_backend
 
-    head = JevHead(n_actions=_n_actions(weights.parent))
-    head.load_state_dict(torch.load(weights, map_location="cpu"))
-    head.eval()
+    head = load_backend(weights.parent)
     result = evaluate_head(
         head,
         plant,
@@ -523,7 +521,8 @@ def cmd_loop(args) -> int:
                     "final_gains": gains,
                     "start_J": start_j,
                     "final_J": final_j,
-                    "n_experiments": int(result.stop_iter[0]) or len(history),
+                    "n_experiments": int(result.budget),
+                    "stopped_proposing_after": int(result.stop_iter[0]),
                     "hist": [float(h) for h in history[0]],
                 },
                 indent=2,

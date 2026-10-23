@@ -12,6 +12,9 @@ only test by simulation.
 
 **It uses the Jev *interface*, not the Jev model.** Laya's 421 M text encoder is
 not in the runtime; the policy is trained in this repo. Say so if a user asks.
+This project is **Jev-inspired and not affiliated with TypeSafe AI**; it contains
+no Jev weights, no text input and no API access. `docs/JEV_MAPPING.md` lists what
+is borrowed and what is not.
 
 Two runtimes ship in this repo:
 

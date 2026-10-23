@@ -40,13 +40,13 @@ These are the open gaps, roughly in order of value:
 
 | Area | What it needs | Size |
 | :--- | :--- | :--- |
-| **Typed interface vs a regression head** | same features, same expert data, same training budget: `choice / score / noul` against regressing the gain deltas. This is the one comparison the project has not made (`docs/CLAIMS.md`, "What is not tested") | small |
+| **Conformal / risk-controlled thresholds** | replace the hand-set `tau_act` with a threshold that carries a distribution-free guarantee under an exchangeability argument (`docs/ABSTENTION.md` has the curve it would replace) | medium |
 | **A local language-model baseline** | a 1.5B–4B model in the same loop, so the language layer and the network round trip stop being one number | medium |
 | **A model that is not ours** | run it on a third-party `.slx` and publish the table; `jev-tune doctor --model` output is the most useful part of the report | small |
 | **Objective presets** | tracking / disturbance-rejection metrics next to the step-response cost (see `metrics.py`) | medium |
 | **Concurrent workers** | run N MATLAB workers in parallel for large batches (`matlab_worker.py`) | medium |
 | **Cross-model cache** | reuse the compiled model when several jobs share one `.slx` | small |
-| **Dead-band feature** | a state descriptor that distinguishes "chattering in a dead band" from "too much gain" | small |
+| **Dead-band feature** | a state descriptor that distinguishes "chattering in a dead band" from "too much gain" (the valve specialist does not fix it: `docs/SPECIALIZE.md`) | small |
 | **More plant families** | anything with published dynamics the zoo lacks (e.g. thermal with large dead time, cascaded loops) | small |
 | **Docs / translations** | we have English and 简体中文; other languages welcome | small |
 | **A second external benchmark** | run the tuner on *your* model and publish the table | medium |

@@ -1,0 +1,148 @@
+# How the benchmark counts, and what it does not prove
+
+> [English](#english) · [简体中文](#简体中文)
+
+## English
+
+Every headline number in this repository comes from `scripts/03_evaluate.py` and
+`research/results/eval_heldout_120.json`. This page records the accounting rules,
+the corrections that were made to them, and the ways the evaluation is still
+optimistic.
+
+### What counts as one experiment
+
+One closed-loop simulation of one plant at one gain set. The budget includes the
+initial response and the final measurement:
+
+* `evaluate_head` spends exactly `budget` experiments per plant (default 20);
+* the last proposal is measured and competes for "best", so the returned gains
+  and the reported cost always agree;
+* a method that needs a prior pays for it: the 7-run Kp sweep that estimates
+  Ku/Tu is charged 7 experiments, and the head that uses it gets 13;
+* the head's **training** cost is paid once, off-line, and is not in its
+  per-plant budget. That asymmetry is real and is not hidden: 40 000 expert
+  states, 22 simulations per state (`docs/STEP1_RESULTS.md`).
+
+| method | experiments charged | prior / training | oracle information |
+| :--- | ---: | :--- | :--- |
+| Z-N | 1 | none | analytic Ku/Tu |
+| shrunken Z-N | 1 | factors chosen on the training zoo (100 sims/plant) | analytic Ku/Tu |
+| `swept_zn` | 8 | none | Ku/Tu from its own 7-run sweep |
+| identify → `pidtune` | 2 | none | an open-loop step |
+| simplex / CMA-ES / BO / hill climb | 20 | none | none |
+| `jev_head` | 20 | 40 000 states × 22 sims, once | analytic Ku/Tu |
+| `jev_head_swept` | 20 (7 + 13) | same | Ku/Tu from its own sweep |
+
+### The promise "never worse than the start" is constructive
+
+The returned point is the best point **measured**, and the start is measured
+first. So `best_j <= history[:, 0]` holds by construction, for every method that
+records a running minimum. It is a property of the bookkeeping, not evidence that
+the policy is safe, and `research/results/robustness.json` shows `worse_pct = 0`
+even with the safety gate disabled — because "worse" is measured against the
+running best, which includes the start.
+
+What the gate actually buys is small and measured: on the 40 out-of-zoo plants it
+fired once, and the median moved from 2.845 (no gate) to 2.809 (gate). The
+ablation (`docs/ABLATION.md`) shows the same thing on the held-out family:
+A3 and A4 are identical, because the gate never fired.
+
+### Held-out hygiene
+
+There is exactly one held-out family (`two_mass`). It is also the family where
+the one-step lookahead value net was rejected (p90 1.04 → 2.89) and where the
+v1 → v3 vocabulary comparison was made. **It is therefore a validation family,
+not a clean test set.** The honest description of the 0.440 number is "the
+median on the family that was used for these design decisions".
+
+A clean test family would be frozen before the model is trained, with its own
+scenario generator and its own seed, and never inspected until the final run.
+That has not been done yet; it is the first item in `docs/CLAIMS.md#what-is-not-tested`.
+
+### Corrections made in 0.4.0
+
+| what was published | what was wrong | what it is now |
+| :--- | :--- | :--- |
+| "0.468 median at the same 20-simulation budget" | the head actually ran 25 experiments (`--iters 24` + the final measurement) while CMA-ES ran 18 | every method runs 20; the head is **0.440** |
+| CMA-ES at 1.813 | 3 generations of 6 | 20 experiments, 1.705 |
+| "relay autotune 0.906 / p90 0.935" | the relay never sustained a limit cycle on this family (0/120), so the row was a constant gain set, not a relay tuner | replaced by `swept_zn` (Kp sweep, 8 experiments) |
+| `best_j` from the loop, `gains` from `best_gains` | the final measurement could improve the reported cost without moving the returned gains | the two are updated together; a test enforces it |
+| "200/200 never worse" presented next to the gate | it is constructive, and the gate fired once | stated as construction; the gate's effect is reported separately |
+
+### Reproducing
+
+```bash
+python scripts/03_evaluate.py --plants 120 --budget 20   # ~5 min, one core
+python scripts/16_check_claims.py                        # must print 0 failures
+```
+
+Hardware: the Windows laptop CPU this repository was developed on; no GPU. The
+numbers are deterministic given the seed.
+
+---
+
+## 简体中文
+
+本仓库的每个头条数字都来自 `scripts/03_evaluate.py` 与
+`research/results/eval_heldout_120.json`。本页记录记账规则、做过的更正，以及评估
+仍然偏乐观的地方。
+
+### 什么算一次实验
+
+一株对象、一组增益、一次闭环仿真。预算包含初始响应与最后一次测量：
+
+* `evaluate_head` 每株恰好花 `budget` 次实验（默认 20）；
+* 最后一次提案也会被测量并参与"最优"竞争，因此返回的增益与报告的代价永远一致；
+* 需要先验的方法自己付账：估计 Ku/Tu 的 7 次 Kp 扫描计入 7 次实验，用它的决策头只剩
+  13 次；
+* 决策头的**训练**成本一次性离线支付，不计入每株预算。这个不对称是真实存在的，写在
+  这里而不是藏起来：4 万个专家状态，每状态 22 次仿真（`docs/STEP1_RESULTS.md`）。
+
+| 方法 | 计入实验数 | 先验 / 训练 | 特权信息 |
+| :--- | ---: | :--- | :--- |
+| Z-N | 1 | 无 | 解析 Ku/Tu |
+| 缩小 Z-N | 1 | 缩放因子在训练动物园上选（100 次/株） | 解析 Ku/Tu |
+| `swept_zn` | 8 | 无 | 自己做 7 次扫描得到的 Ku/Tu |
+| 辨识 → `pidtune` | 2 | 无 | 一次开环阶跃 |
+| 单纯形 / CMA-ES / BO / 爬山 | 20 | 无 | 无 |
+| `jev_head` | 20 | 4 万状态 × 22 次仿真，一次性 | 解析 Ku/Tu |
+| `jev_head_swept` | 20（7+13） | 同上 | 自己扫描得到的 Ku/Tu |
+
+### "不比起点差"是构造出来的
+
+返回点是**实测**最优点，而起点最先被测量。因此 `best_j <= history[:, 0]` 对任何记录
+运行最小值的算法都按构造成立。它是记账的性质，不是策略安全的证据：
+`research/results/robustness.json` 在关掉安全门时 `worse_pct` 同样为 0，因为"更差"
+是相对包含起点在内的运行最优值而言的。
+
+安全门真正买到了什么，很小但可测：在 40 株分布外对象上触发 1 次，中位代价从 2.845
+（无门）到 2.809（有门）。消融（`docs/ABLATION.md`）在留出族上给出同样的结论：
+A3 与 A4 完全相同，因为门从未触发。
+
+### 留出卫生
+
+只有一个留出族（`two_mass`），而它同时是一步前瞻价值网被否掉的族（p90 1.04 → 2.89）、
+也是 v1 → v3 词表比较所用的族。**所以它是验证族，不是干净测试集。** 对 0.440 的诚实
+描述是"在参与过这些设计决策的族上的中位数"。
+
+干净的测试族应当在训练前冻结、有自己的场景生成器与种子，直到最终跑分才打开。这件事
+还没做，它是 `docs/CLAIMS.md#what-is-not-tested` 的第一项。
+
+### 0.4.0 做的更正
+
+| 曾经发布 | 错在哪 | 现在 |
+| :--- | :--- | :--- |
+| "同预算 20 次下 0.468" | 决策头实际跑了 25 次（`--iters 24` + 最后一次测量），CMA-ES 只跑 18 次 | 所有方法 20 次；决策头 **0.440** |
+| CMA-ES 1.813 | 3 代 × 6 个样本 | 20 次实验，1.705 |
+| "继电 0.906 / p90 0.935" | 继电在这族上从未形成极限环（0/120），那一行其实是固定增益组，不是继电整定 | 换成 `swept_zn`（Kp 扫描，8 次实验） |
+| 循环返回 `best_j` 与 `best_gains` 不同步 | 最后一次测量能改善报告的代价却不改变返回的增益 | 两者同步更新，并有测试守护 |
+| 把"200/200 不比起点差"写在安全门旁边 | 它是构造性质，而门只触发过 1 次 | 明确写成构造性质，门的收益单独报告 |
+
+### 复现
+
+```bash
+python scripts/03_evaluate.py --plants 120 --budget 20   # 约 5 分钟，单核
+python scripts/16_check_claims.py                        # 必须 0 失败
+```
+
+硬件：本仓库开发所用的 Windows 笔记本 CPU，无 GPU。给定种子，数字是确定性的。

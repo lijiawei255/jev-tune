@@ -72,16 +72,11 @@ def build_family(args):
 
 
 def load_head(models: str) -> JevHead:
-    meta_path = Path(models) / "meta.json"
-    n_actions = 7
-    if meta_path.is_file():
-        n_actions = int(
-            json.loads(meta_path.read_text(encoding="utf-8-sig")).get("n_actions", 7)
-        )
-    head = JevHead(n_actions=n_actions)
-    head.load_state_dict(torch.load(Path(models) / "jev_head.pt", map_location="cpu"))
-    head.eval()
-    return head
+    # fine-tuning starts from the shipped head; the fitted temperatures come
+    # with it and are copied to the specialist below (they are not re-fitted)
+    from jev_tune.decision import load_backend
+
+    return load_backend(models).model
 
 
 def main():
@@ -118,6 +113,10 @@ def main():
     spec = train_head(
         data, epochs=args.epochs, lr=args.lr, seed=args.seed, model=base, verbose=False
     )
+    # the fine-tune does not re-fit temperatures; inherit the base head's so the
+    # zero-shot and specialist rows are calibrated identically
+    if hasattr(zero_shot_model, "temperature"):
+        spec.temperature = zero_shot_model.temperature
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     save(spec, out_dir / f"{args.name}.pt")
