@@ -64,3 +64,56 @@ def test_research_preservation_rejects_missing_manifest_entries(tmp_path):
     target.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(AssertionError, match="manifest"):
         module.check_preserved(root=tmp_path)
+
+
+def test_research_preservation_accepts_only_newline_changes_in_text_log(tmp_path, monkeypatch):
+    module = load_script("42_release_practical")
+    manifest = json.loads((ROOT / module.PRESERVED).read_text(encoding="utf-8"))
+    names = [name for name in manifest["sha256"] if Path(name).suffix == ".txt"]
+    assert names == ["research/results/cohort_portability_sources/linux_evidence_log.txt"]
+    name = names[0]
+    target = tmp_path / name
+    target.parent.mkdir(parents=True)
+    lf = (ROOT / name).read_bytes().replace(b"\r\n", b"\n")
+    target.write_bytes(lf.replace(b"\n", b"\r\n"))
+    manifest_path = tmp_path / module.PRESERVED
+    manifest_path.parent.mkdir(parents=True)
+    shutil.copyfile(ROOT / module.PRESERVED, manifest_path)
+    original_digest = module.digest
+
+    def view_digest(path):
+        relative = Path(path).relative_to(tmp_path)
+        # The two mutable fixture files are real copies; all other preserved
+        # inputs are read from their unchanged repository locations.
+        selected = path if relative.as_posix() in (name, module.PRESERVED) else ROOT / relative
+        return original_digest(selected)
+
+    monkeypatch.setattr(module, "digest", view_digest)
+    assert module.check_preserved(root=tmp_path)["sha256"][name] == manifest["sha256"][name]
+    target.write_bytes(target.read_bytes() + b"changed historical evidence\r\n")
+    with pytest.raises(AssertionError, match="Historical evidence changed"):
+        module.check_preserved(root=tmp_path)
+
+
+def test_baseline_text_log_comparison_normalizes_newlines_only(monkeypatch):
+    module = load_script("42_release_practical")
+    manifest = json.loads((ROOT / module.PRESERVED).read_text(encoding="utf-8"))
+    name = "research/results/cohort_portability_sources/linux_evidence_log.txt"
+    expected = manifest["sha256"][name]
+    lf = (ROOT / name).read_bytes().replace(b"\r\n", b"\n")
+    monkeypatch.setattr(module, "check_preserved", lambda: {"sha256": {name: expected}})
+    monkeypatch.setattr(module.subprocess, "check_output", lambda *args, **kwargs: lf.replace(b"\n", b"\r\n"))
+    module.check_baseline()
+    monkeypatch.setattr(module.subprocess, "check_output", lambda *args, **kwargs: lf + b"changed\n")
+    with pytest.raises(AssertionError, match="differs from v0.8.0"):
+        module.check_baseline()
+
+
+@pytest.mark.parametrize("suffix", [".json.gz", ".pt"])
+def test_binary_preservation_hashes_do_not_normalize_newlines(tmp_path, suffix):
+    module = load_script("42_release_practical")
+    path = tmp_path / ("binary" + suffix)
+    path.write_bytes(b"\x00binary\ncontent\x00")
+    before = module.digest(path)
+    path.write_bytes(b"\x00binary\r\ncontent\x00")
+    assert module.digest(path) != before

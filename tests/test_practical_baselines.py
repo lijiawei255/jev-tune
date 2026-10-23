@@ -83,4 +83,3 @@ def test_benchmark_uses_actual_head_counts_and_separate_output_directory():
     result = SimpleNamespace(actual_simulations=np.array([2, 7]), eval_axis=np.arange(1, 21))
     assert module.actual_simulation_counts(result).tolist() == [2, 7]
     assert module.default_table_path("new-run", "thermal_deadtime") == Path("new-run/benchmark_table_thermal_deadtime.md")
-

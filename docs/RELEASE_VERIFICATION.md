@@ -4,7 +4,7 @@
 
 ## English
 
-361 passed; 0 skipped; coverage 83.14%; 149 automatic claims checks; 0 unverified.
+365 passed; 0 skipped; coverage 83.14%; 149 automatic claims checks; 0 unverified.
 
 v0.9.0 prioritizes model-adapter correctness and simulation-budget evidence. Real MATLAB adapter/controller regressions and the complete local pytest suite were rerun. Claims reconstruct registered evidence, including the preserved failed research, without treating old studies as new experiments. The new practical budget comparison has its own frozen protocol and raw trial ledger. Its synthetic plants do not establish performance on a user's real model.
 
@@ -20,7 +20,7 @@ Local MATLAB uses the recorded installation. Hosted Linux runtime/C99 tests and 
 
 ## 简体中文
 
-361 passed; 0 skipped; coverage 83.14%; 149 automatic claims checks; 0 unverified.
+365 passed; 0 skipped; coverage 83.14%; 149 automatic claims checks; 0 unverified.
 
 v0.9.0优先修复模型适配正确性并补充仿真预算证据。已重跑真实MATLAB适配器/控制器回归及完整本地pytest；claims重建已注册证据，也保留并复核旧研究失败，不将旧研究冒充新实验。新的实用预算对照具有独立冻结协议和逐次仿真账本，其合成对象不构成用户真实模型上的效果证据。
 

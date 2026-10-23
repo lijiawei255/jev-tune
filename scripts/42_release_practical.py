@@ -25,7 +25,7 @@ def read(name):
 
 def digest(path):
     data = Path(path).read_bytes()
-    if Path(path).suffix in {".py", ".json", ".md", ".m"}:
+    if Path(path).suffix in {".py", ".json", ".md", ".m", ".txt"}:
         data = data.replace(b"\r\n", b"\n")
     return hashlib.sha256(data).hexdigest()
 
@@ -74,7 +74,7 @@ def check_baseline():
     for name, expected in payload["sha256"].items():
         baseline = name.replace("matlab_runtime_v080.json", "matlab_runtime.json").replace("release_verification_v080.json", "release_verification.json")
         data = subprocess.check_output(["git", "show", "v0.8.0:" + baseline], cwd=ROOT)
-        if Path(baseline).suffix in {".py", ".json", ".md", ".m"}:
+        if Path(baseline).suffix in {".py", ".json", ".md", ".m", ".txt"}:
             data = data.replace(b"\r\n", b"\n")
         assert hashlib.sha256(data).hexdigest() == expected, "Preserved content differs from v0.8.0: " + name
     print(json.dumps({"baseline_tag": "v0.8.0", "matched_files": len(payload["sha256"])}))
