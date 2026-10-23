@@ -18,8 +18,8 @@ spec.loader.exec_module(check)
 ROLLOUT_CLAIMS = {
     'joint_rollout_n': ('evaluation.gated.n_plants', 'Independent rollout test plants / 独立轨迹测试对象数'),
     'joint_rollout_any_harm': ('evaluation.gated.trajectory_harm.events', 'Gated trajectories with any harmful execution / 门控轨迹至少一次有害执行数'),
-    'joint_rollout_risk_upper': ('evaluation.gated.trajectory_harm.upper', 'Gated trajectory risk: exact one-sided upper bound / 门控轨迹风险精确单侧上界'),
-    'joint_rollout_first_lower': ('evaluation.gated.first_stage_execution.lower', 'First-stage execution: exact one-sided lower bound / 首步执行率精确单侧下界'),
+    'joint_rollout_risk_upper': ('evaluation.gated.trajectory_harm.upper', 'Gated trajectory risk: nominal exact-binomial upper quantity / 门控轨迹风险名义精确二项上界量'),
+    'joint_rollout_first_lower': ('evaluation.gated.first_stage_execution.lower', 'First-stage execution: nominal exact-binomial lower quantity / 首步执行率名义精确二项下界量'),
     'joint_rollout_monitor_mean': ('evaluation.monitor.final_cost.mean', 'Matched monitor final mean J / 配对监测对照最终平均J'),
     'joint_rollout_gated_mean': ('evaluation.gated.final_cost.mean', 'Joint-risk gate final mean J / 联合风险门最终平均J'),
     'joint_rollout_monitor_p90': ('evaluation.monitor.final_cost.p90', 'Matched monitor final p90 J / 配对监测对照最终p90 J'),
@@ -48,19 +48,19 @@ def rollout_readme_section(payload, chinese=False):
     if chinese:
         status = '通过' if passed else '未通过'
         body = (f"**联合动作风险的多轮验收：{status}。** 冻结协议在{n}个独立测试对象上，"
-                f"门控策略有{harmful}条轨迹至少一次有害执行；概率的单侧95%精确上界为{upper}。"
+                f"门控策略有{harmful}条轨迹至少一次有害执行；名义单侧95%精确二项上界量为{upper}。"
                 f"门控/配对monitor对照的最终平均J为{gm}/{mm}，p90为{gp}/{mp}。"
-                f"首步执行率的单侧95%下界为{lower}，预注册最低要求为{required:.2f}。"
+                f"首步执行率的名义单侧95%下界为{lower}，预注册最低要求为{required:.2f}。"
                 "全部判据、逐步独立校准、原始轨迹与适用范围见[联合风险多轮研究](docs/JOINT_RISK_ROLLOUT.md)。"
-                "此结果不把联合风险门默认接入通用Python、C或MATLAB部署；失败判据不会通过改阈值掩盖。")
+                "这是保留的v1数值记录；计算二项量不单独证明机器实现的事件独立性。此结果不把联合风险门默认接入通用Python、C或MATLAB部署；失败判据不会通过改阈值掩盖。")
     else:
         status = 'passed' if passed else 'not passed'
         body = (f"**Joint-action risk rollout acceptance: {status}.** On {n} independent test plants under the frozen protocol, "
-                f"{harmful} gated trajectories contained a harmful execution; the exact one-sided 95% probability upper bound is {upper}. "
+                f"{harmful} gated trajectories contained a harmful execution; the nominal exact-binomial one-sided 95% upper quantity is {upper}. "
                 f"Gated/matched-monitor final mean J is {gm}/{mm}, and p90 is {gp}/{mp}. "
-                f"The one-sided 95% lower bound for first-stage execution is {lower}; its preregistered minimum is {required:.2f}. "
+                f"The nominal one-sided 95% lower quantity for first-stage execution is {lower}; its preregistered minimum is {required:.2f}. "
                 "See [JOINT_RISK_ROLLOUT](docs/JOINT_RISK_ROLLOUT.md) for every criterion, independent stage calibration, raw trajectories and scope. "
-                "This does not enable a joint-risk gate by default in general Python, C or MATLAB deployment; failed criteria are not hidden by retuning thresholds.")
+                "This preserves the v1 numerical record; calculating binomial quantities does not itself establish independence of implemented trajectory events. This does not enable a joint-risk gate by default in general Python, C or MATLAB deployment; failed criteria are not hidden by retuning thresholds.")
     return '<!-- joint-risk-rollout:start -->\n' + body + '\n<!-- joint-risk-rollout:end -->'
 
 
@@ -153,8 +153,11 @@ Insufficient reached calibration samples use the conservative all-label set.
 
 A valid stepwise inclusion argument plus the union bound controls whether any
 assessed action is executed harmfully within the registered horizon, over
-calibration and fresh-trajectory randomness. The final test's exact one-sided
-binomial limit instead evaluates the fixed resulting policy. Neither statement
+calibration and fresh-trajectory randomness. The final test's nominal exact-binomial
+one-sided quantity requires independent trajectory events for its coverage
+interpretation; the numerical calculation alone does not establish that premise
+in the machine implementation. The current batch-context validity gap is explicitly
+documented in [TRAJECTORY_RISK](TRAJECTORY_RISK.md). Neither statement
 is a bound on the harmful fraction conditional on acceptance, a requirement that
 every finite test achieve nominal coverage, or a physical safety certificate.
 The registered cost, activity and simulation-count criteria must also pass;
@@ -195,7 +198,8 @@ alpha与集合大小上限是固定配置，不按测试代价调参；默认mon
 不继承原标签保证。到达该步的校准样本不足时采用全标签集合保守保持。
 
 在逐步包含关系与交换性成立时，通过并集界约束注册时域内任一已评价动作被有害执行的概率，
-该界对校准与新轨迹抽样取边际。最终测试的精确单侧二项上界则验收已经固定的策略。
+该界对校准与新轨迹抽样取边际。最终测试的名义精确单侧二项量只有在轨迹事件独立等前提成立时
+才有相应覆盖解释；数值计算本身不建立机器实现的前提，当前批次上下文缺口见[TRAJECTORY_RISK](TRAJECTORY_RISK.md)。
 两者均不等于获准子集中的条件有害率界，不要求每个有限测试样本恰达名义覆盖，更不是物理安全证书。
 预注册的代价、活动率与仿真计数条件也须分别满足；按原协议报告结果与受限部署结论，
 不在看到测试结果后改协议。
@@ -258,7 +262,7 @@ def evidence_documents():
             start = "**Validation family (" if "**Validation family (" in s else "**Validation family:"
             end = "**Real Simulink model (lab DC motor)**"
             body = "**Validation family: two_mass, 120 plants.** Used for design decisions. Iterative methods have a maximum budget of 20; one-shot methods report actual runs. All analytic-start methods share oracle Ku/Tu; sweep failures use a fixed non-oracle fallback.\n\n" + table(validation)
-            body += "\n**Frozen thermal family: 120 fixed-grid plants.** Frozen after training and re-evaluated after correctness repairs, without selecting a new checkpoint on it. This is not a preregistered prospective test.\n\n" + table(thermal)
+            body += "\n**Frozen thermal family: 120 fixed-grid plants.** Frozen after training and re-evaluated during earlier correctness repairs, without selecting a new checkpoint on it. This is not a preregistered prospective test.\n\n" + table(thermal)
             body += "\nA lower baseline cost is reported without qualification. See [BENCHMARK](docs/BENCHMARK.md) for accounting and [raw tables](research/results/benchmark_table_thermal_deadtime.md) for sweep recovery/fallback details.\n\n"
             s = s[:s.index(start)] + body + s[s.index(end):]
             s = s.replace("Two comparisons this project does not make.", "The following are two of the project's unmeasured comparisons.")
@@ -271,7 +275,7 @@ def evidence_documents():
             start = "**验证族（120 个" if "**验证族（120 个" in s else "**验证族："
             end = "**真实 Simulink 模型（直流电机）**"
             body = "**验证族：120个two_mass对象。** 参与过设计决策。迭代方法最多20次，一次性方法列实际消耗；解析起点方法共享oracle Ku/Tu，扫描失败统一采用固定非oracle先验。\n\n" + table(validation)
-            body += "\n**冻结热工族：120个固定网格对象。** 训练后冻结，本轮正确性修复后重测，未据此选择新权重；不是预注册前瞻测试。\n\n" + table(thermal)
+            body += "\n**冻结热工族：120个固定网格对象。** 训练后冻结，此前正确性修复后重测，未据此选择新权重；不是预注册前瞻测试。\n\n" + table(thermal)
             body += "\n基线代价更低也照实报告。计账规则见[BENCHMARK](docs/BENCHMARK.md)，扫描恢复/回退见[原始表](research/results/benchmark_table_thermal_deadtime.md)。\n\n"
             s = s[:s.index(start)] + body + s[s.index(end):]
             notice = "\n> **受Jev启发，与TypeSafe AI无隶属、背书或赞助关系。** 本项目使用自己训练的数值头，不含Jev/Laya权重或API。[English](README.md)\n"
@@ -330,12 +334,14 @@ def main():
     trajectory_spec.loader.exec_module(trajectory_docs)
     trajectory_docs.register_available_claims(registry, ROOT)
     if (ROOT / 'research/results/joint_risk_rollout.json').is_file():
-        existing = {claim['id'] for claim in registry['claims']}
+        existing = {claim['id']: claim for claim in registry['claims']}
         for identifier, (source_path, label) in ROLLOUT_CLAIMS.items():
             if identifier not in existing:
                 registry['claims'].append({'id':identifier, 'label':label,
                     'source':'research/results/joint_risk_rollout.json', 'path':source_path,
                     'reproduce':'python scripts/29_joint_risk_rollout.py'})
+            else:
+                existing[identifier]['label'] = label
     conformal_document()
     registry["note"] = (
         "Registered current artifact values and explicitly linked prose only; not every number in historical documents. "

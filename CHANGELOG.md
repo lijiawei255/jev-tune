@@ -7,6 +7,16 @@ file that produced them is named next to them.
 
 ## English
 
+## [0.8.0] - 2026-10-24
+
+* Preserve the previous failed risk study and add a reproducible raw-trajectory diagnosis of training-state shift, reached-sample scarcity and the fixed-path acceptance conflict.
+* Register and push the new protocol before collection. Train on multi-round trajectories, fit temperature on independent trajectories, and calibrate each stage using independent reached plants under its frozen prefix.
+* Assess a frozen selector over complete joint-action alternatives before CP. Preserve full label sets, the original trajectory risk budget, conservative quota fallbacks and the prohibition on retrying candidates after CP rejection.
+* Evaluate the predeclared primary candidate and diagnostic controls on a new paired test cohort. Nominal risk and first-stage execution criteria pass, but mean and p90 cost criteria fail; the primary candidate remains research-only. No diagnostic arm replaces it after testing.
+* Reproduce batch-dependent floating-point inference and disclose the additional validity gap: calibration/test mapping equivalence and independent trajectory events are not established. The computed CP/binomial quantities do not establish an implementation-level coverage guarantee. Keep this post-hoc audit separate from the frozen numerical criteria and prohibit deployment.
+* Commit compressed raw shards and executing-source snapshots. Independently reconstruct the fitted model, selected actions, stage quantiles, operating histories, simulation ledger and acceptance. Record exact deterministic evaluation replay separately from independent evidence.
+* Generate bilingual documentation and claims from the final artifacts; extend evidence-mutation tests and rerun Python, C99 and real MATLAB controller verification. Generic runtime risk-head defaults remain disabled. See `docs/TRAJECTORY_RISK.md` and `docs/RELEASE_VERIFICATION.md`.
+
 ## [0.7.0] - 2026-10-24
 
 * Freeze and commit a prospective multi-round risk protocol before collecting fresh stage cohorts and a fixed-size paired evaluation. Preserve the original risk model and temperature.
@@ -328,6 +338,16 @@ six-method benchmark, the robustness study (200/200 plants not worse than the
 start) and the scale economics. See the release notes.
 
 ## 简体中文
+
+## [0.8.0] - 2026-10-24
+
+* 保留上次风险研究的失败结果，纳入基于原始轨迹的可复现诊断，分析训练状态偏移、到达样本不足和固定路径下的验收冲突。
+* 在采样前注册并推送新协议。使用多轮轨迹训练、独立轨迹温度拟合，以及各步冻结前缀下的独立到达对象校准。
+* 先由冻结选择器选择完整联合动作，再计算CP。保留完整标签集、原整段风险预算、样本配额不足时的保守回退，以及CP拒绝后不重试候选的规则。
+* 用全新配对测试集验证预定主候选和诊断对照。名义风险与首步执行率通过数值门槛，平均代价及p90未通过，主候选保持研究模式；不在测试后改选诊断组替代主候选。
+* 复现批处理相关浮点推理差异，披露额外有效性缺口：校准与测试的映射一致性、轨迹事件独立性尚未建立，算出的CP/二项统计量不能证明机器实现的覆盖保证。事后有效性审计与冻结数值门槛分开记录，继续禁止部署。
+* 提交压缩原始分片和实际执行源码快照，独立复算模型、选择动作、逐步分位数、操作历史、仿真账目和验收。确定性评估重放单独记账，不冒充独立证据。
+* 根据最终产物生成中英文文档及claims，增加证据变异测试，重跑Python、C99和MATLAB真实控制器验证。通用运行时仍不默认启用风险头；详情见`docs/TRAJECTORY_RISK.md`与`docs/RELEASE_VERIFICATION.md`。
 
 ## [0.7.0] - 2026-10-24
 

@@ -144,6 +144,11 @@ def probability_diagnostics(model, data):
 
 def _doc(p):
     spec = p['protocol']['specification']
+    # Documentation only: the executed runner source is separately preserved.
+    # Do not turn frozen numerical acceptance into an implementation guarantee.
+    docs_module = _load_script('33_sync_trajectory_docs')
+    validity_path = ROOT / 'research/results/trajectory_risk_validity.json'
+    validity = json.loads(validity_path.read_text(encoding='utf-8')) if validity_path.is_file() else None
     lines = ['# Trajectory risk and alternative joint actions / 轨迹风险与替代联合动作', '',
              '[English](#english) · [简体中文](#简体中文)', '']
     for zh in (False, True):
@@ -161,13 +166,14 @@ def _doc(p):
         lines += ['', ('同一对象的多步/多候选行相关，只用于训练或描述统计，不能当独立校准对象。训练、温度、开发诊断、逐步校准及最终测试对象分离。开发组不参与任何搜索。'
             if zh else 'Rows from multiple stages/candidates of one plant are dependent and used for fitting or descriptive diagnostics, not counted as independent calibration plants. Training, temperature, development audit, stage calibration and final test cohorts are separated. The development audit performs no search.'), '',
             f"{'固定风险温度' if zh else 'Frozen risk temperature'}: {p['risk_model']['temperature']:.6f}.", '',
-            '| 组 | 有害轨迹 / 测试数 | 风险95%上界 | 首步执行95%下界 | mean J | p90 J | 实际运行仿真 | 诊断仿真 |' if zh else '| arm | harmed trajectories / test plants | risk 95% upper | first execution 95% lower | mean J | p90 J | actual operating simulations | diagnostic simulations |',
+            '| 组 | 有害轨迹 / 测试数 | 名义风险95%上界 | 名义首步执行95%下界 | mean J | p90 J | 实际运行仿真 | 诊断仿真 |' if zh else '| arm | harmed trajectories / test plants | nominal risk 95% upper | nominal first execution 95% lower | mean J | p90 J | actual operating simulations | diagnostic simulations |',
             '| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
         for name, r in p['evaluation'].items():
             c = r['simulation_counts']
             lines.append(f"| {name} | {r['trajectory_harm']['events']}/{r['n_plants']} | {r['trajectory_harm']['upper']:.6f} | {r['first_stage_execution']['lower']:.6f} | {r['final_cost']['mean']:.6f} | {r['final_cost']['p90']:.6f} | {c['operating']} | {c['total']-c['operating']} |")
-        lines += ['', f"{'主要候选验收' if zh else 'Primary acceptance'}: **{'PASS' if p['acceptance']['passed'] else 'FAIL'}**; `{p['deployment']['status']}`.",
+        lines += ['', f"{'主要候选的冻结数值判据' if zh else 'Primary frozen numerical criteria'}: **{'PASS' if p['acceptance']['passed'] else 'FAIL'}**; `{p['deployment']['status']}`.",
             f"{'未通过项' if zh else 'Failed criteria'}: {', '.join(p['acceptance']['failed']) or 'none'}.", '',
+            docs_module.validity_note(p, validity, chinese=zh, relative=''), '',
             ('有害仍指一次即时J严格上升，不是最终参数恶化率或失稳率。两组返回各自真实执行历史最优。替代动作改变路径后，旧固定路径冲突的证明不直接适用于新策略；它也不意味着新策略必然通过。'
              if zh else 'Harm remains any strict immediate increase in J, not final-parameter degradation or instability. Each arm returns its actually executed historical best. Alternative actions change the path, so the old fixed-path conflict proof does not directly apply to the new policy; this does not imply that the new policy must pass.'), '',
             '| 组 | 步 | 初始对象 | 到达 / 用于拟合 | 秩 | qhat | 回退原因 |' if zh else '| arm | stage | initial plants | reached / fitted | rank | qhat | fallback reason |',
@@ -177,8 +183,8 @@ def _doc(p):
                 lines.append(f"| {name} | {s['stage']+1} | {s['n_initial']} | {s['n_observed_reached']}/{s['n_reached']} | {s['quantile_rank']} | {s['qhat']:.6f} | {s['fallback_reason'] or '-'} |")
         lines += ['', ('目标到达数为2000，每步最多20000个初始对象。按生成顺序收集，批次超额观测全部计账，仅按预先次序截取。配额不足返回完整集合是额外工程保守规则，与数学秩超过n不同。冻结前缀已有完整集合时后续结构不可达，直接记录零样本；不把一次零到达批次当作不可达证明。'
             if zh else 'The reached target is 2000, with at most 20000 initial plants per stage. Collection follows generation order; excess batch observations are fully charged and truncated only by predetermined order. Quota shortfall returns the full set as an additional engineering rule, distinct from mathematical rank exceeding n. A full set in the frozen prefix makes later stages structurally unreachable, recorded without wasteful simulation; one empty batch alone is not such proof.'), '',
-            ('20步总预算0.10、每步alpha=0.005保持不变。保证依赖每步新校准对象与冻结前缀下未来到达对象的交换性，包含校准随机性，不是每个已固定校准文件的条件保证，也不是获准动作中的风险比例保证。单侧95%二项界独立审计最终固定策略，两项界不是联合95%。硬件、噪声变化、恢复及域外未覆盖。'
-             if zh else 'The 20-stage budget remains 0.10, with alpha=0.005 per stage. Validity requires exchangeability of fresh calibration plants and future reached plants under each frozen prefix and averages over calibration randomness; it is neither a conditional guarantee for every fixed calibration file nor a bound on risk among accepted actions. Separate one-sided 95% binomial bounds audit the final fixed policy, not joint 95% confidence. Hardware, noise changes, recovery and domain shift are not covered.'), '',
+            ('20步总预算0.10、每步alpha=0.005保持不变。CP定理需要逐步校准分数与冻结前缀下未来到达分数的交换性；本轮批次相关的机器映射尚未建立这一前提。轨迹事件的独立Bernoulli前提也未建立，因此所列单侧95%二项量只是名义计算，不能作为本实现已获精确CP/PAC保证的证据。即使未来闭合这些前提，CP仍对校准随机性取边际，不是每个固定校准文件的条件保证或获准子集风险比例界；两项单侧量也不构成联合95%。当前禁止部署，硬件、噪声变化、恢复及域外均未覆盖。'
+             if zh else 'The 20-stage budget remains 0.10, with alpha=0.005 per stage. CP requires exchangeability of stage calibration scores and future reached scores under the frozen prefix; this premise is unestablished for the batch-dependent machine mapping in this run. Independent Bernoulli trajectory events are also unestablished. The reported one-sided 95% binomial quantities are therefore nominal calculations, not evidence of established exact CP/PAC guarantees for this implementation. Even if those premises are closed in future, CP averages over calibration randomness, rather than guaranteeing every fixed calibration file or the risk fraction among accepted actions; separate one-sided quantities are not joint 95% confidence. Deployment is prohibited; hardware, noise changes, recovery and domain shift remain uncovered.'), '',
             f"{'真实总仿真' if zh else 'Actual total simulations'}: {p['simulation_counts']['total']}; "
             f"{'训练/温度/开发' if zh else 'training/temperature/development'}: {p['simulation_counts']['training_total']}; "
             f"{'逐步校准' if zh else 'stage calibration'}: {p['simulation_counts']['calibration_total']}; "

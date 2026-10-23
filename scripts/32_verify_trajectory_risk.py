@@ -22,6 +22,8 @@ from scipy.stats import beta
 
 ROOT = Path(__file__).resolve().parents[1]
 RESULT = Path('research/results/trajectory_risk.json')
+PAIRING_DIAGNOSIS = Path('research/results/trajectory_risk_pairing_diagnosis.json')
+VALIDITY_ASSESSMENT = Path('research/results/trajectory_risk_validity.json')
 BUCKETS = ('operating_initial', 'executed', 'diagnostic_rejected',
            'diagnostic_collected', 'diagnostic_training')
 SCALES = (1., .5, .25)
@@ -363,6 +365,154 @@ def verify_runner_invocations(payload, manifest_hashes):
     require(covered == set(entries), 'raw shards lack unique executing runner provenance')
 
 
+def paired_diagnosis(payload):
+    """Describe cross-arm float differences without changing any acceptance rule.
+
+    Adaptive cohorts change inference batch layouts. A paired experiment means
+    the same initial objects, not an unregistered bitwise trajectory equality
+    requirement. Exact deterministic replay is checked separately per arm.
+    """
+    manifest = {entry['path']: entry for entry in payload['raw_files']}
+    runs = {}; sources = {}
+    for name, path in payload['evaluation_raw'].items():
+        require(hash_matches(ROOT/path, manifest[path]['sha256']), 'pairing diagnosis raw hash mismatch: ' + path)
+        runs[name] = json.loads(gzip.decompress((ROOT/path).read_bytes()))
+        sources[name] = {'path': path, 'sha256': manifest[path]['sha256']}
+    baseline = runs['monitor']; baseline_rows = {(r['plant_index'], r['stage']): r for r in baseline['transitions']}
+    arms = {}
+    for name, run in runs.items():
+        if name == 'monitor' or run['selector'] != 'full_only':
+            continue
+        initial_equal = all((p['plant_identity'], p['initial_J'], p['initial_gains']) ==
+                            (b['plant_identity'], b['initial_J'], b['initial_gains'])
+                            for p, b in zip(run['per_plant'], baseline['per_plant']))
+        differing_history = sum(p['operating_history'] != b['operating_history'][:len(p['operating_history'])]
+                                for p, b in zip(run['per_plant'], baseline['per_plant']))
+        stats = {'same_initial_objects_and_observations': initial_equal,
+                 'n_plants': len(run['per_plant']), 'different_operating_histories_exact': differing_history,
+                 'n_matched_proposal_rows': 0, 'different_proposal_rows_exact': 0,
+                 'missing_monitor_stage_rows': 0, 'max_abs_choice_probability_difference': 0.,
+                 'max_abs_base_step_difference': 0., 'max_abs_gains_before_difference': 0.,
+                 'max_relative_gains_before_difference': 0., 'max_abs_cost_before_difference': 0.,
+                 'first_nonidentical_proposal': None}
+        for row in run['transitions']:
+            other = baseline_rows.get((row['plant_index'], row['stage']))
+            if other is None:
+                stats['missing_monitor_stage_rows'] += 1
+                continue
+            if not row['proposal_valid'] or not other['proposal_valid']:
+                continue
+            stats['n_matched_proposal_rows'] += 1
+            differs = row['base_step'] != other['base_step'] or row['choice_probabilities'] != other['choice_probabilities']
+            stats['different_proposal_rows_exact'] += int(differs)
+            if differs and stats['first_nonidentical_proposal'] is None:
+                stats['first_nonidentical_proposal'] = {'plant_index': row['plant_index'], 'stage': row['stage']}
+            for field, key in (('choice_probabilities', 'max_abs_choice_probability_difference'),
+                               ('base_step', 'max_abs_base_step_difference'),
+                               ('gains_before', 'max_abs_gains_before_difference'),
+                               ('cost_before', 'max_abs_cost_before_difference')):
+                difference = np.abs(np.asarray(row[field], float)-np.asarray(other[field], float))
+                stats[key] = max(stats[key], float(np.max(difference)))
+            relative = np.abs(np.asarray(row['gains_before'])/np.asarray(other['gains_before'])-1.)
+            stats['max_relative_gains_before_difference'] = max(stats['max_relative_gains_before_difference'], float(np.max(relative)))
+        arms[name] = stats
+    return {'schema_version': 1, 'status': 'post_hoc_numerical_diagnostic_only',
+            'changes_acceptance_or_thresholds': False, 'additional_simulations': 0,
+            'source_result_canonical_sha256': canonical_hash(payload), 'evaluation_raw': sources,
+            'comparison': 'Same initial objects and frozen full-action operator; adaptive batch layouts need not produce bitwise-identical cross-arm histories. This report introduces no numerical acceptance tolerance. Each arm retains its own strict CP/history/accounting checks and separate exact replay.',
+            'arms': arms}
+
+
+def verify_initial_pairing(evaluation_runs):
+    """The registered paired unit is an initial plant, not an exact trajectory."""
+    monitor = evaluation_runs['monitor']
+    baseline = [(p['plant_identity'], p['initial_J'], p['initial_gains']) for p in monitor['per_plant']]
+    for name, run in evaluation_runs.items():
+        require([(p['plant_identity'], p['initial_J'], p['initial_gains']) for p in run['per_plant']] == baseline,
+                'evaluation arms do not use identical initial objects/measurements: ' + name)
+
+
+def validate_batch_diagnosis(report):
+    """Recompute saved mechanism comparisons without another plant simulation."""
+    require(report['schema_version'] == 1 and report['additional_independent_evidence'] is False
+            and report['acceptance_recomputed'] is False, 'batch diagnosis cannot be new acceptance evidence')
+    target = report['target']; stage = target['stage']; plant = target['plant_index']
+    require((plant, stage) == (480, 1), 'fixed numerical diagnostic target differs')
+    require(report['reference'] == {'batch_size': 1024, 'row': 480}, 'fixed numerical reference differs')
+    for name, source in report['input_artifacts']['raw'].items():
+        require(hash_matches(ROOT/source['path'], source['sha256']), 'batch diagnostic original raw changed')
+        raw = json.loads(gzip.decompress((ROOT/source['path']).read_bytes()))
+        require(target['seed'] == raw['study_metadata']['seed'] and target['original_n_plants'] == raw['n_plants'],
+                'numerical diagnostic cohort differs')
+        current = next(r for r in raw['transitions'] if r['plant_index'] == plant and r['stage'] == stage)
+        indices = [r['plant_index'] for r in raw['transitions'] if r['stage'] == stage and r['proposal_valid']]
+        position = indices.index(plant); n = len(indices)
+        batch = report['batches'][str(n)]
+        p, d = np.asarray(batch['choice_probabilities'])[position], np.asarray(batch['base_step'])[position]
+        expected = {'active_batch_size': n, 'target_batch_position': position,
+            'original_choice_probabilities': current['choice_probabilities'], 'original_base_step': current['base_step'],
+            'probability_max_abs': float(np.max(np.abs(p-current['choice_probabilities']))),
+            'base_step_max_abs': float(np.max(np.abs(d-current['base_step'])))}
+        require(same(report['original_layout_position_comparisons'][name], expected), 'original batch-layout comparison differs: ' + name)
+        require(target['plant_identity'] == current['plant_identity'] and same(target['gains_before'], current['gains_before']),
+                'diagnostic reconstructed wrong object/state')
+        if name == 'monitor':
+            recovered = report['recovered_input']
+            require(same(recovered['original_cost'], current['cost_before']) and
+                    same(recovered['cost_abs_difference'], float(abs(recovered['cost']-current['cost_before']))) and
+                    same(recovered['state_max_abs_difference'], float(np.max(np.abs(
+                        np.asarray(recovered['features'])-np.asarray(current['features'])[:20])))),
+                    'recovered numerical input comparison differs')
+            require(np.asarray(recovered['features']).shape == (20,) and
+                    np.asarray(recovered['curves']).shape == (2, 64) and
+                    np.isfinite(recovered['features']).all() and np.isfinite(recovered['curves']).all(),
+                    'invalid saved diagnostic input tensors')
+    deltas = np.log10(np.array([.5, .7, .87, 1., 1.15, 1.43, 2.]))
+    for batch in report['batches'].values():
+        p = np.asarray(batch['choice_probabilities']); mu = p @ deltas
+        require(np.all((p >= 0) & (p <= 1)) and np.allclose(p.sum(-1), 1., atol=1e-10), 'invalid saved batch probabilities')
+        expected = np.clip(mu/(1+np.maximum(p@(deltas*deltas)-mu*mu, 0.)/np.var(deltas)), -.32, .32)
+        require(np.allclose(batch['base_step'], expected, rtol=1e-12, atol=1e-12), 'batch diagnostic decoded steps differ')
+
+
+def assess_validity(payload, report):
+    """Additional, explicitly post-hoc assumption audit; never revise the protocol."""
+    require(payload['deployment']['enabled'] is False and payload['deployment']['generic_python_c_matlab_enabled'] is False,
+            'unestablished statistical assumptions cannot authorize deployment')
+    differences = {name: value['relative_to_reference_row'] for name, value in report['batches'].items()}
+    comparisons = report['original_layout_position_comparisons'].values()
+    return {'schema_version': 1, 'status': 'post_hoc_implementation_validity_audit',
+        'acceptance_scope': 'frozen numerical criteria only; assumptions audited separately',
+        'source_result_canonical_sha256': canonical_hash(payload),
+        'source_batch_diagnosis_canonical_sha256': canonical_hash(report),
+        'frozen_numerical_acceptance': payload['acceptance'],
+        'canonical_per_object_mapping_established': False,
+        'cp_exchangeability_established': False,
+        'trajectory_event_independence_established': False,
+        'deployment_allowed': False,
+        'observed_batch_dependence': {
+            'max_probability_difference': max(d['probability_max_abs'] for d in differences.values()),
+            'max_base_step_difference': max(d['base_step_max_abs'] for d in differences.values()),
+            'nonidentical_batch_groups': sorted(int(n) for n, d in differences.items() if d['nonidentical_probability_rows'] > 0),
+            'original_layout_exact_reconstruction': all(d['probability_max_abs'] == 0. and d['base_step_max_abs'] == 0. for d in comparisons)},
+        'additional_independent_evidence': False, 'additional_simulations': 0,
+        'interpretation': 'The fixed-input diagnostic establishes batch/row-dependent floating-point outputs. With adaptive active batches, fixed weights alone do not establish a common per-object numerical map, exchangeable calibration/test scores, or independent Bernoulli trajectory events. Empirical counts and costs remain recorded. Nominal Clopper-Pearson numbers and CP formulas are conditional on premises not established here; small numerical differences are not a probability-error bound. This additional implementation audit preserves every preregistered numerical criterion and its result.',
+        'fresh_validation_required': [
+            'Specify and freeze a canonical per-object numerical inference map independent of other objects and row position.',
+            'Validate that mapping before new data; freeze a fresh protocol without using the consumed test for parameter selection.',
+            'Use fresh independent training/calibration/evaluation objects as required by the changed model or policy; recalibrate every stage under its frozen prefix.',
+            'Evaluate independent complete trajectories and retain original risk and utility criteria. No next study is executed by this assessment.']}
+
+
+def validity_assessment(payload):
+    diagnostic = load_script('37_batch_inference_diagnosis')
+    diagnostic.ROOT = ROOT
+    diagnostic.REPORT = ROOT/'research/results/batch_inference_diagnosis.json'
+    report = diagnostic.check()
+    validate_batch_diagnosis(report)
+    return assess_validity(payload, report)
+
+
 def verify_payload(payload, *, require_final=False):
     """Validate a complete study before or after acceptance fields are attached."""
     if require_final:
@@ -550,7 +700,10 @@ def verify_payload(payload, *, require_final=False):
             for key, value in expected.items():
                 require(same(stage[key], value), where + ': stage statistic differs: ' + key)
             require(same(arm['qhats'][stage_index], q), where + ': arm quantile differs')
-            prefix = prefix + [q]
+            # Preserve the verified executing threshold in the next raw-input
+            # identity check. Independent expit/softmax arithmetic may differ
+            # by one ULP; it must not silently replace the frozen prefix.
+            prefix = prefix + [arm['qhats'][stage_index]]
     ev = spec['evaluation']; summaries = {}; evaluation_runs = {}
     require(set(payload['evaluation']) == set(ev['arms']) == set(payload['evaluation_raw']), 'evaluation arm registry differs')
     for name in ev['arms']:
@@ -567,20 +720,10 @@ def verify_payload(payload, *, require_final=False):
         summaries[name] = summarize(run)
         require(same(payload['evaluation'][name], summaries[name]), 'evaluation summary differs: ' + name)
         evaluation_runs[name] = run
-    monitor = evaluation_runs['monitor']
-    mon_rows = {(t['plant_index'], t['stage']): t for t in monitor['transitions']}
-    for name, run in evaluation_runs.items():
-        require([(p['plant_identity'], p['initial_J'], p['initial_gains']) for p in run['per_plant']] ==
-                [(p['plant_identity'], p['initial_J'], p['initial_gains']) for p in monitor['per_plant']],
-                'evaluation arms do not use identical initial objects/measurements: ' + name)
-        if run['selector'] == 'full_only':
-            for actual, baseline in zip(run['per_plant'], monitor['per_plant']):
-                require(actual['operating_history'] == baseline['operating_history'][:len(actual['operating_history'])],
-                        'full-action gated history is not the matched monitor prefix: ' + name)
-            for row in run['transitions']:
-                baseline = mon_rows[row['plant_index'], row['stage']]
-                for key in ('proposal_valid', 'base_step', 'choice_probabilities', 'gains_before', 'cost_before'):
-                    require(same(row[key], baseline[key]), 'full-action matched proposal differs: ' + name + ':' + key)
+    verify_initial_pairing(evaluation_runs)
+    # verify_run checks each arm's frozen selection rule, exact CP set, adopted
+    # history and stop/accounting independently. Cross-arm numeric differences
+    # remain visible in paired_diagnosis; no tolerance is fitted to test data.
     require(used == set(by_path), 'unaccounted or unrelated raw shards')
     totals['total'] = sum(totals.values())
     require(same(payload['simulation_counts'], totals), 'whole-study simulation accounting differs')
@@ -617,10 +760,19 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--result', type=Path, default=RESULT)
     parser.add_argument('--json', action='store_true')
+    parser.add_argument('--write-pairing-diagnosis', action='store_true',
+                        help='After successful verification, save descriptive cross-arm floating-point differences')
+    parser.add_argument('--write-validity-assessment', action='store_true',
+                        help='Save a separate post-hoc statistical-assumption audit from the fixed-input diagnostic')
     args = parser.parse_args()
     try:
         path = args.result if args.result.is_absolute() else ROOT / args.result
-        checks = verify_payload(json.loads(path.read_text(encoding='utf-8')), require_final=True)
+        payload = json.loads(path.read_text(encoding='utf-8'))
+        checks = verify_payload(payload, require_final=True)
+        if args.write_pairing_diagnosis:
+            (ROOT/PAIRING_DIAGNOSIS).write_text(json.dumps(paired_diagnosis(payload), indent=2, allow_nan=False)+'\n', encoding='utf-8')
+        if args.write_validity_assessment:
+            (ROOT/VALIDITY_ASSESSMENT).write_text(json.dumps(validity_assessment(payload), indent=2, allow_nan=False)+'\n', encoding='utf-8')
         result = {'ok': all(checks.values()), 'checks': checks}
     except (OSError, ValueError, KeyError, TypeError, IndexError, NotImplementedError) as exc:
         result = {'ok': False, 'error': f'{type(exc).__name__}: {exc}'}

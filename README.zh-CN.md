@@ -103,8 +103,24 @@ solver      ...
 独立校准结果及覆盖边界见[温度与分裂CP](docs/CONFORMAL.md)。旧CP硬保持代价逊于温度单独校准；默认monitor保留温度单独校准的提案；标签覆盖定理或保持动作均不证明闭环安全。
 
 <!-- joint-risk-rollout:start -->
-**联合动作风险的多轮验收：未通过。** 冻结协议在<!-- claim:joint_rollout_n -->1024<!-- /claim -->个独立测试对象上，门控策略有<!-- claim:joint_rollout_any_harm -->2<!-- /claim -->条轨迹至少一次有害执行；概率的单侧95%精确上界为<!-- claim:joint_rollout_risk_upper -->0.006135<!-- /claim -->。门控/配对monitor对照的最终平均J为<!-- claim:joint_rollout_gated_mean -->2.303682<!-- /claim -->/<!-- claim:joint_rollout_monitor_mean -->1.297619<!-- /claim -->，p90为<!-- claim:joint_rollout_gated_p90 -->3.416603<!-- /claim -->/<!-- claim:joint_rollout_monitor_p90 -->2.314045<!-- /claim -->。首步执行率的单侧95%下界为<!-- claim:joint_rollout_first_lower -->0.479684<!-- /claim -->，预注册最低要求为0.50。全部判据、逐步独立校准、原始轨迹与适用范围见[联合风险多轮研究](docs/JOINT_RISK_ROLLOUT.md)。此结果不把联合风险门默认接入通用Python、C或MATLAB部署；失败判据不会通过改阈值掩盖。
+**联合动作风险的多轮验收：未通过。** 冻结协议在<!-- claim:joint_rollout_n -->1024<!-- /claim -->个独立测试对象上，门控策略有<!-- claim:joint_rollout_any_harm -->2<!-- /claim -->条轨迹至少一次有害执行；名义单侧95%精确二项上界量为<!-- claim:joint_rollout_risk_upper -->0.006135<!-- /claim -->。门控/配对monitor对照的最终平均J为<!-- claim:joint_rollout_gated_mean -->2.303682<!-- /claim -->/<!-- claim:joint_rollout_monitor_mean -->1.297619<!-- /claim -->，p90为<!-- claim:joint_rollout_gated_p90 -->3.416603<!-- /claim -->/<!-- claim:joint_rollout_monitor_p90 -->2.314045<!-- /claim -->。首步执行率的名义单侧95%下界为<!-- claim:joint_rollout_first_lower -->0.479684<!-- /claim -->，预注册最低要求为0.50。全部判据、逐步独立校准、原始轨迹与适用范围见[联合风险多轮研究](docs/JOINT_RISK_ROLLOUT.md)。这是保留的v1数值记录；计算二项量不单独证明机器实现的事件独立性。此结果不把联合风险门默认接入通用Python、C或MATLAB部署；失败判据不会通过改阈值掩盖。
 <!-- joint-risk-rollout:end -->
+
+<!-- trajectory-risk-v2:zh:start -->
+### 多步联合风险：预注册新实验 FAIL
+
+唯一主要候选为`trajectory_selected`；状态为`research_only`。在1024个新独立测试对象上，8条轨迹出现有害执行，风险的名义单侧95%二项上界为0.014052，首步执行率名义下界为0.559971；本轮实现的统计前提另见下文。主要候选/配对monitor的最终mean J为2.158651/1.357796，p90 J为3.149694/2.294926，实际运行仿真数为2770/21504。未通过项：最终平均代价非劣 (`empirical_mean_cost_noninferior`); 最终p90代价非劣 (`empirical_p90_cost_noninferior`)。最终mean与p90均按零松弛要求和monitor比较；仅减少有害探索事件不足以通过全部验收。
+
+旧v1失败结果保留。旧测试已经用于事后诊断，不能再作新方案的独立验证；本轮只用新测试验收事先指定的主要候选，其他组不按测试成绩选优上线。本轮同时改变训练轨迹、数据量、标准化和风险初态特征语义，是整体方案比较，不是单因素因果实验。
+
+旧固定路径诊断发现700/1024株保留monitor最优必须经过有害步。这证明旧记录中仅截断、不改提案的门控无法同时满足原风险与零松弛均值条件；不证明所有新策略都不可能。替代联合动作可改变路径，但是否成功由本轮真实验收决定。
+
+见[旧失败诊断](docs/ROLLOUT_DIAGNOSIS.md)、[新完整研究](docs/TRAJECTORY_RISK.md)及其JSON/原始分片。通用Python/C/MATLAB部署默认保持原样；即使数值判据通过，也不能绕过独立实现有效性审计或扩展注册的运行器、模拟分布和时域。
+
+**额外的实现有效性审计：未建立；deployment_allowed=false。** 冻结数值判据与这一审计分开报告。本轮批次形状/行位置引起的输出依赖，使逐对象固定映射、校准/测试CP分数交换性及轨迹事件独立性均未建立。因此表内CP及单侧95%二项量只作名义计算，不能宣称本机器实现已获得精确CP/PAC保证；仅写一般交换性假设不足以弥补这一缺口。这是原数值验收之外的额外失败，继续禁止部署；需固定推理映射、重新校准和新的前瞻验证。 见[实现有效性审计](research/results/trajectory_risk_validity.json)。
+
+配对指相同初始对象与观测，不要求活跃批次不同的跨组提案/轨迹逐位相同。每组仍按自身真实动作、严格零容差标签、CP集合与历史计账；不从测试差异拟合新的验收容差。 [配对数值诊断](research/results/trajectory_risk_pairing_diagnosis.json)。 [固定输入批次诊断](research/results/batch_inference_diagnosis.json)另计1次诊断仿真；相同输入复制到不同批次/行位置时，base_step最大差为1.24583552e-07。这是事后数值机制检查，未重建原完整批次，不是新的独立验收，未改动原始动作或边界。
+<!-- trajectory-risk-v2:zh:end -->
 
 ## 15 秒看懂
 
@@ -288,7 +304,7 @@ jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
 | `simplex` | 2.037 | 2.879 | 20 |
 | `zn_classic` | 2.322 | 3.082 | 1 |
 
-**冻结热工族：120个固定网格对象。** 训练后冻结，本轮正确性修复后重测，未据此选择新权重；不是预注册前瞻测试。
+**冻结热工族：120个固定网格对象。** 训练后冻结，此前正确性修复后重测，未据此选择新权重；不是预注册前瞻测试。
 
 | method | median J | p90 J | actual simulations |
 | :--- | ---: | ---: | ---: |

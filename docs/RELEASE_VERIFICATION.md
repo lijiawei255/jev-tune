@@ -4,69 +4,52 @@
 
 ## English
 
-This page is generated from actual pytest JUnit output and the claims checker,
-not from the intended number of tests. The baseline audit is a private local
-record; this public record summarizes the repaired release.
+278 passed; 0 skipped; coverage 77.8%; 140 automatic document checks.
 
-226 passed; 0 skipped; 0 failures; coverage 76.18%; 103 automatic document checks.
+Counts come from actual JUnit, pytest logs and claims recomputation. Software verification and research enablement are separate conclusions.
 
-Regression coverage includes CP monitor/hard_hold separation, terminal-proposal
-telemetry, no-action stopping, joint-risk acceptance, unique transition accounting, partial holds,
-independent rollbacks, measured best gain/cost pairs, real early-stop calls,
-noise-invariant subsets, numeric faults, split-CP ranks/ties, independent
-calibration, CP policy boundaries, NaN/Inf C mutants, MATLAB decoder and real
-first-rollback/JSON-history paths. Benchmark, ablation, random-hold, calibration,
-robustness, generalization, specialization and disturbance results were rerun.
+New study acceptance: **FAIL**; `research_only`.
+Failed criteria: empirical_mean_cost_noninferior, empirical_p90_cost_noninferior.
 
-The historical hard_hold policy does not improve current matched control costs.
-The default monitor retains full sets and preserves the Temp Only proposal.
-The prospective multi-round joint-risk study passed the risk-upper-bound criterion
-but failed the execution lower bound and final mean/p90 cost criteria. It remains
-research-only. The finite-horizon guarantee concerns the scoped changed proposals,
-not initial identification, recovery, shifted domains or physical safety.
-The fixed samples were additionally replayed with `29_joint_risk_rollout.py --reproduce`;
-raw traces matched byte-for-byte and the original acceptance was preserved.
-The extra reproduction simulations are separately recorded in
-`research/results/joint_risk_reproduction.json`; they add no independent statistical evidence.
-See [JOINT_RISK_ROLLOUT](JOINT_RISK_ROLLOUT.md), [JOINT_RISK](JOINT_RISK.md)
-and [CP_DIAGNOSIS](CP_DIAGNOSIS.md). The independent empirical
-label coverage and its finite-sample scope are in [CONFORMAL](CONFORMAL.md).
-Training-seed replication, robot/clinical/board testing and WCET remain outside
-the demonstrated scope; they are not silently counted as passing experiments.
-Historical study pages and paid hosted-model measurements remain versioned records.
+Additional implementation validity audit: coverage premises are not established and deployment is prohibited. Batch/row-dependent floating-point inference leaves score exchangeability and trajectory-event independence unestablished; nominal CP/binomial quantities are not an exact probability guarantee for this implementation. This post-hoc audit does not revise frozen numerical acceptance.
 
-Synthetic data assets are attached to v0.7.0. From a clone, download
-`expert_train.npz` into `data/` and `temperature_fit.npz`, `cp_fit.npz`,
-`empirical_eval.npz` into `data/calibration/`. Their hashes are in the calibration
-and A0 cache manifests. The CP-fit data was not used to select T or weights.
+Actual prospective study simulations: 513508.
 
-See [release_verification.json](../research/results/release_verification.json)
-for actual experiment subprocess outcomes/provenance. `23_sync_reference_docs.py` renders the current
-numerical docs, and `16_check_claims.py` verifies registered text, both README
-benchmark tables, and complete generated bilingual experiment/CP documents.
-It does not reinterpret historical numbers as new experiments.
+Additional full evaluation replay simulations: 33718; additional numerical diagnosis simulations: 1; total: 547227.
+
+This release runs trajectory training, independent temperature fitting, reached-sample stage calibration and five real closed-loop arms on a new fixed test cohort. Old data is diagnostic and old failure JSON/traces are preserved. Additional full evaluation replay is charged separately in the reproduction JSON below, adds no independent statistical evidence and does not replace acceptance.
+
+Full pytest covers CP boundaries, action selection, cache/diagnostic isolation, evidence mutations and existing runtimes; real MATLAB controller regressions were rerun. Generic Python/C99/MATLAB policies do not automatically enable the research head. Earlier benchmark, ablation and generalization records are historical in release_verification_v070.json, not represented as newly rerun here.
+
+Theoretical coverage requires the frozen noiseless six-family scope and assumptions including exchangeability; this implementation has not established those premises. Accepted-action conditional risk, domain shift, recovery and physical safety are also unproven. Data and SHA256 are attached to v0.8.0; NPZ caches regenerate from committed raw shards and claims do not depend on uncommitted local data.
+
+[TRAJECTORY_RISK](TRAJECTORY_RISK.md) · [ROLLOUT_DIAGNOSIS](ROLLOUT_DIAGNOSIS.md) · [preserved v1](JOINT_RISK_ROLLOUT.md)
+
+[release_verification.json](../research/results/release_verification.json) · [trajectory_risk_reproduction.json](../research/results/trajectory_risk_reproduction.json)
+[trajectory_risk_validity.json](../research/results/trajectory_risk_validity.json) · [batch_inference_diagnosis.json](../research/results/batch_inference_diagnosis.json)
 
 ## 简体中文
 
-本页由pytest实际JUnit输出与claims检查生成，不按计划测试数填表。原审计保留本地；
-本公开记录概述修复版本。
+278 passed; 0 skipped; coverage 77.8%; 140 automatic document checks.
 
-226 passed; 0 skipped; 0 failures; coverage 76.18%; 103 automatic document checks.
+数字来自本次实际JUnit、pytest日志和claims复算。软件检查与研究启用验收是不同结论。
 
-回归覆盖CP监测/硬保持分离、终止提案遥测、无动作停止、联合风险整步获准、唯一转移记账、部分保持、独立回滚、实测最优增益/代价、早停真实次数、
-噪声子集一致性、数值故障、CP分位次序/边界、独立校准、集合弃权、C NaN/Inf变体、
-MATLAB解码及真实首回滚/JSON历史。基准、消融、匹配随机保持、校准、鲁棒性、泛化、
-专门化与扰动研究均已重跑。旧hard_hold当前同条件代价没有改善；默认monitor保留完整集合和Temp Only提案。
-前瞻多轮联合风险研究通过风险上界条件，但执行率下界与最终均值/p90代价未通过，保持研究用途。
-整段界只覆盖限定协议中的实际改变参数提案，不含初始辨识、回退、域外或物理安全。
-另用29脚本的--reproduce完整重放固定样本，原始轨迹逐字节相同，原验收未覆盖。
-额外复现仿真单列于research/results/joint_risk_reproduction.json，不算新增独立统计证据。
-见[JOINT_RISK_ROLLOUT](JOINT_RISK_ROLLOUT.md)、[JOINT_RISK](JOINT_RISK.md)及[CP_DIAGNOSIS](CP_DIAGNOSIS.md)。
-独立经验标签覆盖及理论边界见
-[CONFORMAL](CONFORMAL.md)。训练种子重复、机器人/临床/板测和WCET仍未验证，未计入通过。
-历史研究页及付费托管模型测量保留版本语境，不冒充本次重测。
+新研究验收: **FAIL**; `research_only`.
+未通过项: empirical_mean_cost_noninferior, empirical_p90_cost_noninferior.
 
-v0.7.0附件包含合成数据：将expert_train.npz放入data/，三个校准NPZ放入data/calibration/。
-数据hash见校准与A0缓存manifest；CP拟合数据未参与T或权重选择。实际命令及来源见
-[release_verification.json](../research/results/release_verification.json)。23脚本生成当前数字文档，
-16检查注册正文、两种README基准表和完整双语实验/CP文档，不将历史数字重新解释为当前实验。
+额外实施有效性审计：覆盖前提尚未建立，禁止部署。批大小/行位置会改变浮点推理，校准与测试分数的交换性及轨迹事件独立性未闭合；名义CP/二项统计量不能作为机器实现的精确概率保证。该事后审计没有修改冻结数值验收。
+
+前瞻研究实际仿真: 513508.
+
+完整评估重放额外仿真: 33718; 数值诊断额外仿真: 1; 合计: 547227.
+
+本次完成多轮训练、独立温度拟合、到达样本逐步校准及全新固定测试集五组真实闭环。旧数据仅诊断，旧失败JSON/原始轨迹保持不变。额外完整评估重放在下列reproduction JSON中单独计账，不是新增独立统计证据，不覆盖原验收。
+
+完整pytest覆盖CP边界、动作选择、缓存/诊断隔离、证据变异及既有运行时；MATLAB真实控制器回归重新运行。通用Python/C99/MATLAB策略不自动启用研究头。历史基准、消融和泛化记录见release_verification_v070.json，不冒充本次重跑。
+
+理论覆盖需要冻结的无噪声六族协议及交换性等条件，本次尚未证明实现满足这些条件，也不证明获准动作条件风险、域外、恢复或物理安全。数据及SHA256见v0.8.0附件；NPZ可从提交的原始分片再生，claims不依赖本地未提交数据。
+
+[TRAJECTORY_RISK](TRAJECTORY_RISK.md) · [ROLLOUT_DIAGNOSIS](ROLLOUT_DIAGNOSIS.md) · [preserved v1](JOINT_RISK_ROLLOUT.md)
+
+[release_verification.json](../research/results/release_verification.json) · [trajectory_risk_reproduction.json](../research/results/trajectory_risk_reproduction.json)
+[trajectory_risk_validity.json](../research/results/trajectory_risk_validity.json) · [batch_inference_diagnosis.json](../research/results/batch_inference_diagnosis.json)

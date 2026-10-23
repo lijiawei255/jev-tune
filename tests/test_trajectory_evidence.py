@@ -1,6 +1,8 @@
 """Adversarial evidence checks on small synthetic trajectories, not study data."""
 import copy
+import gzip
 import importlib.util
+import json
 from pathlib import Path
 
 import numpy as np
@@ -200,3 +202,77 @@ def test_runner_snapshots_cover_each_shard_once_and_do_not_reclassify_reuse(tmp_
 def test_published_result_cannot_omit_failed_acceptance_or_deployment_status():
     with pytest.raises(ValueError, match='lacks final acceptance'):
         verifier.verify_payload({'risk_model': {}}, require_final=True)
+
+
+def test_pairing_requires_identical_initial_objects_not_unregistered_exact_paths(synthetic, tmp_path, monkeypatch):
+    model=synthetic()
+    monitor=engine.run_trajectory_risk(Proposal(), model, Plants([0]), horizon=1, mode='monitor')
+    gated=copy.deepcopy(monitor)
+    gated['transitions'][0]['base_step'][0] += float(np.finfo(np.float32).eps)
+    gated['per_plant'][0]['operating_history'][-1]['cost'] += 1e-9
+    verifier.verify_initial_pairing({'monitor':monitor,'full':gated})
+    monkeypatch.setattr(verifier,'ROOT',tmp_path)
+    payload={'raw_files':[],'evaluation_raw':{}}
+    for name,raw in [('monitor',monitor),('full',gated)]:
+        path=tmp_path/(name+'.gz')
+        path.write_bytes(gzip.compress(json.dumps(raw).encode(),mtime=0))
+        payload['evaluation_raw'][name]=path.name
+        payload['raw_files'].append({'path':path.name,'sha256':verifier.hashlib.sha256(path.read_bytes()).hexdigest()})
+    diagnostic=verifier.paired_diagnosis(payload)
+    assert diagnostic['changes_acceptance_or_thresholds'] is False
+    assert diagnostic['additional_simulations']==0
+    assert diagnostic['arms']['full']['different_operating_histories_exact']==1
+    assert diagnostic['arms']['full']['different_proposal_rows_exact']==1
+    assert diagnostic['arms']['full']['max_abs_base_step_difference']==np.finfo(np.float32).eps
+    gated['per_plant'][0]['initial_J'] += 1e-9
+    with pytest.raises(ValueError,match='identical initial'):
+        verifier.verify_initial_pairing({'monitor':monitor,'full':gated})
+
+
+def test_additional_validity_audit_preserves_frozen_acceptance_and_disables_deployment():
+    acceptance={'passed':False,'checks':{'mean':False},'failed':['mean']}
+    payload={'acceptance':acceptance,'deployment':{'enabled':False,'generic_python_c_matlab_enabled':False}}
+    report={'batches':{'171':{'relative_to_reference_row':{'probability_max_abs':1e-7,
+        'base_step_max_abs':1e-8,'nonidentical_probability_rows':2}},
+        '1024':{'relative_to_reference_row':{'probability_max_abs':1e-7,
+        'base_step_max_abs':1e-8,'nonidentical_probability_rows':4}}},
+        'original_layout_position_comparisons':{'monitor':{'probability_max_abs':0.,'base_step_max_abs':0.},
+                                                'old':{'probability_max_abs':0.,'base_step_max_abs':0.}}}
+    assessment=verifier.assess_validity(payload,report)
+    assert assessment['frozen_numerical_acceptance']==acceptance
+    assert assessment['cp_exchangeability_established'] is False
+    assert assessment['trajectory_event_independence_established'] is False
+    assert assessment['canonical_per_object_mapping_established'] is False
+    assert assessment['deployment_allowed'] is False
+    assert assessment['additional_simulations']==0
+    assert assessment['observed_batch_dependence']['nonidentical_batch_groups']==[171,1024]
+    payload['deployment']['enabled']=True
+    with pytest.raises(ValueError,match='cannot authorize deployment'):
+        verifier.assess_validity(payload,report)
+
+
+def test_batch_diagnosis_cannot_forge_original_layout_or_recovered_input_summary(tmp_path, monkeypatch):
+    monkeypatch.setattr(verifier,'ROOT',tmp_path)
+    p=np.zeros((3,7));p[:,3]=1.
+    row={'plant_index':480,'plant_identity':99,'stage':1,'proposal_valid':True,
+         'choice_probabilities':p.tolist(),'base_step':[0.,0.,0.],'gains_before':[1.,1.,1.],
+         'cost_before':2.,'features':[0.]*44}
+    raw={'study_metadata':{'seed':9},'n_plants':1024,'transitions':[row]}
+    path=tmp_path/'raw.gz';path.write_bytes(gzip.compress(json.dumps(raw).encode(),mtime=0))
+    entry={'path':'raw.gz','sha256':verifier.hashlib.sha256(path.read_bytes()).hexdigest()}
+    comparison={'active_batch_size':1,'target_batch_position':0,'original_choice_probabilities':p.tolist(),
+                'original_base_step':[0.,0.,0.],'probability_max_abs':0.,'base_step_max_abs':0.}
+    report={'schema_version':1,'additional_independent_evidence':False,'acceptance_recomputed':False,
+        'target':{'plant_index':480,'plant_identity':99,'stage':1,'seed':9,'original_n_plants':1024,'gains_before':[1.,1.,1.]},
+        'reference':{'batch_size':1024,'row':480},'input_artifacts':{'raw':{'monitor':entry,'old':entry}},
+        'batches':{'1':{'choice_probabilities':[p.tolist()],'base_step':[[0.,0.,0.]]}},
+        'original_layout_position_comparisons':{'monitor':comparison,'old':copy.deepcopy(comparison)},
+        'recovered_input':{'features':[0.]*20,'curves':np.zeros((2,64)).tolist(),'cost':2.,'original_cost':2.,
+                           'cost_abs_difference':0.,'state_max_abs_difference':0.}}
+    verifier.validate_batch_diagnosis(report)
+    bad=copy.deepcopy(report);bad['original_layout_position_comparisons']['old']['probability_max_abs']=1e-5
+    with pytest.raises(ValueError,match='original batch-layout comparison'):
+        verifier.validate_batch_diagnosis(bad)
+    bad=copy.deepcopy(report);bad['recovered_input']['cost_abs_difference']=.1
+    with pytest.raises(ValueError,match='recovered numerical input comparison'):
+        verifier.validate_batch_diagnosis(bad)

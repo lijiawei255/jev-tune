@@ -83,8 +83,11 @@ Insufficient reached calibration samples use the conservative all-label set.
 
 A valid stepwise inclusion argument plus the union bound controls whether any
 assessed action is executed harmfully within the registered horizon, over
-calibration and fresh-trajectory randomness. The final test's exact one-sided
-binomial limit instead evaluates the fixed resulting policy. Neither statement
+calibration and fresh-trajectory randomness. The final test's nominal exact-binomial
+one-sided quantity requires independent trajectory events for its coverage
+interpretation; the numerical calculation alone does not establish that premise
+in the machine implementation. The current batch-context validity gap is explicitly
+documented in [TRAJECTORY_RISK](TRAJECTORY_RISK.md). Neither statement
 is a bound on the harmful fraction conditional on acceptance, a requirement that
 every finite test achieve nominal coverage, or a physical safety certificate.
 The registered cost, activity and simulation-count criteria must also pass;
@@ -145,7 +148,8 @@ Historical hard_hold minus Temp Only paired mean cost difference: +0.240389; pai
 不继承原标签保证。到达该步的校准样本不足时采用全标签集合保守保持。
 
 在逐步包含关系与交换性成立时，通过并集界约束注册时域内任一已评价动作被有害执行的概率，
-该界对校准与新轨迹抽样取边际。最终测试的精确单侧二项上界则验收已经固定的策略。
+该界对校准与新轨迹抽样取边际。最终测试的名义精确单侧二项量只有在轨迹事件独立等前提成立时
+才有相应覆盖解释；数值计算本身不建立机器实现的前提，当前批次上下文缺口见[TRAJECTORY_RISK](TRAJECTORY_RISK.md)。
 两者均不等于获准子集中的条件有害率界，不要求每个有限测试样本恰达名义覆盖，更不是物理安全证书。
 预注册的代价、活动率与仿真计数条件也须分别满足；按原协议报告结果与受限部署结论，
 不在看到测试结果后改协议。

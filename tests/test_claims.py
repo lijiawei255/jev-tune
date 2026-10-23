@@ -137,3 +137,23 @@ def test_performance_diagnosis_recomputes_counts_and_requires_v2_sources(tmp_pat
     changed=copy.deepcopy(original);changed['harm_metric']['version']=1
     result_path.write_text(json.dumps(changed))
     assert 'metric v2' in module.performance_diagnosis_evidence()[0]['detail']
+
+
+def test_reproduction_claims_require_equal_nonindependent_report_and_surface_errors(tmp_path, monkeypatch):
+    (tmp_path/'scripts').mkdir(); (tmp_path/'research/results').mkdir(parents=True)
+    script=tmp_path/'scripts/34_reproduce_trajectory_evaluation.py'
+    script.write_text("import json\ndef check(*, result_path, report_path):\n"
+                      "    p=json.loads(report_path.read_text())\n"
+                      "    if p.get('stale'): raise ValueError('replay source hash differs')\n"
+                      "    return p\n")
+    report_path=tmp_path/'research/results/trajectory_risk_reproduction.json'
+    valid={'schema_version':1,'equal':True,'additional_independent_evidence':False,'acceptance_recomputed':False}
+    monkeypatch.setattr(module,'ROOT',tmp_path)
+    def row(value):
+        report_path.write_text(json.dumps(value))
+        return next(r for r in module.trajectory_evidence() if r['id']=='evidence:trajectory_risk_reproduction.json')
+    assert row(valid)['ok'] is True
+    assert row(dict(valid,equal=False))['ok'] is False
+    assert row(dict(valid,additional_independent_evidence=True))['ok'] is False
+    failed=row(dict(valid,stale=True))
+    assert failed['ok'] is False and 'ValueError: replay source hash differs' in failed['detail']

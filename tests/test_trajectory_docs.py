@@ -49,7 +49,13 @@ def evidence():
 
 def populate(root, evidence):
     diagnosis, trajectory = evidence
-    for name, data in ((docs.DIAGNOSIS, diagnosis), (docs.TRAJECTORY, trajectory)):
+    validity = {'status': 'post_hoc_implementation_validity_audit',
+                'frozen_numerical_acceptance': copy.deepcopy(trajectory['acceptance']),
+                'canonical_per_object_mapping_established': False,
+                'cp_exchangeability_established': False,
+                'trajectory_event_independence_established': False,
+                'deployment_allowed': False}
+    for name, data in ((docs.DIAGNOSIS, diagnosis), (docs.TRAJECTORY, trajectory), (docs.VALIDITY, validity)):
         path = root/name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(data), encoding='utf-8')
@@ -127,3 +133,37 @@ def test_duplicate_blocks_and_changed_claim_sources_fail(tmp_path, evidence):
     block = docs._block(*sections[0])
     with pytest.raises(ValueError, match='duplicate'):
         docs.update_document(block+'\n'+block, 'README.md', sections)
+
+
+def test_numerical_diagnostic_counts_are_sourced_and_remain_post_hoc(evidence):
+    pairing = {'status': 'post_hoc_numerical_diagnostic_only', 'changes_acceptance_or_thresholds': False,
+               'arms': {'control': {'n_matched_proposal_rows': 17, 'different_proposal_rows_exact': 4,
+                                    'max_abs_base_step_difference': .000003}}}
+    batch = {'additional_independent_evidence': False, 'acceptance_recomputed': False,
+             'additional_simulation_counts': {'total': 2},
+             'batches': {'3': {'relative_to_reference_row': {'base_step_max_abs': .000001}}}}
+    rendered = docs.rendered_sections(*evidence, pairing=pairing, batch=batch)
+    en = rendered['docs/ARCHITECTURE.md'][0][1]
+    assert '4/17 matched proposal rows' in en
+    assert '3e-06' in en and '1e-06' in en
+    assert '2 additional diagnostic simulations' in en
+    assert 'not independent observations' in en
+    assert 'boundaries remain unchanged' in en
+    batch['acceptance_recomputed'] = True
+    with pytest.raises(ValueError, match='post-hoc'):
+        docs.rendered_sections(*evidence, batch=batch)
+
+
+def test_unestablished_validity_remains_separate_from_nominal_acceptance(tmp_path, evidence):
+    populate(tmp_path, evidence)
+    text = (tmp_path/'README.md').read_text(encoding='utf-8')
+    assert 'nominal one-sided 95%' in text
+    assert 'NOT ESTABLISHED; deployment_allowed=false' in text
+    assert 'not established exact CP/PAC guarantees' in text
+    assert 'additional failure beyond the frozen numerical acceptance' in text
+    validity = json.loads((tmp_path/docs.VALIDITY).read_text(encoding='utf-8'))
+    validity['deployment_allowed'] = True
+    with pytest.raises(ValueError, match='prohibit deployment'):
+        docs.validity_note(evidence[1], validity)
+    (tmp_path/docs.VALIDITY).unlink()
+    assert docs.check_generated_sections(tmp_path)

@@ -16,7 +16,7 @@ spec.loader.exec_module(replay)
 
 def write(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, allow_nan=False), encoding='utf-8')
+    path.write_text(json.dumps(value, allow_nan=False, indent=2) + '\n', encoding='utf-8')
 
 
 @pytest.fixture
@@ -154,3 +154,34 @@ def test_check_rejects_saved_replay_ledger_corruption_without_simulation(artifac
     monkeypatch.setattr(replay, '_runtime', lambda: pytest.fail('check must not simulate'))
     with pytest.raises(ValueError, match='different simulation ledger'):
         replay.check(result, report)
+
+
+def test_check_relocates_windows_manifest_and_accepts_only_json_newline_changes(artifacts, monkeypatch):
+    result, report, payload, _, _ = artifacts
+    hashes = payload['manifest']['file_sha256']
+    for name in ('models/jev_head.pt', 'models/calibration.json'):
+        hashes['X:/original/checkout/' + name] = hashes.pop(name)
+    write(result, payload)
+    replay.reproduce(result, report)
+    for path in (result, replay.ROOT / 'models/calibration.json',
+                 replay.ROOT / 'research/results/joint_risk.json'):
+        path.write_bytes(path.read_bytes().replace(b'\r\n', b'\n').replace(b'\n', b'\r\n'))
+    monkeypatch.setattr(replay, '_runtime', lambda: pytest.fail('portable check must not simulate'))
+    assert replay.check(result, report)['equal']
+    # Normalization is deliberately limited to line endings, never values.
+    changed = replay.read_json(result); changed['acceptance']['passed'] = True; write(result, changed)
+    with pytest.raises(ValueError, match='Original result hash'):
+        replay.check(result, report)
+
+
+def test_package_versions_strict_for_reproduction_not_read_only_check(artifacts, monkeypatch):
+    result, report, payload, _, _ = artifacts
+    payload['manifest']['packages'] = {'numpy': 'original-version'}
+    write(result, payload)
+    monkeypatch.setattr(replay.importlib.metadata, 'version', lambda name: 'original-version')
+    replay.reproduce(result, report)
+    monkeypatch.setattr(replay.importlib.metadata, 'version', lambda name: 'other-version')
+    monkeypatch.setattr(replay, '_runtime', lambda: pytest.fail('check must not simulate'))
+    assert replay.check(result, report)['equal']
+    with pytest.raises(ValueError, match='Numerical package changed'):
+        replay.reproduce(result, report.with_name('another-report.json'))

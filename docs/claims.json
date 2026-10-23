@@ -1032,11 +1032,11 @@
     },
     {
       "id": "joint_rollout_risk_upper",
-      "label": "Gated trajectory risk: exact one-sided upper bound / 门控轨迹风险精确单侧上界",
+      "label": "Gated trajectory risk: nominal exact-binomial upper quantity / 门控轨迹风险名义精确二项上界量",
       "source": "research/results/joint_risk_rollout.json",
       "path": "evaluation.gated.trajectory_harm.upper",
       "reproduce": "python scripts/29_joint_risk_rollout.py",
-      "text": "Gated trajectory risk: exact one-sided upper bound / 门控轨迹风险精确单侧上界",
+      "text": "Gated trajectory risk: nominal exact-binomial upper quantity / 门控轨迹风险名义精确二项上界量",
       "value": 0.006135352396230428,
       "tol": 1e-09,
       "documents": [
@@ -1056,11 +1056,11 @@
     },
     {
       "id": "joint_rollout_first_lower",
-      "label": "First-stage execution: exact one-sided lower bound / 首步执行率精确单侧下界",
+      "label": "First-stage execution: nominal exact-binomial lower quantity / 首步执行率名义精确二项下界量",
       "source": "research/results/joint_risk_rollout.json",
       "path": "evaluation.gated.first_stage_execution.lower",
       "reproduce": "python scripts/29_joint_risk_rollout.py",
-      "text": "First-stage execution: exact one-sided lower bound / 首步执行率精确单侧下界",
+      "text": "First-stage execution: nominal exact-binomial lower quantity / 首步执行率名义精确二项下界量",
       "value": 0.47968377006230906,
       "tol": 1e-09,
       "documents": [
@@ -1407,6 +1407,310 @@
       "reproduce": "python scripts/30_rollout_diagnosis.py",
       "text": "Minimum reached count for finite empirical rank, not useful acceptance / 经验秩有限的最低到达数，不保证有效接纳",
       "value": 199.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_primary_n",
+      "label": "trajectory_selected: independent test plants / 独立测试对象",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.trajectory_selected.n_plants",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "trajectory_selected: independent test plants / 独立测试对象",
+      "value": 1024.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_primary_harm_events",
+      "label": "trajectory_selected: trajectories with any harmful execution / 至少一次有害执行的轨迹",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.trajectory_selected.trajectory_harm.events",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "trajectory_selected: trajectories with any harmful execution / 至少一次有害执行的轨迹",
+      "value": 8.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_primary_risk_upper",
+      "label": "trajectory_selected: nominal one-sided trajectory-risk binomial upper quantity; implementation premises unestablished / 名义单侧轨迹风险二项上界量，实现前提未建立",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.trajectory_selected.trajectory_harm.upper",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "trajectory_selected: nominal one-sided trajectory-risk binomial upper quantity; implementation premises unestablished / 名义单侧轨迹风险二项上界量，实现前提未建立",
+      "value": 0.01405206314975785,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_primary_first_lower",
+      "label": "trajectory_selected: nominal one-sided first-execution binomial lower quantity; implementation premises unestablished / 名义单侧首步执行率二项下界量，实现前提未建立",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.trajectory_selected.first_stage_execution.lower",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "trajectory_selected: nominal one-sided first-execution binomial lower quantity; implementation premises unestablished / 名义单侧首步执行率二项下界量，实现前提未建立",
+      "value": 0.5599708637430589,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_primary_mean",
+      "label": "trajectory_selected: final mean J / 最终平均J",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.trajectory_selected.final_cost.mean",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "trajectory_selected: final mean J / 最终平均J",
+      "value": 2.1586507743048,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_primary_p90",
+      "label": "trajectory_selected: final p90 J / 最终p90 J",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.trajectory_selected.final_cost.p90",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "trajectory_selected: final p90 J / 最终p90 J",
+      "value": 3.149693866763647,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_primary_operating_sims",
+      "label": "trajectory_selected: actual operating simulations / 实际运行仿真数",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.trajectory_selected.simulation_counts.operating",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "trajectory_selected: actual operating simulations / 实际运行仿真数",
+      "value": 2770.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_monitor_n",
+      "label": "monitor: independent test plants / 独立测试对象",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.monitor.n_plants",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "monitor: independent test plants / 独立测试对象",
+      "value": 1024.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_monitor_harm_events",
+      "label": "monitor: trajectories with any harmful execution / 至少一次有害执行的轨迹",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.monitor.trajectory_harm.events",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "monitor: trajectories with any harmful execution / 至少一次有害执行的轨迹",
+      "value": 983.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_monitor_risk_upper",
+      "label": "monitor: nominal one-sided trajectory-risk binomial upper quantity; implementation premises unestablished / 名义单侧轨迹风险二项上界量，实现前提未建立",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.monitor.trajectory_harm.upper",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "monitor: nominal one-sided trajectory-risk binomial upper quantity; implementation premises unestablished / 名义单侧轨迹风险二项上界量，实现前提未建立",
+      "value": 0.9695278149138622,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_monitor_first_lower",
+      "label": "monitor: nominal one-sided first-execution binomial lower quantity; implementation premises unestablished / 名义单侧首步执行率二项下界量，实现前提未建立",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.monitor.first_stage_execution.lower",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "monitor: nominal one-sided first-execution binomial lower quantity; implementation premises unestablished / 名义单侧首步执行率二项下界量，实现前提未建立",
+      "value": 0.997078755364612,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_monitor_mean",
+      "label": "monitor: final mean J / 最终平均J",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.monitor.final_cost.mean",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "monitor: final mean J / 最终平均J",
+      "value": 1.357795801699516,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_monitor_p90",
+      "label": "monitor: final p90 J / 最终p90 J",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.monitor.final_cost.p90",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "monitor: final p90 J / 最终p90 J",
+      "value": 2.2949257374402157,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_monitor_operating_sims",
+      "label": "monitor: actual operating simulations / 实际运行仿真数",
+      "source": "research/results/trajectory_risk.json",
+      "path": "evaluation.monitor.simulation_counts.operating",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "monitor: actual operating simulations / 实际运行仿真数",
+      "value": 21504.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_acceptance",
+      "label": "Sole primary passes frozen numerical criteria only, not implementation validity, 1=yes / 唯一主要候选通过冻结数值判据，不代表实现有效性，1为是",
+      "source": "research/results/trajectory_risk.json",
+      "path": "acceptance.passed",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "Sole primary passes frozen numerical criteria only, not implementation validity, 1=yes / 唯一主要候选通过冻结数值判据，不代表实现有效性，1为是",
+      "value": 0.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_sims_training_total",
+      "label": "Actual simulations: training/temperature/development / 训练、温度、开发",
+      "source": "research/results/trajectory_risk.json",
+      "path": "simulation_counts.training_total",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "Actual simulations: training/temperature/development / 训练、温度、开发",
+      "value": 93666.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_sims_calibration_total",
+      "label": "Actual simulations: stage calibration / 逐步校准",
+      "source": "research/results/trajectory_risk.json",
+      "path": "simulation_counts.calibration_total",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "Actual simulations: stage calibration / 逐步校准",
+      "value": 386124.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_sims_evaluation_total",
+      "label": "Actual simulations: final evaluation / 最终评估",
+      "source": "research/results/trajectory_risk.json",
+      "path": "simulation_counts.evaluation_total",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "Actual simulations: final evaluation / 最终评估",
+      "value": 33718.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "trajectory_sims_total",
+      "label": "Actual simulations: all study simulations / 全研究仿真",
+      "source": "research/results/trajectory_risk.json",
+      "path": "simulation_counts.total",
+      "reproduce": "python scripts/31_trajectory_risk.py",
+      "text": "Actual simulations: all study simulations / 全研究仿真",
+      "value": 513508.0,
       "tol": 1e-09,
       "documents": [
         {

@@ -13,7 +13,7 @@ import hashlib
 import importlib.metadata
 import importlib.util
 import json
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,8 +46,17 @@ def read_json(path):
 
 
 def resolve(path):
-    path = Path(path)
-    return path if path.is_absolute() else ROOT / path
+    # Collection manifests can retain a Windows absolute checkout path. Resolve
+    # known repository entries against this checkout, including on Linux CI.
+    normalized = str(path).replace('\\', '/')
+    local = Path(normalized)
+    if local.is_absolute() or PureWindowsPath(normalized).is_absolute():
+        for marker in ('src/jev_tune/', 'scripts/', 'models/', 'research/'):
+            position = normalized.rfind('/' + marker)
+            if position >= 0:
+                return ROOT / normalized[position + 1:]
+        return local
+    return ROOT / local
 
 
 def relative(path):
@@ -63,7 +72,7 @@ def _matches(path, expected):
     return any(hashlib.sha256(value).hexdigest() == expected for value in variants)
 
 
-def validate_sources(payload):
+def validate_sources(payload, *, require_runtime_versions=True):
     """Bind simulator/proposal/feature/model dependencies to original collection."""
     sources = {}
     for name, recorded in payload['manifest']['file_sha256'].items():
@@ -74,9 +83,10 @@ def validate_sources(payload):
         path = resolve(name)
         require(_matches(path, recorded), 'Numerical source changed: ' + name)
         sources[relative(path)] = sha256(path)
-    for package, version in payload['manifest']['packages'].items():
-        require(importlib.metadata.version(package) == version,
-                'Numerical package changed: ' + package)
+    if require_runtime_versions:
+        for package, version in payload['manifest']['packages'].items():
+            require(importlib.metadata.version(package) == version,
+                    'Numerical package changed: ' + package)
     proposal = payload['protocol']['specification']['proposal']
     require(sha256(ROOT / 'models/jev_head.pt') == proposal['checkpoint_sha256'],
             'Proposal checkpoint differs from registered study')
@@ -87,7 +97,7 @@ def validate_sources(payload):
     return sources
 
 
-def load_inputs(result_path):
+def load_inputs(result_path, *, require_runtime_versions=True):
     payload = read_json(result_path)
     require(bool(payload.get('completed_utc')) and 'acceptance' in payload,
             'Final published study is required; never reproduce an in-progress evaluation')
@@ -102,9 +112,9 @@ def load_inputs(result_path):
             set(payload['evaluation_raw']) == set(ARMS), 'All five final evaluation arms are required')
     require(payload['protocol_canonical_sha256'] == canonical_hash(payload['protocol']),
             'Protocol canonical hash differs')
-    source_hashes = validate_sources(payload)
+    source_hashes = validate_sources(payload, require_runtime_versions=require_runtime_versions)
     old_path = ROOT / 'research/results/joint_risk.json'
-    require(sha256(old_path) == spec['old_results']['preserve_byte_identical'][relative(old_path)],
+    require(_matches(old_path, spec['old_results']['preserve_byte_identical'][relative(old_path)]),
             'Frozen old model artifact changed')
     old = read_json(old_path)['risk_model']
     require(canonical_hash(old) == spec['old_risk_model_sha256'], 'Old risk model differs')
@@ -220,12 +230,15 @@ def reproduce(result_path=RESULT, report_path=REPORT):
 
 def check(result_path=RESULT, report_path=REPORT):
     """Validate saved replay hashes/accounting without a simulator invocation."""
-    payload, plans, _ = load_inputs(result_path)
+    payload, plans, _ = load_inputs(result_path, require_runtime_versions=False)
     report = read_json(report_path)
     require(report['additional_independent_evidence'] is False and report['acceptance_recomputed'] is False,
             'A replay cannot be independent acceptance evidence')
-    require(report['original_result'] == {'path': relative(result_path), 'sha256': sha256(result_path)},
+    require(report['original_result']['path'] == relative(result_path) and
+            _matches(result_path, report['original_result']['sha256']),
             'Original result hash differs from replay report')
+    require(report['packages'] == payload['manifest']['packages'],
+            'Replay runtime package provenance differs from original study')
     require(report['original_protocol_canonical_sha256'] == payload['protocol_canonical_sha256'],
             'Replay protocol hash differs')
     require(set(report['arms']) == set(ARMS), 'Replay must include all five arms')

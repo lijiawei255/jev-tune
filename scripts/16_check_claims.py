@@ -186,7 +186,8 @@ def trajectory_evidence() -> list[dict]:
     """Recompute retrospective diagnosis and verify prospective raw study."""
     rows=[]
     for name,artifact,function in [('30_rollout_diagnosis','rollout_diagnosis.json','diagnosis'),
-                                   ('32_verify_trajectory_risk','trajectory_risk.json','study')]:
+                                   ('32_verify_trajectory_risk','trajectory_risk.json','study'),
+                                   ('34_reproduce_trajectory_evaluation','trajectory_risk_reproduction.json','reproduction')]:
         source='research/results/'+artifact
         try:
             spec=importlib.util.spec_from_file_location(name,ROOT/'scripts'/(name+'.py'))
@@ -195,11 +196,21 @@ def trajectory_evidence() -> list[dict]:
             if function=='diagnosis':
                 ok=module.same_evidence(payload,module.build_diagnosis(ROOT))
                 detail='retrospective evidence recomputed from original raw' if ok else 'diagnosis differs from original raw'
-            else:
+            elif function=='study':
                 module.ROOT=ROOT
                 checks=module.verify_payload(payload,require_final=True)
                 ok=bool(checks) and all(value is True for value in checks.values())
-                detail='raw trajectories, model refit, stage CP, paired histories and ledger verified' if ok else 'prospective study integrity failed'
+                diagnosis=json.loads((ROOT/module.PAIRING_DIAGNOSIS).read_text(encoding='utf-8'))
+                ok=ok and module.same(diagnosis,module.paired_diagnosis(payload))
+                validity=json.loads((ROOT/module.VALIDITY_ASSESSMENT).read_text(encoding='utf-8'))
+                ok=ok and module.same(validity,module.validity_assessment(payload)) and validity['deployment_allowed'] is False
+                detail='raw/model/stage CP/ledger verified; separate assumption audit preserves disabled deployment' if ok else 'prospective evidence or implementation-validity audit differs'
+            else:
+                module.ROOT=ROOT
+                report=module.check(result_path=ROOT/'research/results/trajectory_risk.json',report_path=ROOT/source)
+                ok=(report['schema_version']==1 and report['equal'] is True and
+                    report['additional_independent_evidence'] is False and report['acceptance_recomputed'] is False)
+                detail='five-arm replay hashes and additional simulation ledger match; no additional independent evidence' if ok else 'replay mismatch or invalid evidence status'
         except Exception as exc:
             ok=False; detail=f'{type(exc).__name__}: {exc}'
         rows.append({'id':'evidence:'+artifact,'text':'Independent evidence reconstruction',
