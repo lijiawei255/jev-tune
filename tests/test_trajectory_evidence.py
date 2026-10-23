@@ -173,6 +173,44 @@ def test_hash_allows_only_checkout_text_line_endings(tmp_path):
     assert not verifier.hash_matches(path, digest, text=True)
 
 
+def test_cohort_failure_separates_exact_ids_from_unchanged_gain_tolerance():
+    records = [{'plant_identity': 100, 'initial_gains': [1., 2., 3.]},
+               {'plant_identity': 200, 'initial_gains': [4., 5., 6.]}]
+    gains = np.asarray([record['initial_gains'] for record in records])
+    comparison = verifier.verify_cohort(records, [100, 200], gains, 'synthetic.gz')
+    assert comparison['identity_exact_match'] and comparison['gains_within_tolerance']
+    changed = gains.copy(); changed[0, 0] += 1e-13
+    comparison = verifier.cohort_comparison(records, [100, 201], changed)
+    assert comparison['identity_mismatch_count'] == 1
+    assert comparison['first_identity_mismatch'] == {'plant_index': 1, 'recorded': 200, 'regenerated': 201}
+    assert comparison['gains_within_tolerance']
+    assert comparison['gains_max_abs_difference'] == abs(1. - changed[0, 0])
+    with pytest.raises(ValueError, match='"identity_exact_match": false'):
+        verifier.verify_cohort(records, [100, 201], changed, 'synthetic.gz')
+    changed[1, 2] += 1e-9
+    comparison = verifier.cohort_comparison(records, [100, 200], changed)
+    assert comparison['identity_exact_match'] and not comparison['gains_within_tolerance']
+    assert comparison['gains_mismatch_count'] == 1
+    assert comparison['first_gain_mismatch']['index'] == [1, 2]
+    assert comparison['gains_rtol'] == comparison['gains_atol'] == 1e-12
+    assert comparison['gains_max_relative_difference'] == np.max(np.abs(gains - changed) / np.abs(changed))
+    with pytest.raises(ValueError, match='"gains_within_tolerance": false'):
+        verifier.verify_cohort(records, [100, 200], changed, 'synthetic.gz')
+
+
+def test_cohort_diagnostics_fail_closed_on_malformed_or_nonfinite_arrays():
+    records = [{'plant_identity': 100, 'initial_gains': [1., 2., 3.]}]
+    comparison = verifier.cohort_comparison(records, [100, 200], [[1., 2., 3.], [4., 5., 6.]])
+    assert comparison['identity_mismatch_count'] == 1
+    assert not comparison['gains_shape_match']
+    records[0]['initial_gains'][0] = float('nan')
+    comparison = verifier.cohort_comparison(records, [100], [[1., 2., 3.]])
+    assert not comparison['gains_finite'] and not comparison['gains_within_tolerance']
+    json.dumps(comparison, allow_nan=False)
+    with pytest.raises(ValueError, match='"gains_finite": false'):
+        verifier.verify_cohort(records, [100], [[1., 2., 3.]], 'synthetic.gz')
+
+
 def test_runner_snapshots_cover_each_shard_once_and_do_not_reclassify_reuse(tmp_path, monkeypatch):
     monkeypatch.setattr(verifier, 'ROOT', tmp_path)
     folder = tmp_path/'research/protocols/trajectory_risk_sources'; folder.mkdir(parents=True)

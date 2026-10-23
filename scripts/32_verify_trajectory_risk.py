@@ -65,6 +65,70 @@ def hash_matches(path, expected, *, text=False):
     return any(hashlib.sha256(value).hexdigest() == expected for value in variants)
 
 
+def cohort_comparison(records, identities, gains):
+    """Diagnose regeneration failures without weakening either comparison.
+
+    Plant identities hash physical float64 bytes; an identity mismatch is kept
+    separate from the existing numerical ZN comparison. A close gain vector is
+    not a substitute for the prescribed cohort identity.
+    """
+    recorded_ids = [record['plant_identity'] for record in records]
+    expected_ids = list(identities)
+    differing_ids = [index for index, (a, b) in enumerate(zip(recorded_ids, expected_ids)) if a != b]
+    identity_match = recorded_ids == expected_ids
+    actual = np.asarray([record['initial_gains'] for record in records], dtype=float)
+    expected = np.asarray(gains, dtype=float)
+    shape_match = actual.shape == expected.shape
+    finite = bool(np.isfinite(actual).all() and np.isfinite(expected).all())
+    result = {
+        'identity_exact_match': identity_match,
+        'recorded_identity_count': len(recorded_ids),
+        'regenerated_identity_count': len(expected_ids),
+        'identity_mismatch_count': len(differing_ids) + abs(len(recorded_ids) - len(expected_ids)),
+        'first_identity_mismatch': None if not differing_ids else {
+            'plant_index': differing_ids[0], 'recorded': int(recorded_ids[differing_ids[0]]),
+            'regenerated': int(expected_ids[differing_ids[0]])},
+        'gains_shape_match': shape_match,
+        'recorded_gains_shape': list(actual.shape),
+        'regenerated_gains_shape': list(expected.shape),
+        'gains_finite': finite,
+        'gains_rtol': 1e-12, 'gains_atol': 1e-12,
+        'gains_within_tolerance': False,
+        'gains_mismatch_count': None,
+        'gains_max_abs_difference': None,
+        'gains_max_relative_difference': None,
+        'first_gain_mismatch': None,
+    }
+    if shape_match and finite:
+        differences = np.abs(actual - expected)
+        close = np.isclose(actual, expected, rtol=1e-12, atol=1e-12)
+        mismatch = np.argwhere(~close)
+        # ZN gains in this study are strictly positive; guard zero denominators
+        # for malformed/synthetic inputs without serializing NaN or Infinity.
+        relative = np.divide(differences, np.abs(expected), out=np.zeros_like(differences),
+                             where=expected != 0)
+        relative_unbounded = bool(np.any((expected == 0) & (differences != 0)))
+        result.update(gains_within_tolerance=bool(close.all()),
+            gains_mismatch_count=int((~close).sum()),
+            gains_max_abs_difference=float(differences.max(initial=0.)),
+            gains_max_relative_difference=None if relative_unbounded else float(relative.max(initial=0.)))
+        if len(mismatch):
+            index = tuple(mismatch[0])
+            result['first_gain_mismatch'] = {'index': list(map(int, index)),
+                'recorded': float(actual[index]), 'regenerated': float(expected[index]),
+                'abs_difference': float(differences[index]),
+                'allowed_difference': float(1e-12 + 1e-12 * abs(expected[index]))}
+    return result
+
+
+def verify_cohort(records, identities, gains, path):
+    comparison = cohort_comparison(records, identities, gains)
+    require(comparison['identity_exact_match'] and comparison['gains_within_tolerance'],
+            'cohort regeneration differs from prescribed seed: ' + path + '; ' +
+            json.dumps(comparison, sort_keys=True, allow_nan=False))
+    return comparison
+
+
 def load_script(name):
     spec = importlib.util.spec_from_file_location('trajectory_evidence_' + name,
                                                 ROOT / 'scripts' / (name + '.py'))
@@ -589,9 +653,7 @@ def verify_payload(payload, *, require_final=False):
             gains = np.clip(gzn, 1e-4, 1e3)
             cohort_cache[seed, n] = (plants.noise_seed.tolist(), gains, (gzn, ku, tu))
         identities, gains, priors = cohort_cache[seed, n]
-        require([r['plant_identity'] for r in run['per_plant']] == identities and
-                np.allclose([r['initial_gains'] for r in run['per_plant']], gains, rtol=1e-12, atol=1e-12),
-                'cohort/analytic ZN differs from prescribed seed: ' + path)
+        verify_cohort(run['per_plant'], identities, gains, path)
         checked = verify_run(run, risk, arguments.get('qhats'), collect_step=arguments.get('collect_step'),
                              diagnostic=arguments.get('diagnostic', True), priors=priors)
         require(same(entry['simulation_counts'], checked['simulation_counts']), 'manifest simulation ledger differs: ' + path)
