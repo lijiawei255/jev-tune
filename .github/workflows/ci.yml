@@ -27,7 +27,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install numpy scipy scikit-learn pytest pillow matplotlib
+          pip install numpy scipy scikit-learn pytest pillow matplotlib onnxruntime
           pip install -e . --no-deps
 
       - name: Run the test suite
@@ -68,6 +68,15 @@ jobs:
         env:
           PYTHONPATH: src
         run: python scripts/18_export_c.py --verify
+
+      # the exporter rewrites the committed headers and vectors; if they differ,
+      # the repository ships stale generated artifacts
+      - name: Generated C artifacts are up to date
+        run: git diff --exit-code -- c/
+
+      # the Makefile is a deliverable too: make sure it still builds and checks
+      - name: Makefile builds and passes
+        run: make -C c check
 
   docs:
     runs-on: ubuntu-latest

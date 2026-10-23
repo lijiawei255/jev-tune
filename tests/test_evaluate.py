@@ -210,7 +210,7 @@ def test_abstention_holds_when_confidence_is_low():
         seed=0,
         abstain=AbstainPolicy(tau_act=0.6, tau_esc=0.4),
     )
-    assert np.allclose(r.gains, gzn), "every axis must be held at the start gains"
+    assert np.array_equal(r.gains, gzn), "every axis must be held at the start gains"
     report = r.decision_report()
     assert report["coverage"] == 0.0
     assert report["abstain_rate"] == 1.0
@@ -242,7 +242,7 @@ def test_default_loop_abstains_on_a_low_confidence_backend():
     # the shipped default is AbstainPolicy(tau_act=0.35); a uniform answer has
     # p_max = 1/7, so every axis is held
     r = evaluate_head(_Stub(), plants, gzn, ku, tu, budget=6, seed=0)
-    assert np.allclose(r.gains, gzn), "the default policy must hold when unsure"
+    assert np.array_equal(r.gains, gzn), "the default policy must hold when unsure"
     assert r.decision_report()["abstain_rate"] == 1.0
 
 
@@ -289,3 +289,46 @@ def test_abstention_reason_codes():
 
     d = decide(_ans(probs, 0.9), space, abstain=None)
     assert d.reason[0, 0] == REASON_ACT and not d.held.any()
+# --------------------------------------------------------------------------- #
+# The metrics the abstention and calibration claims rest on
+# --------------------------------------------------------------------------- #
+
+
+def _result_with(decisions):
+    from jev_tune.evaluate import HeadResult
+
+    return HeadResult(
+        name="stub",
+        gains=np.zeros((1, 3)),
+        best_j=np.zeros(1),
+        history=np.zeros((1, 1)),
+        eval_axis=np.array([1.0]),
+        stop_iter=np.array([1]),
+        decisions=decisions,
+    )
+
+
+def test_decision_report_matches_a_hand_computed_ece():
+    conf = np.array([[0.9], [0.9], [0.1], [0.1], [0.05]])
+    improved = np.array([[True], [False], [False], [False], [False]])
+    harmful = np.array([[False], [True], [False], [False], [False]])
+    held = np.array([[False], [False], [False], [False], [True]])
+    report = _result_with(
+        {
+            "confidence": conf,
+            "improved": improved,
+            "harmful": harmful,
+            "held": held,
+        }
+    ).decision_report()
+    # bin (0.8, 0.9]: mean conf 0.9, mean improved 0.5 -> 0.5 * 0.4 = 0.20
+    # bin (0.0, 0.1]: mean conf 0.1, mean improved 0.0 -> 0.5 * 0.1 = 0.05
+    assert report["ece"] == pytest.approx(0.25)
+    assert report["coverage"] == pytest.approx(0.8)
+    assert report["abstain_rate"] == pytest.approx(0.2)
+    assert report["harmful_rate"] == pytest.approx(0.25)  # 1 of 4 executed
+    assert report["n_executed"] == 4
+
+
+def test_decision_report_is_empty_when_nothing_was_recorded():
+    assert _result_with(None).decision_report() == {}
