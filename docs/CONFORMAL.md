@@ -71,6 +71,30 @@ calibration-only adaptation experiment explicitly disable CP, rather than reuse
 an invalid guarantee. Current control costs and tails are in ABLATION/BENCHMARK;
 prediction-set coverage is a different quantity from executed-action coverage.
 
+The actual-action target is separate from these teacher labels.
+[JOINT_RISK](JOINT_RISK.md) records the initial-state study;
+[JOINT_RISK_ROLLOUT](JOINT_RISK_ROLLOUT.md) records a new finite-horizon protocol.
+That protocol freezes the risk model and temperature, uses new independent
+calibration plants at each step under the frozen prefix, and allocates a fixed
+trajectory error budget across steps. It does not pool correlated states from
+one trajectory as IID calibration examples. Only the complete assessed action
+can be admitted; altered actions and rollback proposals do not inherit its label.
+Insufficient reached calibration samples use the conservative all-label set.
+
+A valid stepwise inclusion argument plus the union bound controls whether any
+assessed action is executed harmfully within the registered horizon, over
+calibration and fresh-trajectory randomness. The final test's exact one-sided
+binomial limit instead evaluates the fixed resulting policy. Neither statement
+is a bound on the harmful fraction conditional on acceptance, a requirement that
+every finite test achieve nominal coverage, or a physical safety certificate.
+The registered cost, activity and simulation-count criteria must also pass;
+the results and the restricted deployment decision are reported without tuning
+the protocol after seeing test outcomes.
+Here a harmful event means a trial-cost increase with zero tolerance. It is not
+an instability rate or the probability of returning worse gains: the returned
+gains always come from measured operating history. Suppressing exploration by
+stopping early can lower event frequency while worsening final cost.
+
 ## 简体中文
 
 冻结权重后，使用三个新生成、互不相交的IID模拟对象样本：温度拟合、CP分位数拟合、
@@ -113,3 +137,17 @@ Historical hard_hold minus Temp Only paired mean cost difference: +0.240389; pai
 此处校准分布是初态，不是自适应轨迹；专家动作标签也不是稳定性或临床结局。
 理论出处见上方一手教程与讲义。改权重或T后需独立重拟CP；专门化和小样本温度适配实验显式关闭CP，
 不沿用失效保证。控制代价及尾部风险见ABLATION/BENCHMARK，集合覆盖率与实际动作执行率分别报告。
+
+实际动作的风险目标与上述专家标签分开。[JOINT_RISK](JOINT_RISK.md)记录初态研究，
+[JOINT_RISK_ROLLOUT](JOINT_RISK_ROLLOUT.md)记录新的有限步协议：冻结风险模型与温度，
+每步在固定前缀策略下用新独立对象校准，并在各步分配固定轨迹错误预算。
+不能将同一轨迹内相关状态混成IID校准样本。只允许执行整组已评价动作；修改动作或另作回滚
+不继承原标签保证。到达该步的校准样本不足时采用全标签集合保守保持。
+
+在逐步包含关系与交换性成立时，通过并集界约束注册时域内任一已评价动作被有害执行的概率，
+该界对校准与新轨迹抽样取边际。最终测试的精确单侧二项上界则验收已经固定的策略。
+两者均不等于获准子集中的条件有害率界，不要求每个有限测试样本恰达名义覆盖，更不是物理安全证书。
+预注册的代价、活动率与仿真计数条件也须分别满足；按原协议报告结果与受限部署结论，
+不在看到测试结果后改协议。
+此处有害事件是零容差下的试验代价上升，不是失稳率或返回更差增益的概率：返回增益始终来自
+真实操作历史中的最优测量。提前停止会减少探索，也可能在压低事件频率的同时损害最终代价。

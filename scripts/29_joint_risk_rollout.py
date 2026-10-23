@@ -79,6 +79,16 @@ def load_frozen_model():
     return JointRiskModel(np.array(d['mean']),np.array(d['scale']),np.array(d['coefficient']),d['intercept'],d['temperature'])
 
 
+def protocol_matches(registered, expected):
+    """Git may convert text EOLs; permit that conversion, no content changes."""
+    registered,expected=dict(registered),dict(expected)
+    recorded_hash=registered.pop('calibration_file_sha256')
+    expected.pop('calibration_file_sha256')
+    data=(ROOT/'models/calibration.json').read_bytes().replace(b'\r\n',b'\n')
+    candidates={hashlib.sha256(data).hexdigest(),hashlib.sha256(data.replace(b'\n',b'\r\n')).hexdigest()}
+    return recorded_hash in candidates and registered==expected
+
+
 def _doc(p):
     spec=p['protocol']['specification']; ev=p['evaluation']; acc=p['acceptance']
     lines=['# Joint-action risk in multi-round control / 多轮调参联合动作风险','',
@@ -104,6 +114,8 @@ def _doc(p):
             fields.append((f'simulations: {key}',lambda r,key=key:r['simulation_counts'][key]))
         for name,fn in fields:
             lines.append(f"| {name} | {fn(ev['monitor'])} | {fn(ev['gated'])} |")
+        lines += ['',('零容差轨迹事件表示探索期间至少一次J上升；两组最终均返回各自已执行历史的实测最优参数。该事件率不是失稳率，也不是最终参数恶化率。monitor中的影子集合覆盖仅为诊断，其后续状态分布不同于门控前缀，不能将该数字当作已证明的monitor轨迹覆盖。'
+            if zh else 'A zero-tolerance trajectory event means at least one cost increase during exploration. Both arms return the measured best parameters from their executed history. This event rate is neither an instability rate nor final-parameter degradation. Shadow-set coverage on monitor is diagnostic only: its later states differ from the gated prefix, so it is not a certified coverage claim for monitor trajectories.')]
         lines += ['',('| 步 | 到达样本 n | 秩 | qhat | 全集合回退 |' if zh else '| stage | reached n | rank | qhat | full-set fallback |'),
                   '| ---: | ---: | ---: | ---: | :--- |']
         for s in p['stages']:
@@ -117,6 +129,8 @@ def _doc(p):
              if zh else 'The one-sided binomial upper bound independently audits the final fixed policy; it differs from CP marginal coverage averaged over calibration randomness. The two 95% bounds are separate, not joint 95% confidence. Mean/p90 criteria are empirical test gates. Failure is not repaired by selecting new alpha, sample size, thresholds or temperature from evaluation outcomes; there is no optional stopping.'),'',
             (f"实际总仿真{p['simulation_counts']['total']}次，其中逐步校准{p['simulation_counts']['calibration_total']}次、两组最终评估{p['simulation_counts']['evaluation_total']}次。被拒绝提案的诊断测量不能更新状态、历史最优或操作预算，但计入总成本。完整轨迹保存在{p['raw_file']}，SHA-256 {p['raw_sha256']}。"
              if zh else f"Actual plant-runs total {p['simulation_counts']['total']}: stage calibration {p['simulation_counts']['calibration_total']}, final evaluation arms {p['simulation_counts']['evaluation_total']}. Rejected diagnostic measurements cannot update state, best gains or operating budget, but are charged to total cost. Full traces: {p['raw_file']}, SHA-256 {p['raw_sha256']}."),'',
+            ('首次采集使用下列命令；已发布产物的完整确定性复现使用`--reproduce`，逐字节核对原始轨迹且不覆盖原始验收。'
+             if zh else 'Use the commands below for first collection. For a full deterministic reproduction of published artifacts, add `--reproduce`; it verifies raw traces byte-for-byte without replacing the original acceptance.'),'',
             '`python scripts/29_joint_risk_rollout.py --register-only` → `python scripts/29_joint_risk_rollout.py`','',
             '`python scripts/29_joint_risk_rollout.py --render-only --check`','']
     return '\n'.join(lines)
@@ -127,6 +141,7 @@ def main():
     ap.add_argument('--register-only',action='store_true')
     ap.add_argument('--render-only',action='store_true')
     ap.add_argument('--check',action='store_true')
+    ap.add_argument('--reproduce',action='store_true',help='rerun fixed protocol and compare existing raw traces without replacing evidence')
     args=ap.parse_args()
     if args.render_only:
         text=_doc(json.loads(RESULT.read_text(encoding='utf-8')))
@@ -139,7 +154,7 @@ def main():
     specification=fixed_specification()
     if args.register_only:
         if PROTOCOL.exists():
-            if json.loads(PROTOCOL.read_text(encoding='utf-8'))['specification'] != specification:
+            if not protocol_matches(json.loads(PROTOCOL.read_text(encoding='utf-8'))['specification'],specification):
                 raise SystemExit('Refusing to replace frozen protocol')
         else:
             PROTOCOL.write_text(json.dumps({'registered_utc':datetime.now(timezone.utc).isoformat(),
@@ -149,9 +164,12 @@ def main():
     if not PROTOCOL.exists():
         raise SystemExit('Register protocol before collecting any study data')
     protocol=json.loads(PROTOCOL.read_text(encoding='utf-8'))
-    if protocol['specification'] != specification:
+    if not protocol_matches(protocol['specification'],specification):
         raise SystemExit('Code/model configuration differs from frozen protocol')
-    if RESULT.exists() or RAW.exists():
+    original=json.loads(RESULT.read_text(encoding='utf-8')) if args.reproduce and RESULT.exists() else None
+    if args.reproduce and (original is None or not RAW.exists()):
+        raise SystemExit('Reproduction requires the original result and raw trace')
+    if not args.reproduce and (RESULT.exists() or RAW.exists()):
         raise SystemExit('Study output already exists. Preserve it; no outcome-driven reruns.')
     from jev_tune.decision import load_backend
     from jev_tune.joint_rollout import run_joint_rollout
@@ -183,6 +201,11 @@ def main():
         'scope':specification['scope'],'generic_python_c_matlab_enabled':False,
         'failed_criteria':acceptance['failed']}
     raw_bytes=json.dumps(raw,separators=(',',':'),allow_nan=False).encode()
+    if args.reproduce:
+        if gzip.decompress(RAW.read_bytes()) != raw_bytes or original['qhats'] != qhats or original['acceptance'] != acceptance:
+            raise SystemExit('Fixed-protocol reproduction differs; original evidence preserved')
+        print('Full fixed-protocol reproduction matches the original raw traces and acceptance; original evidence preserved.',flush=True)
+        return
     RAW.write_bytes(gzip.compress(raw_bytes,mtime=0))
     calibration_total=sum(r['simulation_counts']['total'] for r in raw['calibration'])
     evaluation_total=sum(r['simulation_counts']['total'] for r in raw['evaluation'].values())

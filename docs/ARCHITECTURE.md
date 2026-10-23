@@ -32,6 +32,22 @@ modes; `held` and `reason` describe actual actuation. Legacy pmax thresholds are
 optional and disabled by default. Noul and post-measurement rollback remain
 separate overrides. The experimental joint-risk classifier evaluates the full
 proposal, without per-axis masking; see [JOINT_RISK](JOINT_RISK.md).
+The separate [joint-risk rollout study](JOINT_RISK_ROLLOUT.md) freezes that risk
+model and temperature, then calibrates each candidate step on a fresh independent
+plant batch under the already frozen prefix policy. It spends a fixed trajectory
+risk budget across steps. Stop and no-action decisions have no synthetic next
+measurement; rejected proposals are measured separately only for offline
+diagnosis and never fed back into the executed trajectory. Its matched monitor
+control uses the same stop rules. This research controller stops at the safety
+threshold rather than issuing the production loop's uncalibrated rollback.
+The study's release decision concerns only its registered simulator population,
+initialization, objective and finite horizon. It does not turn on a joint-risk
+gate in the general CLI, MCP, C or MATLAB runtime. A scope or proposal change
+requires fresh calibration and validation.
+The rollout's harmful-event label is any strictly positive trial-cost increase;
+it does not mean instability or deterioration of the returned measured-best
+controller. A low event rate obtained by stopping early is assessed together
+with activity, final-cost and experiment-budget criteria.
 See [CONFORMAL](CONFORMAL.md) for actual q_hat/empirical coverage and its scope:
 per-axis marginal expert-label inclusion under exchangeability, not joint-axis,
 adaptive-trajectory or closed-loop safety. Three independent plant-level splits
@@ -86,6 +102,14 @@ MATLAB和C使用导出的温度与策略快照；权重或校准变化后必须�
 hard_hold显式恢复空集、过宽或正负冲突的历史按轴否决。conformal_would_hold/conformal_reason保存独立诊断，
 held/reason表示真实执行决策。旧pmax可显式组合、默认关闭；Noul与事后回滚独立。
 实验性联合风险分类器评价完整proposal，不逐轴遮罩；见[JOINT_RISK](JOINT_RISK.md)。
+独立的[联合风险多轮研究](JOINT_RISK_ROLLOUT.md)冻结该风险模型和温度，在已固定的前缀策略下，
+逐候选步使用新独立对象批次校准，并在各步分配固定轨迹风险预算。停止与无动作不伪造下一次测量；
+被拒绝提案仅作离线反事实诊断，其结果不反馈给执行轨迹。配对monitor对照使用相同停止规则。
+该研究控制器在安全阈值处停止，不执行生产闭环中未经此风险头校准的回滚提案。
+验收只涉及已注册的模拟对象分布、起点、目标与有限时域；不因此开启通用CLI、MCP、C或MATLAB
+联合风险门。范围或候选策略改变后需要独立重校准与验证。
+轨迹有害事件指探索试验中出现严格正的代价上升，不等于失稳或返回的历史实测最优控制器恶化。
+通过提前停止得到的低事件率，必须和活动率、最终代价及实验预算一起验收。
 实际q_hat与经验覆盖见[CONFORMAL](CONFORMAL.md)。
 保证仅针对交换性条件下逐轴专家标签的边际包含率，不保证多轴联合、自适应轨迹或闭环安全。
 温度拟合、CP拟合与评估分别使用独立对象样本；有限经验评估可低于名义水平。

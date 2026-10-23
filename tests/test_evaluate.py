@@ -329,6 +329,7 @@ def test_decision_report_matches_a_hand_computed_ece():
             "confidence": conf,
             "improved": improved,
             "harmful": harmful,
+            "harmful_gt_2pct": harmful,
             "held": held,
         }
     ).decision_report()

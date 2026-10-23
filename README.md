@@ -120,12 +120,16 @@ experiments (~0.55 s of simulation); the stall detector stopped the loop at nine
 
 See [Temperature + Split CP](docs/CONFORMAL.md) for the independent calibration results and precise coverage limits. Historical CP hard-hold costs are worse than the temperature-only control; default monitor preserves the temperature-only proposal; neither a label-coverage theorem nor a hold certifies closed-loop safety.
 
+<!-- joint-risk-rollout:start -->
+**Joint-action risk rollout acceptance: not passed.** On <!-- claim:joint_rollout_n -->1024<!-- /claim --> independent test plants under the frozen protocol, <!-- claim:joint_rollout_any_harm -->2<!-- /claim --> gated trajectories contained a harmful execution; the exact one-sided 95% probability upper bound is <!-- claim:joint_rollout_risk_upper -->0.006135<!-- /claim -->. Gated/matched-monitor final mean J is <!-- claim:joint_rollout_gated_mean -->2.303682<!-- /claim -->/<!-- claim:joint_rollout_monitor_mean -->1.297619<!-- /claim -->, and p90 is <!-- claim:joint_rollout_gated_p90 -->3.416603<!-- /claim -->/<!-- claim:joint_rollout_monitor_p90 -->2.314045<!-- /claim -->. The one-sided 95% lower bound for first-stage execution is <!-- claim:joint_rollout_first_lower -->0.479684<!-- /claim -->; its preregistered minimum is 0.50. See [JOINT_RISK_ROLLOUT](docs/JOINT_RISK_ROLLOUT.md) for every criterion, independent stage calibration, raw trajectories and scope. This does not enable a joint-risk gate by default in general Python, C or MATLAB deployment; failed criteria are not hidden by retuning thresholds.
+<!-- joint-risk-rollout:end -->
+
 ## The 15-second version
 
 | | |
 | :--- | :--- |
 | **What it does** | picks the next PID gain step from the response it just measured, and holds when it is not confident |
-| **How fast** | ONNX forward <!-- claim:decision_ms -->0.025<!-- /claim --> ms median; Python default typed/abstention path <!-- claim:typed_decision_ms -->0.303<!-- /claim --> ms median, <!-- claim:typed_decision_p99_ms -->0.760<!-- /claim --> ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |
+| **How fast** | ONNX forward <!-- claim:decision_ms -->0.024<!-- /claim --> ms median; Python default typed/abstention path <!-- claim:typed_decision_ms -->0.313<!-- /claim --> ms median, <!-- claim:typed_decision_p99_ms -->0.709<!-- /claim --> ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |
 | **How few experiments** | **5 experiments** on a real Simulink motor cut the cost from **1.238 to 0.598** (the recorded run; with the corrected gain sweep the same model starts better and the tuner returns the lab's own gains instead — [why](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)); the result is never worse than the better of the start and the gains your model already had |
 | **How it generalises** | Validation median 0.482; frozen thermal median 1.833. Current baselines and prior information are shown below. |
 

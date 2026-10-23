@@ -14,7 +14,9 @@ Frozen model, temperature, alpha and q_hat. Replay seed17 on 120 plants at maxim
 | hard_hold_stop | 0.751176 | 1088 |
 
 Historical hard_hold: 1193 full holds; 85 plants with at least5 final holds; median unique gains 7.
-Frozen initial-state counterfactual: vetoed axes 451; improve >2% 138; harm >2% 47.
+Frozen initial-state counterfactual: vetoed axes 451; zero-tolerance harm 135; legacy harm >2% 47; improve >2% 138.
+
+Canonical harm is strict J_after > J_before with zero tolerance. The v0.6 threshold remains in explicitly named gt_2pct fields (J_after > 1.02 × J_before). Initial-state counterfactual counts include all specified paired interventions. Both closed-loop decision_report harm rates condition on measured policy transitions with at least one permitted axis, excluding rollbacks and terminal proposals; they are not unconditional risk guarantees.
 
 One-step simulated counterfactuals do not prove long-run safety. Teacher labels describe discrete single-axis argmins; actual proposals are continuous joint actions. Set coverage does not imply joint action improvement or safety. Initial-state calibration does not cover adaptive trajectories or shifted domains.
 
@@ -32,7 +34,9 @@ Reproduce / 复现: `python scripts/26_cp_diagnosis.py`; data / 数据: `researc
 | hard_hold_stop | 0.751176 | 1088 |
 
 旧hard_hold: 全保持1193次；末段至少连续5次保持85株；不同参数组中位数7。
-冻结初态反事实：被禁轴451个；改善超过2%有138个；恶化超过2%有47个。
+冻结初态反事实：被禁轴451个；零容差有害135个；旧口径恶化超过2%有47个；改善超过2%有138个。
+
+主有害口径为严格J_after > J_before，零容差；旧v0.6口径保留为显式gt_2pct字段（J_after > 1.02 × J_before）。初态反事实计数覆盖所述所有配对干预；闭环decision_report中的两种有害率仅以至少一轴获准的实测策略转移为分母，排除回滚与终止提案，不能与无条件风险保证混同。
 
 专项反事实仅评价一次仿真提案，不证明长期安全。专家标签是单轴离散精确最优项，实际动作是三轴连续组合；集合覆盖不能自动转成联合动作改善或安全。初态校准不覆盖自适应轨迹及域外对象。
 

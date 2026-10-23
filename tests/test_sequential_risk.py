@@ -65,7 +65,7 @@ def test_registered_protocol_matches_sources_without_collecting_data():
     spec=importlib.util.spec_from_file_location('rollout_study',root/'scripts/29_joint_risk_rollout.py')
     module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
     protocol=json.loads(module.PROTOCOL.read_text(encoding='utf-8'))
-    assert module.fixed_specification()==protocol['specification']
+    assert module.protocol_matches(protocol['specification'],module.fixed_specification())
     seeds=protocol['specification']['calibration']['seeds']
     assert len(seeds)==len(set(seeds))==20
     assert protocol['specification']['evaluation']['seed'] not in seeds

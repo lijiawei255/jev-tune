@@ -8,13 +8,15 @@ from jev_tune.decode import ActionSpace,ConformalPolicy,decide,apply_step
 from jev_tune.primitives import Answer,Choice,Noul,Option,softmax
 from jev_tune.expert import generate
 from jev_tune.decision import load_backend
-from jev_tune.evaluate import evaluate_head
+from jev_tune.evaluate import HARM_METRIC,evaluate_head
 from jev_tune.metrics import cost_from_metrics
 from jev_tune.plants import sample_plants,ultimate_gain,simulate,HELDOUT_FAMILIES
 from _experiment_protocol import manifest
 
 
 def render(d):
+    if d.get('harm_metric',{}).get('version') != HARM_METRIC['version']:
+        raise ValueError('rerun CP diagnosis: historical unqualified harm used >2%')
     initial=d["initial_counterfactual"]
     cp=d["seed17_replay"]["temperature_CP"]
     temp=d["seed17_replay"]["temperature_only"]
@@ -27,11 +29,26 @@ def render(d):
           ("冻结原模型、温度、alpha和q_hat；重放同一seed17的120株、最大预算20。旧hard_hold重复观测是诊断对照；默认monitor保留完整集合但不否决轴。停止模式只计实际测量，不把填充历史当新观测。" if zh else
            "Frozen model, temperature, alpha and q_hat. Replay seed17 on 120 plants at maximum budget20. Historical hard_hold repeats are a diagnostic control; default monitor preserves full sets without vetoing axes. Stopping counts actual measurements, not padded history."),"",table,
           (f"旧hard_hold: 全保持{cp['all_hold_transition_count']}次；末段至少连续5次保持{cp['trailing_all_hold_at_least_5_plants']}株；不同参数组中位数{cp['unique_gain_count_median']:g}。" if zh else f"Historical hard_hold: {cp['all_hold_transition_count']} full holds; {cp['trailing_all_hold_at_least_5_plants']} plants with at least5 final holds; median unique gains {cp['unique_gain_count_median']:g}."),
-          (f"冻结初态反事实：被禁轴{initial['vetoed_axis_original_step_alone']['n']}个；改善超过2%有{initial['vetoed_axis_original_step_alone']['improve_more_than_2pct_count']}个；恶化超过2%有{initial['vetoed_axis_original_step_alone']['harm_more_than_2pct_count']}个。" if zh else f"Frozen initial-state counterfactual: vetoed axes {initial['vetoed_axis_original_step_alone']['n']}; improve >2% {initial['vetoed_axis_original_step_alone']['improve_more_than_2pct_count']}; harm >2% {initial['vetoed_axis_original_step_alone']['harm_more_than_2pct_count']}."),"",
+          (f"冻结初态反事实：被禁轴{initial['vetoed_axis_original_step_alone']['n']}个；零容差有害{initial['vetoed_axis_original_step_alone']['harmful_count']}个；旧口径恶化超过2%有{initial['vetoed_axis_original_step_alone']['harmful_gt_2pct_count']}个；改善超过2%有{initial['vetoed_axis_original_step_alone']['improve_more_than_2pct_count']}个。" if zh else f"Frozen initial-state counterfactual: vetoed axes {initial['vetoed_axis_original_step_alone']['n']}; zero-tolerance harm {initial['vetoed_axis_original_step_alone']['harmful_count']}; legacy harm >2% {initial['vetoed_axis_original_step_alone']['harmful_gt_2pct_count']}; improve >2% {initial['vetoed_axis_original_step_alone']['improve_more_than_2pct_count']}."),"",
+          ("主有害口径为严格J_after > J_before，零容差；旧v0.6口径保留为显式gt_2pct字段（J_after > 1.02 × J_before）。初态反事实计数覆盖所述所有配对干预；闭环decision_report中的两种有害率仅以至少一轴获准的实测策略转移为分母，排除回滚与终止提案，不能与无条件风险保证混同。" if zh else "Canonical harm is strict J_after > J_before with zero tolerance. The v0.6 threshold remains in explicitly named gt_2pct fields (J_after > 1.02 × J_before). Initial-state counterfactual counts include all specified paired interventions. Both closed-loop decision_report harm rates condition on measured policy transitions with at least one permitted axis, excluding rollbacks and terminal proposals; they are not unconditional risk guarantees."),"",
           ("专项反事实仅评价一次仿真提案，不证明长期安全。专家标签是单轴离散精确最优项，实际动作是三轴连续组合；集合覆盖不能自动转成联合动作改善或安全。初态校准不覆盖自适应轨迹及域外对象。" if zh else
            "One-step simulated counterfactuals do not prove long-run safety. Teacher labels describe discrete single-axis argmins; actual proposals are continuous joint actions. Set coverage does not imply joint action improvement or safety. Initial-state calibration does not cover adaptive trajectories or shifted domains."),"",
           "Reproduce / 复现: `python scripts/26_cp_diagnosis.py`; data / 数据: `research/results/cp_diagnosis.json`.",""]
     return "\n".join(lines)
+
+
+def paired_outcomes(values,baseline,selected):
+    """Actual one-step harm at zero tolerance and the explicit legacy threshold."""
+    values=np.broadcast_to(values,np.shape(selected));baseline=np.broadcast_to(baseline,np.shape(selected))
+    strict=(values>baseline)&selected
+    legacy=(values>baseline*1.02)&selected
+    return {"n":int(selected.sum()),
+            "harmful_count":int(strict.sum()),
+            "harmful_gt_2pct_count":int(legacy.sum()),
+            "improve_more_than_2pct_count":int(((values<baseline*.98)&selected).sum()),
+            "harm_more_than_2pct_count":int(legacy.sum()),
+            "median_delta":float(np.median((values-baseline)[selected])) if selected.any() else None}
+
 
 def main():
     torch.set_num_threads(1)
@@ -116,25 +133,25 @@ def main():
     positive=np.min(np.where(mask&(d>0),candidate_cost,np.inf),axis=-1)
     mixed=(mask&(d<0)).any(-1)&(mask&(d>0)).any(-1)
     fullhold=veto.all(-1)
-    def outcomes(values,baseline,selected):
-        values=np.broadcast_to(values,np.shape(selected));baseline=np.broadcast_to(baseline,np.shape(selected))
-        return {"n":int(selected.sum()),
-                "improve_more_than_2pct_count":int(((values<baseline*.98)&selected).sum()),
-                "harm_more_than_2pct_count":int(((values>baseline*1.02)&selected).sum()),
-                "median_delta":float(np.median((values-baseline)[selected])) if selected.any() else None}
+    temp_harm=jplain>j0;cp_harm=jcp>j0
+    temp_harm_gt_2pct=jplain>1.02*j0;cp_harm_gt_2pct=jcp>1.02*j0
+    new_harm=cp_harm&~temp_harm
+    new_harm_gt_2pct=cp_harm_gt_2pct&~temp_harm_gt_2pct
     counterfactual={
         "description":"Same frozen empirical initial states; simulator one-step interventions; not a deployment safety claim.",
-        "full_step_original_on_all_held_states":outcomes(jplain,j0,fullhold),
-        "all_original_full_steps":outcomes(jplain,j0,np.ones(512,dtype=bool)),
-        "all_CP_steps":outcomes(jcp,j0,np.ones(512,dtype=bool)),
-        "vetoed_axis_original_step_alone":outcomes(axis_j,j0[:,None],veto),
-        "allowed_axis_original_step_alone":outcomes(axis_j,j0[:,None],~veto),
+        "full_step_original_on_all_held_states":paired_outcomes(jplain,j0,fullhold),
+        "all_original_full_steps":paired_outcomes(jplain,j0,np.ones(512,dtype=bool)),
+        "all_CP_steps":paired_outcomes(jcp,j0,np.ones(512,dtype=bool)),
+        "vetoed_axis_original_step_alone":paired_outcomes(axis_j,j0[:,None],veto),
+        "allowed_axis_original_step_alone":paired_outcomes(axis_j,j0[:,None],~veto),
         "original_full_step_better_than_CP_more_than_2pct_count":int((jplain<jcp*.98).sum()),
         "CP_full_step_better_than_original_more_than_2pct_count":int((jcp<jplain*.98).sum()),
-        "temp_harm_removed_by_CP":int(((jplain>1.02*j0)&(jcp<=1.02*j0)).sum()),
-        "new_harm_with_CP_mask":int(((jcp>1.02*j0)&(jplain<=1.02*j0)).sum()),
-        "new_harm_all_partial_holds":bool(veto[(jcp>1.02*j0)&(jplain<=1.02*j0)].any(1).all()
-            and (~veto[(jcp>1.02*j0)&(jplain<=1.02*j0)].all(1)).all()),
+        "temp_harm_removed_by_CP":int((temp_harm&~cp_harm).sum()),
+        "temp_harm_removed_by_CP_gt_2pct":int((temp_harm_gt_2pct&~cp_harm_gt_2pct).sum()),
+        "new_harm_with_CP_mask":int(new_harm.sum()),
+        "new_harm_with_CP_mask_gt_2pct":int(new_harm_gt_2pct.sum()),
+        "new_harm_all_partial_holds":bool(veto[new_harm].any(1).all() and (~veto[new_harm].all(1)).all()),
+        "new_harm_all_partial_holds_gt_2pct":bool(veto[new_harm_gt_2pct].any(1).all() and (~veto[new_harm_gt_2pct].all(1)).all()),
         "teacher_best_vs_second_relative_gap_lt_1pct_per_axis":(gap<.01).mean(0).tolist(),
         "teacher_best_vs_second_relative_gap_lt_5pct_per_axis":(gap<.05).mean(0).tolist(),
         "mixed_axis_count":int(mixed.sum()),
@@ -194,6 +211,7 @@ def main():
     np.testing.assert_allclose(temp.best_j,rows["C2_temperature_only"]["per_draw"][1]["per_plant"],rtol=1e-10,atol=1e-10)
     np.testing.assert_allclose(controlled.best_j,rows["C3_temperature_CP"]["per_draw"][1]["per_plant"],rtol=1e-10,atol=1e-10)
     diag={
+        "harm_metric":dict(HARM_METRIC),
         "manifest":manifest(Namespace(),files=[root/'models/jev_head.pt',root/'models/calibration.json',root/'data/calibration/empirical_eval.npz']),
         "simulation_counts":{
             "expert_reconstruction":data.simulation_counts["total"],

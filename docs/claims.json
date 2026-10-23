@@ -6,7 +6,7 @@
       "text": "Current registered decision_ms; see artifact and protocol",
       "source": "research/results/latency.json",
       "path": "onnx_forward_ms",
-      "value": 0.025199995434377342,
+      "value": 0.02370000584051013,
       "tol": 1e-09,
       "reproduce": "python scripts/04_export_onnx.py",
       "documents": [
@@ -29,7 +29,7 @@
       "text": "Current registered typed_decision_ms; see artifact and protocol",
       "source": "research/results/latency.json",
       "path": "typed_decision_ms",
-      "value": 0.3026999984285794,
+      "value": 0.3125000002910383,
       "tol": 1e-09,
       "reproduce": "python scripts/04_export_onnx.py",
       "documents": [
@@ -52,7 +52,7 @@
       "text": "Current registered typed_decision_p99_ms; see artifact and protocol",
       "source": "research/results/hardware.json",
       "path": "typed_decision_p99_ms",
-      "value": 0.7603190048394026,
+      "value": 0.7086099969455972,
       "tol": 1e-09,
       "reproduce": "python scripts/21_hardware.py",
       "documents": [
@@ -978,6 +978,246 @@
         },
         {
           "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "joint_rollout_n",
+      "label": "Independent rollout test plants / 独立轨迹测试对象数",
+      "source": "research/results/joint_risk_rollout.json",
+      "path": "evaluation.gated.n_plants",
+      "reproduce": "python scripts/29_joint_risk_rollout.py",
+      "text": "Independent rollout test plants / 独立轨迹测试对象数",
+      "value": 1024.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.md",
+          "format": ".0f"
+        },
+        {
+          "file": "README.zh-CN.md",
+          "format": ".0f"
+        }
+      ]
+    },
+    {
+      "id": "joint_rollout_any_harm",
+      "label": "Gated trajectories with any harmful execution / 门控轨迹至少一次有害执行数",
+      "source": "research/results/joint_risk_rollout.json",
+      "path": "evaluation.gated.trajectory_harm.events",
+      "reproduce": "python scripts/29_joint_risk_rollout.py",
+      "text": "Gated trajectories with any harmful execution / 门控轨迹至少一次有害执行数",
+      "value": 2.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.md",
+          "format": ".0f"
+        },
+        {
+          "file": "README.zh-CN.md",
+          "format": ".0f"
+        }
+      ]
+    },
+    {
+      "id": "joint_rollout_risk_upper",
+      "label": "Gated trajectory risk: exact one-sided upper bound / 门控轨迹风险精确单侧上界",
+      "source": "research/results/joint_risk_rollout.json",
+      "path": "evaluation.gated.trajectory_harm.upper",
+      "reproduce": "python scripts/29_joint_risk_rollout.py",
+      "text": "Gated trajectory risk: exact one-sided upper bound / 门控轨迹风险精确单侧上界",
+      "value": 0.006135352396230428,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.zh-CN.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "joint_rollout_first_lower",
+      "label": "First-stage execution: exact one-sided lower bound / 首步执行率精确单侧下界",
+      "source": "research/results/joint_risk_rollout.json",
+      "path": "evaluation.gated.first_stage_execution.lower",
+      "reproduce": "python scripts/29_joint_risk_rollout.py",
+      "text": "First-stage execution: exact one-sided lower bound / 首步执行率精确单侧下界",
+      "value": 0.47968377006230906,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.zh-CN.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "joint_rollout_monitor_mean",
+      "label": "Matched monitor final mean J / 配对监测对照最终平均J",
+      "source": "research/results/joint_risk_rollout.json",
+      "path": "evaluation.monitor.final_cost.mean",
+      "reproduce": "python scripts/29_joint_risk_rollout.py",
+      "text": "Matched monitor final mean J / 配对监测对照最终平均J",
+      "value": 1.2976192292587172,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.zh-CN.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "joint_rollout_gated_mean",
+      "label": "Joint-risk gate final mean J / 联合风险门最终平均J",
+      "source": "research/results/joint_risk_rollout.json",
+      "path": "evaluation.gated.final_cost.mean",
+      "reproduce": "python scripts/29_joint_risk_rollout.py",
+      "text": "Joint-risk gate final mean J / 联合风险门最终平均J",
+      "value": 2.30368173184903,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.zh-CN.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "joint_rollout_monitor_p90",
+      "label": "Matched monitor final p90 J / 配对监测对照最终p90 J",
+      "source": "research/results/joint_risk_rollout.json",
+      "path": "evaluation.monitor.final_cost.p90",
+      "reproduce": "python scripts/29_joint_risk_rollout.py",
+      "text": "Matched monitor final p90 J / 配对监测对照最终p90 J",
+      "value": 2.3140450531892345,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.zh-CN.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "joint_rollout_gated_p90",
+      "label": "Joint-risk gate final p90 J / 联合风险门最终p90 J",
+      "source": "research/results/joint_risk_rollout.json",
+      "path": "evaluation.gated.final_cost.p90",
+      "reproduce": "python scripts/29_joint_risk_rollout.py",
+      "text": "Joint-risk gate final p90 J / 联合风险门最终p90 J",
+      "value": 3.4166031878695495,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.zh-CN.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "joint_rollout_monitor_sims",
+      "label": "Matched monitor operating simulations / 配对监测对照运行仿真数",
+      "source": "research/results/joint_risk_rollout.json",
+      "path": "evaluation.monitor.simulation_counts.operating",
+      "reproduce": "python scripts/29_joint_risk_rollout.py",
+      "text": "Matched monitor operating simulations / 配对监测对照运行仿真数",
+      "value": 21498.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "joint_rollout_gated_sims",
+      "label": "Joint-risk gate operating simulations / 联合风险门运行仿真数",
+      "source": "research/results/joint_risk_rollout.json",
+      "path": "evaluation.gated.simulation_counts.operating",
+      "reproduce": "python scripts/29_joint_risk_rollout.py",
+      "text": "Joint-risk gate operating simulations / 联合风险门运行仿真数",
+      "value": 1644.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "joint_rollout_acceptance",
+      "label": "All preregistered rollout criteria pass, 1=yes / 预注册轨迹验收全通过，1为是",
+      "source": "research/results/joint_risk_rollout.json",
+      "path": "acceptance.passed",
+      "reproduce": "python scripts/29_joint_risk_rollout.py",
+      "text": "All preregistered rollout criteria pass, 1=yes / 预注册轨迹验收全通过，1为是",
+      "value": 0.0,
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
           "format": ".6f"
         }
       ]

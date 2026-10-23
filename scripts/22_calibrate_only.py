@@ -14,7 +14,7 @@ from pathlib import Path
 import numpy as np
 from jev_tune.decision import load_backend
 from jev_tune.decode import DEFAULT_ABSTAIN, AbstainPolicy, apply_abstention
-from jev_tune.evaluate import evaluate_head
+from jev_tune.evaluate import HARM_METRIC, evaluate_head
 from jev_tune.plants import ultimate_gain
 from jev_tune.scenarios import _stack, variants
 from _experiment_protocol import manifest
@@ -146,6 +146,7 @@ def main():
                       'tau_act': threshold, **_row(result)}
         print(f"[calib] {name}: median {arms[name]['median']:.4f}, coverage {arms[name]['coverage']:.4f}", flush=True)
     payload = {'scenario': args.scenario, 'calibration_plants': cal.n,
+        'harm_metric': dict(HARM_METRIC),
         'calibration_samples': len(improved), 'steps_per_plant': args.steps,
         'calibration_simulations': collection['simulations'], 'collection': collection,
         'simulations_per_sample': collection['simulations']/len(improved),
@@ -169,6 +170,8 @@ def _fmt(x):
 
 
 def _doc(p):
+    if p.get('harm_metric', {}).get('version') != HARM_METRIC['version']:
+        raise ValueError('rerun E3: historical harmful_rate used the >2% definition')
     lines = ['# Frozen-weight temperature and threshold adaptation', '',
              '> [English](#english) · [简体中文](#简体中文)', '']
     for zh in (False, True):
@@ -179,10 +182,12 @@ def _doc(p):
              if zh else f"All weights are frozen. {p['calibration_samples']} measured transitions from {p['calibration_plants']} simulated plants cost {p['calibration_simulations']} simulations including initial responses; collection {p['wall_s_collect']:.3f}s, scalar fitting {p['fit_ms']:.3f}ms."),
             (f"校准seed101、独立验证seed202；在{p['held_out_plants']}株验证对象上，各臂预算20次。"
              if zh else f"Calibration seed 101 and independent validation seed 202; each arm receives 20 experiments on {p['held_out_plants']} held-out plants."), '',
-            '| arm | T scale | tau | median J | p90 | coverage | harmful | ECE |',
-            '| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
+            ('主有害口径为严格after > before，零容差；另列旧口径after > 1.02 × before，供v0.6比较。两者均以至少一轴获准且实际测量的策略决策为分母，排除回滚和终止提案，不是无条件联合风险保证。'
+             if zh else 'Canonical harm uses strict after > before with zero tolerance. The legacy after > 1.02 × before rate remains for comparison with v0.6. Both condition on measured policy decisions with at least one permitted axis, excluding rollbacks and terminal proposals; they are not unconditional joint-risk guarantees.'), '',
+            '| arm | T scale | tau | median J | p90 | coverage | harm >0 | legacy harm >2% | ECE |',
+            '| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
         for name,r in p['arms'].items():
-            lines.append(f"| {name} | {r['temperature_scale']:.3f} | {r['tau_act']:.4f} | {r['median']:.4f} | {r['p90']:.4f} | {_fmt(r['coverage'])} | {_fmt(r.get('harmful_rate'))} | {_fmt(r.get('ece'))} |")
+            lines.append(f"| {name} | {r['temperature_scale']:.3f} | {r['tau_act']:.4f} | {r['median']:.4f} | {r['p90']:.4f} | {_fmt(r['coverage'])} | {_fmt(r.get('harmful_rate'))} | {_fmt(r.get('harmful_gt_2pct_rate'))} | {_fmt(r.get('ece'))} |")
         lines += ['', (
             '采样复用生产运行器的历史特征、动作接受与安全门；每个响应只测一次。阈值选择直接调用运行时逐轴mask，coverage与验证同样按至少一轴获准计。温度会改变期望解码和方差缩步，因此权重冻结不等于策略冻结。拟合的NLL使用原策略动作结果作为代理目标，不能保证新动作的成功概率已校准；四臂独立验证用于测量结果而非保证安全。ECE以三轴平均pmax与整步改善作描述性比较。该单场景小样本实验不证明真机迁移、从零少样本学习或普遍改进，负结果必须保留。'
             if zh else 'Collection reuses production state history, accepted actions and the deterministic gate, with each response measured once. Threshold selection calls the runtime per-axis mask and uses the same joint coverage definition (at least one permitted axis). Temperature changes expectation decoding and variance shrinkage: frozen weights do not mean a frozen policy. NLL on source-policy outcomes is a surrogate and does not establish calibrated success for changed actions. Independent four-arm rollouts measure outcomes, not safety. ECE descriptively compares mean axis pmax with joint improvement. This single-scenario small-sample experiment does not prove real-device transfer, few-shot learning from scratch or universal gains; negative results are retained.'), '']

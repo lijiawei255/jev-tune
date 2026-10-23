@@ -7,6 +7,14 @@ file that produced them is named next to them.
 
 ## English
 
+## [0.7.0] - 2026-10-24
+
+* Freeze and commit a prospective multi-round risk protocol before collecting fresh stage cohorts and a fixed-size paired evaluation. Preserve the original risk model and temperature.
+* Calibrate each stage with new independent plants under its frozen prefix, allocate the finite-horizon risk budget in advance, and retain both labels when the finite-sample rank is unavailable.
+* Run matched monitor and whole-action gated research controllers, separating actual operations, rejected diagnostics and calibration measurements. Both stop at the safety veto without introducing uncalibrated recovery actions.
+* Publish the failed enablement assessment in `docs/JOINT_RISK_ROLLOUT.md`: the risk bound passes, while the first-stage execution lower bound and final mean/p90 cost criteria fail. The joint-risk policy remains research-only; generic Python/C99/MATLAB defaults are unchanged.
+* Unify harmful transitions as strict cost increases, retain the explicitly named legacy greater-than-two-percent metric, and regenerate affected experiments and bilingual documentation. Independently reconstruct calibration, trajectory events, full actions and simulation counts from the committed compressed raw traces in the claims checker.
+
 ## [0.6.0] - 2026-10-24
 
 * Default to CP monitor: retain the full label set and independent would-hold reasons while preserving the temperature-scaled continuous proposal. Explicit hard_hold remains a reproducible comparison.
@@ -320,6 +328,14 @@ six-method benchmark, the robustness study (200/200 plants not worse than the
 start) and the scale economics. See the release notes.
 
 ## 简体中文
+
+## [0.7.0] - 2026-10-24
+
+* 在采集新逐步校准批次和固定样本配对评估之前，冻结并提交多轮风险验证协议；保留既有风险模型和温度。
+* 每步使用已冻结前缀下的新独立对象校准，预先分配整段风险预算。有限样本秩不可实现时保留两个标签并保持，不降低覆盖要求。
+* 真实运行匹配的monitor与整组门控研究控制器，区分操作、被拒绝动作诊断和校准测量。两组在安全门触发时停止，不引入未经校准的回退动作。
+* 在`docs/JOINT_RISK_ROLLOUT.md`公布未通过的启用验收：风险上界通过，第一步执行率下界与最终均值/p90代价门槛未通过。联合风险策略保持研究模式，通用Python/C99/MATLAB默认行为不变。
+* 将有害转移统一为严格代价上升，显式保留旧的超过2%口径，重新生成受影响实验和中英文文档。claims检查从已提交的压缩原始轨迹独立重建校准、轨迹事件、完整动作和仿真计数。
 
 ## [0.6.0] - 2026-10-24
 

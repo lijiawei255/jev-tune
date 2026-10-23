@@ -25,6 +25,8 @@ Both arms are scoped research controllers: uniform six-family mixture, analytic 
 | simulations: diagnostic_rejected | 0 | 1024 |
 | simulations: total | 21498 | 2668 |
 
+A zero-tolerance trajectory event means at least one cost increase during exploration. Both arms return the measured best parameters from their executed history. This event rate is neither an instability rate nor final-parameter degradation. Shadow-set coverage on monitor is diagnostic only: its later states differ from the gated prefix, so it is not a certified coverage claim for monitor trajectories.
+
 | stage | reached n | rank | qhat | full-set fallback |
 | ---: | ---: | ---: | ---: | :--- |
 | 1 | 512 | 511 | 0.994453 | False |
@@ -58,6 +60,8 @@ The one-sided binomial upper bound independently audits the final fixed policy; 
 
 Actual plant-runs total 40987: stage calibration 16821, final evaluation arms 24166. Rejected diagnostic measurements cannot update state, best gains or operating budget, but are charged to total cost. Full traces: research/results/joint_risk_rollout_raw.json.gz, SHA-256 4934bcac26b399628bcec2b5d57608b3d60b25a3bf94e308dbb348b23725c060.
 
+Use the commands below for first collection. For a full deterministic reproduction of published artifacts, add `--reproduce`; it verifies raw traces byte-for-byte without replacing the original acceptance.
+
 `python scripts/29_joint_risk_rollout.py --register-only` → `python scripts/29_joint_risk_rollout.py`
 
 `python scripts/29_joint_risk_rollout.py --render-only --check`
@@ -84,6 +88,8 @@ Actual plant-runs total 40987: stage calibration 16821, final evaluation arms 24
 | simulations: operating | 21498 | 1644 |
 | simulations: diagnostic_rejected | 0 | 1024 |
 | simulations: total | 21498 | 2668 |
+
+零容差轨迹事件表示探索期间至少一次J上升；两组最终均返回各自已执行历史的实测最优参数。该事件率不是失稳率，也不是最终参数恶化率。monitor中的影子集合覆盖仅为诊断，其后续状态分布不同于门控前缀，不能将该数字当作已证明的monitor轨迹覆盖。
 
 | 步 | 到达样本 n | 秩 | qhat | 全集合回退 |
 | ---: | ---: | ---: | ---: | :--- |
@@ -117,6 +123,8 @@ Actual plant-runs total 40987: stage calibration 16821, final evaluation arms 24
 单侧二项上界是对最终固定策略的独立验收，不等同于CP对校准随机性取平均的边际保证。两个95%界分别解释，不称联合95%。代价均值/p90是本次测试的经验门槛。失败不得通过重新选alpha、样本数、阈值或温度补救；没有反复查看后过线即停。
 
 实际总仿真40987次，其中逐步校准16821次、两组最终评估24166次。被拒绝提案的诊断测量不能更新状态、历史最优或操作预算，但计入总成本。完整轨迹保存在research/results/joint_risk_rollout_raw.json.gz，SHA-256 4934bcac26b399628bcec2b5d57608b3d60b25a3bf94e308dbb348b23725c060。
+
+首次采集使用下列命令；已发布产物的完整确定性复现使用`--reproduce`，逐字节核对原始轨迹且不覆盖原始验收。
 
 `python scripts/29_joint_risk_rollout.py --register-only` → `python scripts/29_joint_risk_rollout.py`
 

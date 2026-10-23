@@ -18,6 +18,8 @@ import argparse
 import json
 import math
 import importlib.util
+import gzip
+import hashlib
 import re
 import sys
 from pathlib import Path
@@ -123,37 +125,53 @@ def generated_documents() -> list[dict]:
     sys.path.insert(0, str(ROOT / "src"))
     sys.path.insert(0, str(ROOT / "scripts"))
     rows=[]
+    def generator(number):
+        spec=importlib.util.spec_from_file_location(number,ROOT/'scripts'/(number+'.py'))
+        module=importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+    def checked(identifier,title,source,evaluate,success,stale):
+        try:
+            ok=bool(evaluate()); detail=success if ok else stale
+        except Exception as exc:
+            ok=False; detail=f'render failed: {type(exc).__name__}: {exc}'
+        rows.append({'id':identifier,'text':title,'ok':ok,'value':None,'source':source,'detail':detail})
+    def compare_document(number,artifact,doc):
+        module=generator(number)
+        payload=json.loads((ROOT/'research/results'/artifact).read_text(encoding='utf-8'))
+        render=getattr(module,'_doc',None) or module.render
+        return render(payload).strip()==(ROOT/'docs'/doc).read_text(encoding='utf-8').strip()
     for number, artifact, doc in [("17_ablation","ablation.json","ABLATION.md"),
                                   ("20_abstention","abstention.json","ABSTENTION.md"),
                                   ("21_hardware","hardware.json","COMPUTE.md"),
                                   ("22_calibrate_only","calibrate_only.json","CALIBRATE_ONLY.md"),
                                   ("25_joint_risk","joint_risk.json","JOINT_RISK.md"),
-                                  ("26_cp_diagnosis","cp_diagnosis.json","CP_DIAGNOSIS.md")]:
-        spec=importlib.util.spec_from_file_location(number, ROOT / "scripts" / (number+".py"))
-        module=importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
+                                  ("26_cp_diagnosis","cp_diagnosis.json","CP_DIAGNOSIS.md"),
+                                  ("29_joint_risk_rollout","joint_risk_rollout.json","JOINT_RISK_ROLLOUT.md")]:
         source=f"research/results/{artifact}"
-        payload=json.loads((ROOT/source).read_text(encoding="utf-8"))
-        render = getattr(module, "_doc", None) or module.render
-        expected=render(payload).strip()
-        actual=(ROOT/"docs"/doc).read_text(encoding="utf-8").strip()
-        ok=expected==actual
-        rows.append({"id":"generated:"+doc,"text":"Full bilingual document rendered from JSON",
-                     "ok":ok,"value":None,"source":source,
-                     "detail":"complete generated document matches" if ok else "stale document: rerun its generator"})
-    spec=importlib.util.spec_from_file_location("reference_docs",ROOT/"scripts/23_sync_reference_docs.py")
-    module=importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    ok=module.conformal_document(write=False).strip()==(ROOT/"docs/CONFORMAL.md").read_text(encoding="utf-8").strip()
-    rows.append({"id":"generated:CONFORMAL.md","text":"Complete CP evidence and bilingual conclusions",
-                 "ok":ok,"value":None,"source":"models/calibration.json + research/results/ablation.json",
-                 "detail":"complete CP document matches" if ok else "stale CP document"})
-    robust=json.loads((ROOT/'research/results/robustness.json').read_text(encoding='utf-8'))
-    body=(ROOT/'docs/APPLICABILITY.md').read_text(encoding='utf-8')
-    ok=all(section.strip() in body for section in module.applicability_sections(robust))
-    rows.append({"id":"generated:APPLICABILITY.md","text":"Bilingual robustness data and narrative",
-                 "ok":ok,"value":None,"source":"research/results/robustness.json",
-                 "detail":"both robustness sections match" if ok else "stale robustness table/narrative"})
+        checked('generated:'+doc,'Full bilingual document rendered from JSON',source,
+                lambda:compare_document(number,artifact,doc),
+                'complete generated document matches','stale document: rerun its generator')
+    checked('generated:CONFORMAL.md','Complete CP evidence and bilingual conclusions',
+            'models/calibration.json + research/results/ablation.json',
+            lambda:generator('23_sync_reference_docs').conformal_document(write=False).strip()==(ROOT/'docs/CONFORMAL.md').read_text(encoding='utf-8').strip(),
+            'complete CP document matches','stale CP document')
+    def compare_readmes():
+        module=generator('23_sync_reference_docs')
+        rollout=json.loads((ROOT/'research/results/joint_risk_rollout.json').read_text(encoding='utf-8'))
+        return all(module.rollout_readme_section(rollout,chinese) in (ROOT/name).read_text(encoding='utf-8')
+                   for name,chinese in [('README.md',False),('README.zh-CN.md',True)])
+    checked('generated:rollout_readmes','Bilingual rollout numbers and acceptance conclusion',
+            'research/results/joint_risk_rollout.json',compare_readmes,
+            'both rollout README sections match','stale rollout README conclusion')
+    def compare_applicability():
+        module=generator('23_sync_reference_docs')
+        robust=json.loads((ROOT/'research/results/robustness.json').read_text(encoding='utf-8'))
+        body=(ROOT/'docs/APPLICABILITY.md').read_text(encoding='utf-8')
+        return all(section.strip() in body for section in module.applicability_sections(robust))
+    checked('generated:APPLICABILITY.md','Bilingual robustness data and narrative',
+            'research/results/robustness.json',compare_applicability,
+            'both robustness sections match','stale robustness table/narrative')
     return rows
 
 
@@ -177,6 +195,236 @@ def decision_evidence() -> list[dict]:
     rows.append({'id':'raw:monitor_equivalence','text':'Frozen matched-draw monitor costs equal Temp Only','ok':ok,'value':None,
                  'source':'research/results/ablation.json','detail':'paired outcomes identical' if ok else 'monitor changed paired outcomes'})
     return rows
+
+
+def same_evidence(actual, expected):
+    """Exact structure/counts, ULP-scale tolerance for cross-platform recomputation."""
+    if isinstance(expected, dict):
+        return isinstance(actual,dict) and actual.keys()==expected.keys() and all(same_evidence(actual[k],v) for k,v in expected.items())
+    if isinstance(expected, list):
+        return isinstance(actual,list) and len(actual)==len(expected) and all(same_evidence(a,b) for a,b in zip(actual,expected))
+    if isinstance(expected,float):
+        return isinstance(actual,(float,int)) and math.isfinite(actual) and math.isclose(actual,expected,rel_tol=1e-12,abs_tol=1e-12)
+    return actual==expected
+
+
+def source_hash_matches(path, expected, *, text_file=False):
+    """Permit Git checkout EOL conversion, never text/content normalization."""
+    data=Path(path).read_bytes()
+    candidates={data}
+    if text_file:
+        lf=data.replace(b'\r\n',b'\n')
+        candidates.update((lf,lf.replace(b'\n',b'\r\n')))
+    return any(hashlib.sha256(blob).hexdigest()==expected for blob in candidates)
+
+
+def performance_diagnosis_evidence() -> list[dict]:
+    """Recompute both harm definitions and paired comparisons from E1/E2."""
+    import numpy as np
+    from jev_tune.evaluate import HARM_METRIC
+    source='research/results/cp_performance_diagnosis.json'
+    try:
+        payload=json.loads((ROOT/source).read_text(encoding='utf-8'))
+        inputs={name:json.loads((ROOT/f'research/results/{name}.json').read_text(encoding='utf-8'))
+                for name in ('ablation','abstention')}
+        assert HARM_METRIC['version']==2 and payload.get('harm_metric')==HARM_METRIC, 'diagnosis must use harm metric v2'
+        for name,data in inputs.items():
+            assert data.get('harm_metric')==HARM_METRIC, f'{name} must use harm metric v2'
+            assert source_hash_matches(ROOT/f'research/results/{name}.json',payload['source_sha256'][name],text_file=True), f'stale {name} source hash'
+        sys.path.insert(0,str(ROOT/'scripts'))
+        spec=importlib.util.spec_from_file_location('performance_diagnosis',ROOT/'scripts/27_cp_performance_diagnosis.py')
+        module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+        ab={r['variant']:r for r in inputs['ablation']['rows']}
+        validation=inputs['abstention']['validation']
+        expected={'E1':{},'E2':{},'exposure':{'E1':{},'E2':{}}}
+        for left,right in [('C3_temperature_CP','C2_temperature_only'),('C2_temperature_only','C1_uncalibrated'),('C3_temperature_CP','C0_MLP_regression')]:
+            expected['E1'][left+' minus '+right]=module.differences(module.array(ab[left]),module.array(ab[right]))
+        for name in ('C0_MLP_regression','C1_uncalibrated','C2_temperature_only','C3_temperature_CP'):
+            reports=[draw['decision_report'] for draw in ab[name]['per_draw']]
+            expected['exposure']['E1'][name]=module.exposure(reports)
+        for left,right in [('temperature_CP','CP_random_hold'),('temperature_CP','no_abstention'),('CP_random_hold','no_abstention')]:
+            lr=[row for row in validation if row['policy']==left]
+            rr=[row for row in validation if row['policy']==right]
+            assert [r['draw_seed'] for r in lr]==[r['draw_seed'] for r in rr], 'E2 pairing changed'
+            expected['E2'][left+' minus '+right]={
+                'combined':module.differences(np.asarray([r['per_plant'] for r in lr]).ravel(),np.asarray([r['per_plant'] for r in rr]).ravel()),
+                'by_draw':{str(l['draw_seed']):module.differences(l['per_plant'],r['per_plant']) for l,r in zip(lr,rr)}}
+        for name in ('temperature_CP','CP_random_hold','no_abstention'):
+            expected['exposure']['E2'][name]=module.exposure([r for r in validation if r['policy']==name])
+        keys=('draw','median','p90','coverage','harmful_rate','harmful_gt_2pct_rate','rollbacks')
+        expected['E1_primary_by_draw']={name:[{key:draw[key] for key in keys} for draw in ab[name]['per_draw']]
+            for name in ('C1_uncalibrated','C2_temperature_only','C3_temperature_CP')}
+        assert all(same_evidence(payload[key],value) for key,value in expected.items()), 'paired/exposure fields differ from current E1/E2'
+        ok=True;detail='v2 source hashes, paired costs and exact zero-tolerance/>2% exposure counts match'
+    except Exception as exc:
+        ok=False;detail=f'performance diagnosis mismatch: {type(exc).__name__}: {exc}'
+    return [{'id':'raw:cp_performance_diagnosis','text':'Current E1/E2 paired diagnosis and distinct harm definitions',
+             'ok':ok,'value':None,'source':source,'detail':detail}]
+
+
+def verify_rollout_run(result, model, qhats, *, collect_step=None):
+    """Rebuild measurements, decisions and best history from each raw run."""
+    import numpy as np
+    from jev_tune.decode import apply_step
+
+    plants, transitions = result['per_plant'], result['transitions']
+    n = result['n_plants']
+    assert len(plants) == n and [p['plant_index'] for p in plants] == list(range(n))
+    assert len({p['plant_identity'] for p in plants}) == n
+    by_plant = {i: [] for i in range(n)}
+    for row in transitions:
+        by_plant[row['plant_index']].append(row)
+    total = {k:0 for k in ('operating_initial','executed','diagnostic_rejected','diagnostic_collected')}
+    collected = {key:[] for key in ('features','labels','current_cost','proposed_cost','plant_index','plant_identity','stage')}
+    for plant in plants:
+        i = plant['plant_index']; rows = by_plant[i]
+        assert [r['stage'] for r in rows] == list(range(len(rows)))
+        assert len(rows) <= result['horizon']
+        counts = {key:0 for key in total}; counts['operating_initial'] = 1
+        current, gains = plant['initial_J'], plant['initial_gains']
+        assert current is not None and math.isfinite(current) and plant['best_valid']
+        history = [{'stage':-1,'gains':gains,'cost':current,'observed_finite':True}]
+        any_harm = False; any_harm2 = False; stop = False
+        for row in rows:
+            assert not stop and row['plant_identity'] == plant['plant_identity']
+            assert row['gains_before'] == gains and row['cost_before'] == current
+            stage = row['stage']
+            if row['proposal_valid']:
+                proposed = np.asarray(row['gains_proposed'])
+                assert np.allclose(proposed,apply_step(np.asarray(gains),row['proposed_step']),rtol=1e-12,atol=1e-12)
+                assert np.allclose(row['applied_step'],np.log10(proposed/np.asarray(gains)),rtol=0,atol=1e-14)
+                assert np.array_equal(row['features'][20:23],row['applied_step'])
+                assert np.array_equal(row['features'][23:],np.asarray(row['choice_probabilities']).ravel())
+                changed = not np.array_equal(proposed,gains)
+                assert changed or (row['reason']=='no_action' and not row['measured'] and not row['executed'])
+                if row['prediction_set'] is not None:
+                    probabilities = np.asarray(row['probabilities'])
+                    assert np.allclose(probabilities,model.probabilities(np.asarray([row['features']]))[0],rtol=0,atol=1e-12)
+                    expected = (1-probabilities <= qhats[stage]).tolist()
+                    assert row['prediction_set'] == expected and row['qhat'] == qhats[stage]
+                    assert row['accepted'] == (expected == [True,False])
+                    assert row['qhat_full_set'] == (qhats[stage] >= 1)
+                    if result['mode'] != 'monitor':
+                        assert row['executed'] == row['accepted']
+                else:
+                    assert not row['executed']
+                    assert not changed or (result['mode']=='collect' and stage==collect_step)
+            else:
+                assert not row['executed'] and not row['measured'] and row['prediction_set'] is None
+            if row['measured']:
+                assert row['observed_finite'] and row['cost_after'] is not None and math.isfinite(row['cost_after'])
+                label = int(row['cost_after'] > current)
+                harm2 = row['cost_after'] > current*1.02
+                assert row['label'] == label and row['harmful'] == bool(label) and row['harmful_gt2pct'] == harm2
+                bucket = row['measurement_kind']; counts[bucket] += 1
+                assert (bucket == 'executed') == row['executed']
+                if bucket == 'diagnostic_collected':
+                    assert result['mode']=='collect' and stage==collect_step
+                    for key,value in {'features':row['features'],'labels':label,'current_cost':current,
+                        'proposed_cost':row['cost_after'],'plant_index':i,'plant_identity':plant['plant_identity'],'stage':stage}.items():
+                        collected[key].append(value)
+                if row['executed']:
+                    if result['mode'] != 'monitor':
+                        assert row['prediction_set'] == [True,False]
+                        assert not label or not row['prediction_set'][label]
+                    current, gains = row['cost_after'],row['gains_proposed']
+                    history.append({'stage':stage,'gains':gains,'cost':current,'observed_finite':True})
+                    any_harm |= bool(label); any_harm2 |= harm2
+            else:
+                assert row['cost_after'] is None and row['measurement_kind'] is None
+            stop = row['reason'] not in {'executed','proposal'}
+        assert history == plant['operating_history']
+        best = min(history,key=lambda x:x['cost'])
+        assert plant['best_J']==best['cost'] and plant['best_gains']==best['gains']
+        assert plant['current_J']==current and plant['current_gains']==gains
+        assert plant['any_harm']==any_harm and plant['any_harm_gt2pct']==any_harm2
+        expected_counts = {**counts,'operating':counts['operating_initial']+counts['executed'],'total':sum(counts.values())}
+        assert plant['simulation_counts']==expected_counts
+        for key in total:
+            total[key] += counts[key]
+    total.update(operating=total['operating_initial']+total['executed'],total=sum(total.values()))
+    assert result['simulation_counts']==total
+    # Collection is emitted in plant order at a single target stage.
+    assert collected==result['collected']
+    return True
+
+
+def rollout_evidence() -> list[dict]:
+    """Verify frozen calibration and raw trajectories independently of summaries."""
+    import numpy as np
+    from jev_tune.risk import JointRiskModel
+    from jev_tune.sequential_risk import stage_calibration, summarize_rollout, acceptance_checks
+    source = 'research/results/joint_risk_rollout.json'
+    try:
+        payload = json.loads((ROOT/source).read_text(encoding='utf-8'))
+        protocol_path = ROOT/'research/protocols/joint_risk_rollout_v1.json'
+        protocol = json.loads(protocol_path.read_text(encoding='utf-8'))
+        assert protocol==payload['protocol']
+        assert source_hash_matches(protocol_path,payload['protocol_sha256'],text_file=True)
+        spec = protocol['specification']
+        raw_path = ROOT/payload['raw_file']; raw_bytes = raw_path.read_bytes()
+        assert hashlib.sha256(raw_bytes).hexdigest()==payload['raw_sha256']
+        raw = json.loads(gzip.decompress(raw_bytes))
+        initial = json.loads((ROOT/'research/results/joint_risk.json').read_text(encoding='utf-8'))
+        model_data = initial['risk_model']
+        canonical = lambda value: hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+        assert canonical(model_data)==payload['risk_model_sha256']==spec['frozen_risk_model_sha256']
+        assert spec['frozen_proposal']==initial['protocol']['specification']['proposal']
+        assert source_hash_matches(ROOT/'models/calibration.json',spec['calibration_file_sha256'],text_file=True)
+        assert source_hash_matches(ROOT/'models/jev_head.pt',spec['frozen_proposal']['checkpoint_sha256'])
+        source_hashes={name.replace('\\','/'):value for name,value in payload['manifest']['file_sha256'].items()}
+        # The experiment renderer/checker can evolve independently; numerical
+        # rollout dependencies must still match the run, modulo checkout EOLs.
+        for name in ('joint_rollout','sequential_risk','risk','decode','decision','state','plants','metrics','primitives'):
+            relative=f'src/jev_tune/{name}.py'
+            assert source_hash_matches(ROOT/relative,source_hashes[relative],text_file=True)
+        model = JointRiskModel(np.asarray(model_data['mean']),np.asarray(model_data['scale']),
+            np.asarray(model_data['coefficient']),model_data['intercept'],model_data['temperature'])
+        horizon=spec['horizon']; qhats=payload['qhats']
+        assert len(qhats)==len(payload['stages'])==len(raw['calibration'])==horizon
+        assert math.fsum(spec['alpha_per_stage'])==payload['union_bound']<=spec['trajectory_alpha']
+        identities=set(initial['per_plant']['plant_identity'])
+        for t,(stage,run) in enumerate(zip(payload['stages'],raw['calibration'])):
+            assert run['mode']=='collect' and run['horizon']==horizon
+            assert run['n_plants']==stage['n_initial']==spec['calibration']['n_initial_per_stage']
+            ids={p['plant_identity'] for p in run['per_plant']}
+            assert not identities.intersection(ids); identities.update(ids)
+            verify_rollout_run(run,model,qhats,collect_step=t)
+            collected=run['collected']; x=np.asarray(collected['features']).reshape(-1,44)
+            probs=model.probabilities(x) if len(x) else np.empty((0,2))
+            recalculated=stage_calibration(probs,collected['labels'],spec['alpha_per_stage'][t])
+            assert all(same_evidence(stage[key],value) for key,value in recalculated.items())
+            assert stage['stage']==t and stage['seed']==spec['calibration']['seeds'][t]
+            assert stage['prefix_qhats']==qhats[:t] and stage['qhat']==qhats[t]
+            assert stage['collected_sha256']==canonical(collected)
+            assert stage['simulation_counts']==run['simulation_counts']
+        eval_ids=None
+        for mode,run in raw['evaluation'].items():
+            assert run['mode']==mode and run['horizon']==horizon and run['n_plants']==spec['evaluation']['n_plants']
+            ids=[p['plant_identity'] for p in run['per_plant']]
+            assert not identities.intersection(ids)
+            assert eval_ids is None or ids==eval_ids
+            eval_ids=ids
+            verify_rollout_run(run,model,qhats)
+        evaluation={mode:summarize_rollout(run) for mode,run in raw['evaluation'].items()}
+        assert same_evidence(evaluation,payload['evaluation'])
+        acceptance=acceptance_checks(evaluation['monitor'],evaluation['gated'],all(payload['integrity'].values()),
+            trajectory_alpha=spec['acceptance']['trajectory_risk_upper_max'],
+            minimum_execution=spec['acceptance']['first_stage_execution_lower_min'])
+        assert acceptance==payload['acceptance']
+        deployment=payload['deployment']
+        assert deployment['enabled']==acceptance['passed'] and not deployment['generic_python_c_matlab_enabled']
+        assert deployment['scope']==spec['scope'] and deployment['failed_criteria']==acceptance['failed']
+        assert deployment['status']==('validated_research_scope_only' if acceptance['passed'] else 'research_only')
+        cal_total=sum(run['simulation_counts']['total'] for run in raw['calibration'])
+        eval_total=sum(run['simulation_counts']['total'] for run in raw['evaluation'].values())
+        assert payload['simulation_counts']=={'calibration_total':cal_total,'evaluation_total':eval_total,'total':cal_total+eval_total}
+        detail='raw histories/actions, frozen stages/hashes, observed IDs, counts and acceptance reproduce'
+        ok=True
+    except Exception as exc:
+        ok=False; detail=f'raw rollout evidence mismatch: {type(exc).__name__}: {exc}'
+    return [{'id':'raw:joint_risk_rollout','text':'Raw sequential CP calibration and full rollout acceptance',
+             'ok':ok,'value':None,'source':source,'detail':detail}]
 
 
 def main() -> int:
@@ -207,9 +455,15 @@ def main() -> int:
                 "source": claim["source"],
             }
         )
-    for row in benchmark_tables()+generated_documents()+decision_evidence():
-        rows.append(row)
-        failed += not row["ok"]
+    for checker in (benchmark_tables,generated_documents,decision_evidence,rollout_evidence,performance_diagnosis_evidence):
+        try:
+            checked_rows=checker()
+        except Exception as exc:
+            checked_rows=[{'id':'check:'+checker.__name__,'text':'Artifact check must remain diagnosable on stale input',
+                'ok':False,'value':None,'source':'repository artifacts','detail':f'{type(exc).__name__}: {exc}'}]
+        for row in checked_rows:
+            rows.append(row)
+            failed += not row["ok"]
 
     if args.json:
         print(json.dumps(rows, indent=2, ensure_ascii=False))

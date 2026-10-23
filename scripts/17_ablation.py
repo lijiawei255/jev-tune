@@ -31,7 +31,7 @@ import torch.nn as nn
 
 from jev_tune.decision import AXES, SCORE_LEVELS, NumericBackend, tuner_questions
 from jev_tune.decode import DEFAULT_ABSTAIN, AbstainPolicy, ActionSpace
-from jev_tune.evaluate import evaluate_head
+from jev_tune.evaluate import HARM_METRIC, evaluate_head
 from jev_tune.model import Encoder
 from jev_tune.plants import HELDOUT_FAMILIES, sample_plants, ultimate_gain
 from jev_tune.primitives import Answer, Choice, Noul, Option, Score, softmax
@@ -234,6 +234,7 @@ def main():
 
     head_backends = {}
     result = {
+        "harm_metric": dict(HARM_METRIC),
         "budget": args.budget,
         "plants_per_draw": args.plants,
         "draws": [d["seed"] for d in draws],
@@ -342,6 +343,7 @@ def main():
                     "n_measured_policy_transitions": rep.get("n_decisions"),
                     "n_proposals": rep.get("n_proposals"),
                     "harmful_rate": rep.get("harmful_rate"),
+                    "harmful_gt_2pct_rate": rep.get("harmful_gt_2pct_rate"),
                     "ece": None if backend_kind == "regress" else rep.get("ece"),
                     "decision_report": rep,
                     "per_plant": [float(x) for x in r.best_j],
@@ -388,6 +390,12 @@ def main():
                 )
                 if any(x["harmful_rate"] is not None for x in per_draw)
                 else None,
+                "harmful_gt_2pct_rate": float(np.mean([
+                    x["harmful_gt_2pct_rate"] for x in per_draw
+                    if x["harmful_gt_2pct_rate"] is not None]))
+                if any(x["harmful_gt_2pct_rate"] is not None for x in per_draw) else None,
+                "n_harmful": sum(x["decision_report"]["n_harmful"] for x in per_draw),
+                "n_harmful_gt_2pct": sum(x["decision_report"]["n_harmful_gt_2pct"] for x in per_draw),
                 "ece": float(np.mean(eces)) if eces else None,
                 "average_set_size": float(np.mean(set_sizes)) if set_sizes else None,
                 "per_draw": per_draw,
@@ -439,6 +447,8 @@ def main():
 
 
 def _doc(result: dict) -> str:
+    if result.get("harm_metric", {}).get("version") != HARM_METRIC["version"]:
+        raise ValueError("rerun E1: historical harmful_rate used the >2% definition")
     rows = result["rows"]
     lines = [
         "# Ablation: temperature, split CP and matched MLP control",
@@ -464,19 +474,21 @@ def _doc(result: dict) -> str:
         "* the A0-A6 ladder disables CP; A5 is the legacy pmax policy, not the shipped default",
         "* both action-coverage columns count at least one permitted axis. Proposal coverage includes terminal proposals; measured transition coverage (the JSON coverage alias) includes only policy decisions followed by an actual measurement, excluding rollbacks. Rates are means across draws; counts in the JSON are totals",
         "* stopping after a fully held proposal excludes that proposal from the measured denominator. C5 can therefore have measured transition coverage 1.0 while rejecting proposals; proposal coverage shows those holds. Neither quantity is teacher-label set coverage, whose independent evaluation is stored in calibration_evidence",
+        "* harm >0 is the canonical strict after > before definition, with zero tolerance. Legacy harm >2% retains after > 1.02 × before for comparison with v0.6. Both rates condition on measured policy decisions with at least one permitted axis, excluding rollbacks and terminal proposals; neither is an unconditional joint-risk guarantee",
         "",
-        "| variant | median J | std | p90 | experiments | proposal coverage | measured transition coverage | harmful | ECE | Δ vs A4 |",
-        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| variant | median J | std | p90 | experiments | proposal coverage | measured transition coverage | harm >0 | legacy harm >2% | ECE | Δ vs A4 |",
+        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for r in rows:
         pd = result.get("paired_vs_A4", {}).get(r["variant"], {})
         delta = f"{pd['mean_delta']:+.3f}" if pd else "—"
         ece = "n/a" if r.get("ece") is None else f"{r['ece']:.3f}"
         harm = "n/a" if r.get("harmful_rate") is None else f"{r['harmful_rate']:.3f}"
+        legacy_harm = "n/a" if r.get("harmful_gt_2pct_rate") is None else f"{r['harmful_gt_2pct_rate']:.3f}"
         lines.append(
             f"| `{r['variant']}` | {r['median_mean']:.3f} | {r['median_std']:.3f} | "
             f"{r['p90_median']:.3f} | {r['experiments_mean']:.1f} | "
-            f"{r['proposal_coverage']:.4f} | {r['measured_transition_coverage']:.4f} | {harm} | {ece} | {delta} |"
+            f"{r['proposal_coverage']:.4f} | {r['measured_transition_coverage']:.4f} | {harm} | {legacy_harm} | {ece} | {delta} |"
         )
     if "paired_vs_A4" in result:
         lines += [
@@ -524,19 +536,21 @@ def _doc(result: dict) -> str:
         "* A0-A6阶梯关闭CP；A5是旧pmax策略，不是当前出厂默认",
         "* 两种动作覆盖率均统计至少一轴获准的比例。提案覆盖率包含终止提案；已测转移覆盖率（JSON中的coverage别名）仅统计后续确有测量的策略决策，不含回滚。覆盖率取各轮均值，JSON中的计数为各轮合计",
         "* 全轴保持后立即终止的提案不进入已测转移分母。因此C5的已测转移覆盖率可以是1.0，同时仍拒绝部分提案；提案覆盖率会计入这些保持。二者均不是专家标签集合覆盖率，后者的独立评估保存在calibration_evidence",
+        "* 主有害口径为严格after > before，零容差；旧口径保留after > 1.02 × before，供v0.6结果比较。两种比例均以至少一轴获准且实际测量的策略决策为分母，排除回滚和终止提案；均不是联合风险的无条件保证",
         "",
-        "| 变体 | 中位 J | 标准差 | p90 | 实验次数 | 提案覆盖率 | 已测转移覆盖率 | 有害步 | ECE | 相对 A4 |",
-        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| 变体 | 中位 J | 标准差 | p90 | 实验次数 | 提案覆盖率 | 已测转移覆盖率 | 有害 >0 | 旧口径有害 >2% | ECE | 相对 A4 |",
+        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for r in rows:
         pd = result.get("paired_vs_A4", {}).get(r["variant"], {})
         delta = f"{pd['mean_delta']:+.3f}" if pd else "—"
         ece = "n/a" if r.get("ece") is None else f"{r['ece']:.3f}"
         harm = "n/a" if r.get("harmful_rate") is None else f"{r['harmful_rate']:.3f}"
+        legacy_harm = "n/a" if r.get("harmful_gt_2pct_rate") is None else f"{r['harmful_gt_2pct_rate']:.3f}"
         lines.append(
             f"| `{r['variant']}` | {r['median_mean']:.3f} | {r['median_std']:.3f} | "
             f"{r['p90_median']:.3f} | {r['experiments_mean']:.1f} | "
-            f"{r['proposal_coverage']:.4f} | {r['measured_transition_coverage']:.4f} | {harm} | {ece} | {delta} |"
+            f"{r['proposal_coverage']:.4f} | {r['measured_transition_coverage']:.4f} | {harm} | {legacy_harm} | {ece} | {delta} |"
         )
     lines += _reading(result, zh=True)
     lines += [
@@ -615,13 +629,15 @@ def _reading(result: dict, *, zh: bool) -> list[str]:
         if zh:
             lines.append(
                 f"* 事前显式弃权：覆盖率 {cov('A5_abstain'):.2f}，中位代价相对 A4 "
-                f"{d:+.3f}，有害步比例 {by['A5_abstain']['harmful_rate']:.3f}。"
+                f"{d:+.3f}，零容差有害步比例 {by['A5_abstain']['harmful_rate']:.3f}，"
+                f"旧口径>2%比例 {by['A5_abstain']['harmful_gt_2pct_rate']:.3f}。"
             )
         else:
             lines.append(
                 f"* explicit abstention: coverage {cov('A5_abstain'):.2f}, median cost "
-                f"vs A4 {d:+.3f}, harmful-step rate "
-                f"{by['A5_abstain']['harmful_rate']:.3f}."
+                f"vs A4 {d:+.3f}, zero-tolerance harmful-step rate "
+                f"{by['A5_abstain']['harmful_rate']:.3f}, legacy >2% rate "
+                f"{by['A5_abstain']['harmful_gt_2pct_rate']:.3f}."
             )
     if "A6_early_stop" in by:
         d = m("A6_early_stop") - m("A4_gate")

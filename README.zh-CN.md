@@ -102,12 +102,16 @@ solver      ...
 
 独立校准结果及覆盖边界见[温度与分裂CP](docs/CONFORMAL.md)。旧CP硬保持代价逊于温度单独校准；默认monitor保留温度单独校准的提案；标签覆盖定理或保持动作均不证明闭环安全。
 
+<!-- joint-risk-rollout:start -->
+**联合动作风险的多轮验收：未通过。** 冻结协议在<!-- claim:joint_rollout_n -->1024<!-- /claim -->个独立测试对象上，门控策略有<!-- claim:joint_rollout_any_harm -->2<!-- /claim -->条轨迹至少一次有害执行；概率的单侧95%精确上界为<!-- claim:joint_rollout_risk_upper -->0.006135<!-- /claim -->。门控/配对monitor对照的最终平均J为<!-- claim:joint_rollout_gated_mean -->2.303682<!-- /claim -->/<!-- claim:joint_rollout_monitor_mean -->1.297619<!-- /claim -->，p90为<!-- claim:joint_rollout_gated_p90 -->3.416603<!-- /claim -->/<!-- claim:joint_rollout_monitor_p90 -->2.314045<!-- /claim -->。首步执行率的单侧95%下界为<!-- claim:joint_rollout_first_lower -->0.479684<!-- /claim -->，预注册最低要求为0.50。全部判据、逐步独立校准、原始轨迹与适用范围见[联合风险多轮研究](docs/JOINT_RISK_ROLLOUT.md)。此结果不把联合风险门默认接入通用Python、C或MATLAB部署；失败判据不会通过改阈值掩盖。
+<!-- joint-risk-rollout:end -->
+
 ## 15 秒看懂
 
 | | |
 | :--- | :--- |
 | **做什么** | 看刚测到的响应，决定下一步把 PID 增益乘多少 |
-| **多快** | ONNX前向中位<!-- claim:decision_ms -->0.025<!-- /claim --> ms；Python默认类型化/弃权路径中位<!-- claim:typed_decision_ms -->0.303<!-- /claim --> ms、p99 <!-- claim:typed_decision_p99_ms -->0.760<!-- /claim --> ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |
+| **多快** | ONNX前向中位<!-- claim:decision_ms -->0.024<!-- /claim --> ms；Python默认类型化/弃权路径中位<!-- claim:typed_decision_ms -->0.313<!-- /claim --> ms、p99 <!-- claim:typed_decision_p99_ms -->0.709<!-- /claim --> ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |
 | **多省实验** | 真实 Simulink 电机上 **5 次实验**把代价从 **1.238 降到 0.598**（v0.2 的记录运行；修正增益扫描后同一模型起点更好，整定器会直接返回电机自带的增益——[原因](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)）；结果不会比 ZN 起点与模型自带增益中更好的那组更差 |
 | **多能泛化** | 验证族中位0.482；冻结热工族中位1.833，当前基线和先验来源见下表。 |
 

@@ -147,7 +147,40 @@ states. Its unconditional harmful-execution bound is neither a conditional
 accepted-action risk bound nor a trajectory guarantee. The risk head is a
 research artifact, not silently enabled in Python/C/MATLAB deployment.
 
+[JOINT_RISK_ROLLOUT](JOINT_RISK_ROLLOUT.md) is a separate finite-horizon study.
+Each step receives a preregistered error budget and independent calibration
+plants that reach it under the frozen prefix policy. Summing valid stepwise
+bounds uses a union bound, not an assumption that steps within a plant are IID.
+Stopped plants contribute no harmful-execution event; they are not fabricated
+covered calibration examples. The final independent test treats each complete
+plant trajectory as one Bernoulli observation and reports an exact one-sided
+binomial confidence limit. This fixed-policy test criterion is distinct from
+split CP's marginal guarantee over calibration and a fresh draw.
+
+Passing the registered test, if achieved, only supports the stated simulator
+population and controller. MATLAB sweep-derived starts, new objectives, changed
+noise, shifted families, hardware constraints and extra fallback actions require
+new evidence. An endpoint cannot expand the scope by accepting arbitrary options
+or trusting a saved `passed` flag without checking the bound artifacts. A scalar
+cost noninferiority label does not certify transient constraints or physical safety.
+Conversely, an exploration trajectory containing a cost increase does not imply
+an unstable or worse returned controller: both arms return the measured best.
+Event frequency, final performance and the amount of exploration are different
+quantities and must be reported together.
+
 部署默认仅监测完整集合而不修改提案。原标签包含性质在交换性输入上保留，但新策略访问的状态
 不会自动继承保证。无动作停止适用于确定性重复试验，不意味着停止物理监测。
 [JOINT_RISK](JOINT_RISK.md)用新初态样本校准实际联合提案；无条件有害执行概率界不等于
 获准动作条件风险界，也不保证整段轨迹。风险头是研究产物，不默认接入Python/C/MATLAB部署。
+
+[JOINT_RISK_ROLLOUT](JOINT_RISK_ROLLOUT.md)另行开展有限步研究。每步事先分配错误预算，
+使用在已冻结前缀策略下到达该步的新独立对象校准。用并集界合成逐步概率界，不假设同一对象
+轨迹内的各步是IID。停止对象不再产生有害执行事件，也不能伪填为已覆盖校准样本。
+最终独立测试将每株完整轨迹视为一条Bernoulli观测，报告精确单侧二项置信上界；
+这是固定策略的测试验收条件，与对校准样本及新抽样取边际的分裂CP保证分开表述。
+
+即使通过预注册验收，也只支持列明的模拟分布与控制器。MATLAB扫描起点、新目标、噪声变化、
+域外族、硬件约束及额外回退动作都需新证据。入口不能通过任意参数或只信任保存的passed标志
+扩大适用范围，必须核对绑定产物。标量代价非劣标签不证明瞬态约束或物理安全。
+反过来，探索轨迹中曾有代价上升也不意味着失稳或返回控制器恶化：两组都返回历史实测最优。
+事件频率、最终性能和探索量是不同指标，必须共同报告。

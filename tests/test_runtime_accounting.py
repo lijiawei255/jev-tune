@@ -93,7 +93,28 @@ def test_harmful_rate_is_not_diluted_by_self_comparisons(simulation):
     report = run().decision_report()
     assert report["n_decisions"] == 2
     assert report["harmful_rate"] == 1
+    assert report["harmful_gt_2pct_rate"] == 1
+    assert report["n_harmful"] == report["n_harmful_gt_2pct"] == 2
     assert report["improvement_rate"] == 0
+
+
+@pytest.mark.parametrize("after,strict,legacy", [
+    (0.99,False,False), (1.,False,False),
+    (np.nextafter(1.,np.inf),True,False), (1.01,True,False),
+    (1.02,True,False), (np.nextafter(1.02,np.inf),True,True),
+])
+def test_zero_tolerance_harm_and_legacy_boundary_use_actual_paired_costs(simulation,after,strict,legacy):
+    simulation(lambda ids,g: np.where(g[:,0]==1.,1.,after))
+    result=run(budget=2)
+    report=result.decision_report()
+    assert result.decisions['harmful'].tolist()==[[strict]]
+    assert result.decisions['harmful_gt_2pct'].tolist()==[[legacy]]
+    assert report['n_harmful']==int(strict)
+    assert report['n_harmful_gt_2pct']==int(legacy)
+    assert report['harmful_rate']==float(strict)
+    assert report['harmful_gt_2pct_rate']==float(legacy)
+    assert report['harm_metric']['version']==2
+    assert report['n_executed']==1
 
 
 def test_partial_axis_hold_counts_the_executed_transition(simulation):
@@ -125,6 +146,8 @@ def test_rollback_does_not_change_unrelated_plants_or_policy_labels(simulation):
     assert report["n_decisions"] == 3
     assert report["n_rollbacks"] == 1
     assert report["harmful_rate"] == pytest.approx(1 / 3)
+    assert report["harmful_gt_2pct_rate"] == pytest.approx(1 / 3)
+    assert report["n_harmful"] == report["n_harmful_gt_2pct"] == 1
 
 
 def test_early_stop_removes_only_stopped_plants_from_real_simulations(simulation):
@@ -206,6 +229,9 @@ def test_no_action_terminal_proposal_has_evidence_but_no_fictitious_outcome(simu
     assert report["conformal_hold_axis_rate"] == 1
     assert report["average_set_size"] == 7
     assert report["harmful_rate"] is None
+    assert report["harmful_gt_2pct_rate"] is None
+    assert report["n_harmful"] == report["n_harmful_gt_2pct"] == 0
+    assert not d['harmful'].any() and not d['harmful_gt_2pct'].any()
 
 
 def test_no_action_removes_only_the_unchanged_plant_from_the_active_batch(simulation):

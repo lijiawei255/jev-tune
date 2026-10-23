@@ -44,6 +44,14 @@ from .plants import PlantSet, simulate
 from .state import build_state
 
 
+HARM_METRIC = {
+    "version": 2,
+    "harmful": "after > before (strict, zero tolerance)",
+    "harmful_gt_2pct": "after > 1.02 * before (legacy v0.6 threshold)",
+    "rate_denominator": "measured policy decisions with at least one permitted axis; excludes rollbacks and terminal proposals",
+}
+
+
 @dataclass
 class HeadResult:
     name: str
@@ -86,8 +94,10 @@ class HeadResult:
                            one axis permitted to execute; axis_coverage reports
                            the separate per-axis quantity. A confident zero-step
                            option counts as permitted, but not as an action.
-        * harmful_rate  -- executed decisions after which the next measurement
-                           was >2 % worse than the one before
+        * harmful_rate  -- permitted measured decisions with after > before;
+                           strict comparison, zero tolerance, including rises
+                           below or exactly 2 %. harmful_gt_2pct_rate retains
+                           the explicitly named legacy after > 1.02 * before.
         * ece           -- |mean axis concentration - P(improved)| over permitted
                            decisions, 10 equal-width bins. This is a diagnostic;
                            mean axis p_max is not a joint success probability.
@@ -106,14 +116,18 @@ class HeadResult:
         held = np.asarray(d["held"], dtype=bool)[policy]
         improved = np.asarray(d["improved"], dtype=bool)[policy]
         harmful = np.asarray(d["harmful"], dtype=bool)[policy]
+        harmful_gt_2pct = np.asarray(d["harmful_gt_2pct"], dtype=bool)[policy]
         executed = ~held
         out = {
+            "harm_metric": dict(HARM_METRIC),
             "n_decisions": int(conf.size),
             "n_transitions": int(valid.sum()),
             "n_rollbacks": int((valid & (event == "rollback")).sum()),
             "coverage": float(executed.mean()) if conf.size else 0.0,
             "abstain_rate": float(held.mean()) if conf.size else 0.0,
             "n_executed": int(executed.sum()),
+            "n_harmful": int(harmful[executed].sum()),
+            "n_harmful_gt_2pct": int(harmful_gt_2pct[executed].sum()),
             "n_proposals": int(proposals.sum()),
             "proposal_coverage": (float((~np.asarray(d["held"], dtype=bool)[proposals]).mean())
                                   if proposals.any() else 0.0),
@@ -151,6 +165,7 @@ class HeadResult:
         if executed.any():
             out["improvement_rate"] = float(improved[executed].mean())
             out["harmful_rate"] = float(harmful[executed].mean())
+            out["harmful_gt_2pct_rate"] = float(harmful_gt_2pct[executed].mean())
             c, y = conf[executed], improved[executed].astype(float)
             edges = np.linspace(0.0, 1.0, 11)
             ece = 0.0
@@ -164,6 +179,7 @@ class HeadResult:
         else:
             out["improvement_rate"] = None
             out["harmful_rate"] = None
+            out["harmful_gt_2pct_rate"] = None
             out["ece"] = None
         return out
 
@@ -522,7 +538,8 @@ def evaluate_head(
 
     if trace is not None:
         trace["improved"] = trace["valid"] & (trace["after"] < trace["cost_before"])
-        trace["harmful"] = trace["valid"] & (trace["after"] > trace["cost_before"] * 1.02)
+        trace["harmful"] = trace["valid"] & (trace["after"] > trace["cost_before"])
+        trace["harmful_gt_2pct"] = trace["valid"] & (trace["after"] > trace["cost_before"] * 1.02)
 
     return HeadResult(
         name="jev_head",

@@ -98,6 +98,38 @@ def test_random_control_preserves_joint_masks_and_does_not_read_outcomes():
         np.testing.assert_array_equal(a,b)
 
 
+@pytest.mark.parametrize('name,render',[
+    ('17_ablation.py','_doc'),('20_abstention.py','_doc'),
+    ('22_calibrate_only.py','_doc'),('26_cp_diagnosis.py','render'),
+])
+def test_new_harm_documents_refuse_to_relabel_historical_numbers(name,render):
+    module=script(name)
+    with pytest.raises(ValueError,match='historical'):
+        getattr(module,render)({})
+
+
+def test_counterfactual_harm_uses_zero_tolerance_with_separate_legacy_count():
+    module=script('26_cp_diagnosis.py')
+    after=np.array([1.,np.nextafter(1.,np.inf),1.01,1.02,np.nextafter(1.02,np.inf)])
+    result=module.paired_outcomes(after,np.ones(5),np.ones(5,dtype=bool))
+    assert result['harmful_count']==4
+    assert result['harmful_gt_2pct_count']==result['harm_more_than_2pct_count']==1
+
+
+def test_performance_diagnosis_uses_exact_new_counts_and_rejects_old_reports():
+    module=script('27_cp_performance_diagnosis.py')
+    from jev_tune.evaluate import HARM_METRIC
+    report={'harm_metric':dict(HARM_METRIC),'n_decisions':3,'n_executed':3,
+            'n_harmful':2,'n_harmful_gt_2pct':1,'harmful_rate':.667,
+            'improvement_rate':1/3,'partial_hold_rate':0.,'axis_coverage':1.,'n_rollbacks':0}
+    actual=module.exposure([report])
+    assert actual['harmful_count']==2 and actual['harmful_gt_2pct_count']==1
+    assert actual['harmful_per_executed']==2/3
+    assert actual['harmful_gt_2pct_per_executed']==1/3
+    with pytest.raises(ValueError,match='historical'):
+        module.exposure([{k:v for k,v in report.items() if k!='harm_metric'}])
+
+
 def test_failed_sweep_uses_one_shared_non_oracle_prior():
     module = script('03_evaluate.py')
     ku,tu,ok = module.sweep_prior(np.array([np.nan,4.,0.]),np.array([1.,2.,np.nan]))

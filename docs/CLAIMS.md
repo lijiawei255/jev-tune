@@ -14,9 +14,9 @@ versioned records; see BENCHMARK, ABLATION, ABSTENTION and CALIBRATE_ONLY for cu
 
 | ID | Quantity / 指标 | Value / 数值 | Artifact / 产物 |
 | :--- | :--- | ---: | :--- |
-| `decision_ms` | decision_ms | <!-- claim:decision_ms -->0.025200<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
-| `typed_decision_ms` | typed_decision_ms | <!-- claim:typed_decision_ms -->0.302700<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
-| `typed_decision_p99_ms` | typed_decision_p99_ms | <!-- claim:typed_decision_p99_ms -->0.760319<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
+| `decision_ms` | decision_ms | <!-- claim:decision_ms -->0.023700<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
+| `typed_decision_ms` | typed_decision_ms | <!-- claim:typed_decision_ms -->0.312500<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
+| `typed_decision_p99_ms` | typed_decision_p99_ms | <!-- claim:typed_decision_p99_ms -->0.708610<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `heldout_budget` | Iterative per-plant maximum budget / 迭代方法逐株预算上限 | <!-- claim:heldout_budget -->20.000000<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_head_median` | heldout_head_median | <!-- claim:heldout_head_median -->0.482278<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_head_p90` | heldout_head_p90 | <!-- claim:heldout_head_p90 -->1.029825<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
@@ -72,6 +72,17 @@ versioned records; see BENCHMARK, ABLATION, ABSTENTION and CALIBRATE_ONLY for cu
 | `temperature_only_median` | temperature_only_median | <!-- claim:temperature_only_median -->0.453664<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 | `cp_monitor_median` | CP monitor: mean of draw medians / 旁路CP中位代价均值 | <!-- claim:cp_monitor_median -->0.453664<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 | `cp_hold_stop_median` | Explicit hard Hold with no-action stopping / 显式硬保持无动作停止 | <!-- claim:cp_hold_stop_median -->0.701220<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
+| `joint_rollout_n` | Independent rollout test plants / 独立轨迹测试对象数 | <!-- claim:joint_rollout_n -->1024.000000<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_any_harm` | Gated trajectories with any harmful execution / 门控轨迹至少一次有害执行数 | <!-- claim:joint_rollout_any_harm -->2.000000<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_risk_upper` | Gated trajectory risk: exact one-sided upper bound / 门控轨迹风险精确单侧上界 | <!-- claim:joint_rollout_risk_upper -->0.006135<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_first_lower` | First-stage execution: exact one-sided lower bound / 首步执行率精确单侧下界 | <!-- claim:joint_rollout_first_lower -->0.479684<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_monitor_mean` | Matched monitor final mean J / 配对监测对照最终平均J | <!-- claim:joint_rollout_monitor_mean -->1.297619<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_gated_mean` | Joint-risk gate final mean J / 联合风险门最终平均J | <!-- claim:joint_rollout_gated_mean -->2.303682<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_monitor_p90` | Matched monitor final p90 J / 配对监测对照最终p90 J | <!-- claim:joint_rollout_monitor_p90 -->2.314045<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_gated_p90` | Joint-risk gate final p90 J / 联合风险门最终p90 J | <!-- claim:joint_rollout_gated_p90 -->3.416603<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_monitor_sims` | Matched monitor operating simulations / 配对监测对照运行仿真数 | <!-- claim:joint_rollout_monitor_sims -->21498.000000<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_gated_sims` | Joint-risk gate operating simulations / 联合风险门运行仿真数 | <!-- claim:joint_rollout_gated_sims -->1644.000000<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_acceptance` | All preregistered rollout criteria pass, 1=yes / 预注册轨迹验收全通过，1为是 | <!-- claim:joint_rollout_acceptance -->0.000000<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
 
 Unmeasured work includes training-seed replication, full data learning curves,
 many-question scaling, broad hosted-model comparisons, mid-run domain shifts,
@@ -87,9 +98,9 @@ and physical robot/medical/MCU/FPGA validation. No success is inferred for them.
 
 | ID | Quantity / 指标 | Value / 数值 | Artifact / 产物 |
 | :--- | :--- | ---: | :--- |
-| `decision_ms` | decision_ms | <!-- claim:decision_ms -->0.025200<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
-| `typed_decision_ms` | typed_decision_ms | <!-- claim:typed_decision_ms -->0.302700<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
-| `typed_decision_p99_ms` | typed_decision_p99_ms | <!-- claim:typed_decision_p99_ms -->0.760319<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
+| `decision_ms` | decision_ms | <!-- claim:decision_ms -->0.023700<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
+| `typed_decision_ms` | typed_decision_ms | <!-- claim:typed_decision_ms -->0.312500<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
+| `typed_decision_p99_ms` | typed_decision_p99_ms | <!-- claim:typed_decision_p99_ms -->0.708610<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `heldout_budget` | Iterative per-plant maximum budget / 迭代方法逐株预算上限 | <!-- claim:heldout_budget -->20.000000<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_head_median` | heldout_head_median | <!-- claim:heldout_head_median -->0.482278<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_head_p90` | heldout_head_p90 | <!-- claim:heldout_head_p90 -->1.029825<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
@@ -145,6 +156,17 @@ and physical robot/medical/MCU/FPGA validation. No success is inferred for them.
 | `temperature_only_median` | temperature_only_median | <!-- claim:temperature_only_median -->0.453664<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 | `cp_monitor_median` | CP monitor: mean of draw medians / 旁路CP中位代价均值 | <!-- claim:cp_monitor_median -->0.453664<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 | `cp_hold_stop_median` | Explicit hard Hold with no-action stopping / 显式硬保持无动作停止 | <!-- claim:cp_hold_stop_median -->0.701220<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
+| `joint_rollout_n` | Independent rollout test plants / 独立轨迹测试对象数 | <!-- claim:joint_rollout_n -->1024.000000<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_any_harm` | Gated trajectories with any harmful execution / 门控轨迹至少一次有害执行数 | <!-- claim:joint_rollout_any_harm -->2.000000<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_risk_upper` | Gated trajectory risk: exact one-sided upper bound / 门控轨迹风险精确单侧上界 | <!-- claim:joint_rollout_risk_upper -->0.006135<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_first_lower` | First-stage execution: exact one-sided lower bound / 首步执行率精确单侧下界 | <!-- claim:joint_rollout_first_lower -->0.479684<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_monitor_mean` | Matched monitor final mean J / 配对监测对照最终平均J | <!-- claim:joint_rollout_monitor_mean -->1.297619<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_gated_mean` | Joint-risk gate final mean J / 联合风险门最终平均J | <!-- claim:joint_rollout_gated_mean -->2.303682<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_monitor_p90` | Matched monitor final p90 J / 配对监测对照最终p90 J | <!-- claim:joint_rollout_monitor_p90 -->2.314045<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_gated_p90` | Joint-risk gate final p90 J / 联合风险门最终p90 J | <!-- claim:joint_rollout_gated_p90 -->3.416603<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_monitor_sims` | Matched monitor operating simulations / 配对监测对照运行仿真数 | <!-- claim:joint_rollout_monitor_sims -->21498.000000<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_gated_sims` | Joint-risk gate operating simulations / 联合风险门运行仿真数 | <!-- claim:joint_rollout_gated_sims -->1644.000000<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
+| `joint_rollout_acceptance` | All preregistered rollout criteria pass, 1=yes / 预注册轨迹验收全通过，1为是 | <!-- claim:joint_rollout_acceptance -->0.000000<!-- /claim --> | [research/results/joint_risk_rollout.json](../research/results/joint_risk_rollout.json) |
 
 未测项目包括训练种子重复、完整数据学习曲线、多问题扩展、广泛托管模型对比、
 运行中域变化及机器人、医疗、MCU/FPGA实物验证；不推断这些项目已成功。

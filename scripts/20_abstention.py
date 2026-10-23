@@ -10,7 +10,7 @@ from pathlib import Path
 import numpy as np
 from jev_tune.decision import load_backend
 from jev_tune.decode import DEFAULT_ABSTAIN, AbstainPolicy
-from jev_tune.evaluate import evaluate_head
+from jev_tune.evaluate import HARM_METRIC, evaluate_head
 from jev_tune.plants import HELDOUT_FAMILIES, sample_plants, ultimate_gain
 from _experiment_protocol import conformal_evidence_lines, manifest
 
@@ -70,6 +70,9 @@ def _summary(rows, policy):
         'average_set_size': mean('average_set_size'),
         'conformal_hold_axis_rate': mean('conformal_hold_axis_rate'),
         'harmful_rate': mean('harmful_rate'), 'ece': mean('ece'),
+        'harmful_gt_2pct_rate': mean('harmful_gt_2pct_rate'),
+        'n_harmful': sum(r['n_harmful'] for r in selected),
+        'n_harmful_gt_2pct': sum(r['n_harmful_gt_2pct'] for r in selected),
         'mean_experiments': mean('mean_experiments'),
         'p90_mean': mean('p90'),
         'rollbacks': sum(r['rollbacks'] for r in selected),
@@ -117,6 +120,7 @@ def main():
         print(f"[validate {d['seed']}] off={off['median']:.4f} threshold={on['median']:.4f} random={random['median']:.4f}", flush=True)
         print(f"[validate {d['seed']}] CP={cp['median']:.4f} CP-random={cp_random['median']:.4f}", flush=True)
     payload = {'plants_per_draw': args.plants, 'draws': [d['seed'] for d in draws],
+        'harm_metric': dict(HARM_METRIC),
         'calibration_evidence': json.loads((Path(args.models)/'calibration.json').read_text(encoding='utf-8')),
         'sweep_draw_seed': draws[0]['seed'], 'validation_draw_seeds': [d['seed'] for d in draws[1:]],
         'selection_rule': 'lowest selection median among policies with joint action coverage >=0.50',
@@ -136,6 +140,8 @@ def _fmt(x):
 
 
 def _doc(p):
+    if p.get('harm_metric', {}).get('version') != HARM_METRIC['version']:
+        raise ValueError('rerun E2: historical harmful_rate used the >2% definition')
     lines = ['# Explicit abstention: independent validation and random hold', '',
              '> [English](#english) · [简体中文](#简体中文)', '']
     for zh in (False, True):
@@ -149,22 +155,22 @@ def _doc(p):
              if zh else f"The shipped default is Temperature+CP monitor without a CP veto or pmax threshold. temperature_CP preserves historical hard_hold repetitions; CP_hold_stop stops no-action repeats. tau_act={p['legacy_tau_act']} is a legacy control; selecting a candidate here does not change production. The threshold sweep and its random control disable CP; separate rows compare CP and matched random holds."), '',
         ]
         lines += conformal_evidence_lines(p.get('calibration_evidence', {}), zh=zh)
-        lines += ['| selection tau | coverage | median J | p90 | harmful | ECE |',
-            '| ---: | ---: | ---: | ---: | ---: | ---: |']
+        lines += ['| selection tau | coverage | median J | p90 | harm >0 | legacy harm >2% | ECE |',
+            '| ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
         for r in p['sweep']:
-            lines.append(f"| {r['tau_act']} | {_fmt(r['coverage'])} | {_fmt(r['median'])} | {_fmt(r['p90'])} | {_fmt(r.get('harmful_rate'))} | {_fmt(r.get('ece'))} |")
-        lines += ['', ('| 验证策略 | 中位 J 均值 ± 标准差 | p90均值 | 提案覆盖率 | 已测转移覆盖率 | 已测轴覆盖率 | 有害步 | ECE | 实际实验次数 | 回滚 |'
-                      if zh else '| validation policy | median J mean ± std | p90 mean | proposal coverage | measured transition coverage | measured axis coverage | harmful | ECE | actual experiments | rollbacks |'),
-                  '| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
+            lines.append(f"| {r['tau_act']} | {_fmt(r['coverage'])} | {_fmt(r['median'])} | {_fmt(r['p90'])} | {_fmt(r.get('harmful_rate'))} | {_fmt(r.get('harmful_gt_2pct_rate'))} | {_fmt(r.get('ece'))} |")
+        lines += ['', ('| 验证策略 | 中位 J 均值 ± 标准差 | p90均值 | 提案覆盖率 | 已测转移覆盖率 | 已测轴覆盖率 | 有害 >0 | 旧口径有害 >2% | ECE | 实际实验次数 | 回滚 |'
+                      if zh else '| validation policy | median J mean ± std | p90 mean | proposal coverage | measured transition coverage | measured axis coverage | harm >0 | legacy harm >2% | ECE | actual experiments | rollbacks |'),
+                  '| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
         for r in p['summary']:
-            lines.append(f"| {r['policy']} | {r['median_mean']:.4f} ± {r['median_std']:.4f} | {_fmt(r['p90_mean'])} | {_fmt(r['proposal_coverage'])} | {_fmt(r['measured_transition_coverage'])} | {_fmt(r['axis_coverage'])} | {_fmt(r['harmful_rate'])} | {_fmt(r['ece'])} | {_fmt(r['mean_experiments'])} | {r['rollbacks']} |")
+            lines.append(f"| {r['policy']} | {r['median_mean']:.4f} ± {r['median_std']:.4f} | {_fmt(r['p90_mean'])} | {_fmt(r['proposal_coverage'])} | {_fmt(r['measured_transition_coverage'])} | {_fmt(r['axis_coverage'])} | {_fmt(r['harmful_rate'])} | {_fmt(r['harmful_gt_2pct_rate'])} | {_fmt(r['ece'])} | {_fmt(r['mean_experiments'])} | {r['rollbacks']} |")
         stopped = next(r for r in p['summary'] if r['policy'] == 'CP_hold_stop')
         lines += ['', (
             f"提案覆盖率的分母包含终止提案；已测转移覆盖率（JSON的coverage别名）仅统计后续确有测量的策略决策，不含回滚。两者均以至少一轴获准为分子。覆盖率取各轮均值，计数为各轮合计。CP_hold_stop有{stopped['n_proposals']}个提案、{stopped['n_measured_policy_transitions']}个已测策略转移：全轴保持后的终止提案被排除在已测分母之外，所以已测覆盖率{stopped['measured_transition_coverage']:.4f}不表示没有弃权；其提案覆盖率为{stopped['proposal_coverage']:.4f}。"
             if zh else f"Proposal coverage includes terminal proposals in its denominator; measured transition coverage (the JSON coverage alias) includes only policy decisions followed by an actual measurement, excluding rollbacks. Both count at least one permitted axis. Rates are means across draws and counts are totals. CP_hold_stop has {stopped['n_proposals']} proposals and {stopped['n_measured_policy_transitions']} measured policy transitions. Fully held terminal proposals are excluded from the measured denominator, so its measured coverage {stopped['measured_transition_coverage']:.4f} does not mean abstention is absent; proposal coverage is {stopped['proposal_coverage']:.4f}."), '']
         lines += ['', (
-            '随机对照打乱三轴保持mask，保留预定mask频率，不使用代价标签；它是覆盖匹配诊断，不是部署策略。回滚可能改变实际事件数，表中另报实际覆盖率。coverage是至少一轴获准的整步比例；harmful统计执行后代价增加超过2%的转移。ECE用三轴平均pmax与整步改善作描述性比较，不将它当已验证的联合成功概率。每种策略仅一个训练检查点；结果不是安全保证。'
-            if zh else 'The random control shuffles whole three-axis hold masks without outcome labels. It preserves scheduled mask frequencies and is a matched-coverage diagnostic, not a deployment rule. Rollbacks may change actual event counts; measured coverage is reported. Coverage counts steps with at least one permitted axis. Harm means a >2% cost increase after execution. ECE descriptively compares mean axis pmax with joint improvement; it does not establish a calibrated joint success probability. Each policy uses one trained checkpoint; these results do not establish safety.'), '']
+            '随机对照打乱三轴保持mask，保留预定mask频率，不使用代价标签；它是覆盖匹配诊断，不是部署策略。回滚可能改变实际事件数，表中另报实际覆盖率。主有害口径为严格after > before，零容差；旧口径保留after > 1.02 × before，供v0.6比较。两种有害率均以至少一轴获准且实际测量的策略决策为分母，排除回滚和终止提案，不是无条件联合风险保证。ECE用三轴平均pmax与整步改善作描述性比较，不将它当已验证的联合成功概率。每种策略仅一个训练检查点；结果不是安全保证。'
+            if zh else 'The random control shuffles whole three-axis hold masks without outcome labels. It preserves scheduled mask frequencies and is a matched-coverage diagnostic, not a deployment rule. Rollbacks may change actual event counts; measured coverage is reported. Canonical harm uses strict after > before with zero tolerance; legacy harm >2% retains after > 1.02 × before for comparison with v0.6. Both rates condition on measured policy decisions with at least one permitted axis, excluding rollbacks and terminal proposals; they are not unconditional joint-risk guarantees. ECE descriptively compares mean axis pmax with joint improvement; it does not establish a calibrated joint success probability. Each policy uses one trained checkpoint; these results do not establish safety.'), '']
     return '\n'.join(lines)
 
 

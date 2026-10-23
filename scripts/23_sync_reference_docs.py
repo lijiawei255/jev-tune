@@ -15,6 +15,55 @@ check = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(check)
 
 
+ROLLOUT_CLAIMS = {
+    'joint_rollout_n': ('evaluation.gated.n_plants', 'Independent rollout test plants / 独立轨迹测试对象数'),
+    'joint_rollout_any_harm': ('evaluation.gated.trajectory_harm.events', 'Gated trajectories with any harmful execution / 门控轨迹至少一次有害执行数'),
+    'joint_rollout_risk_upper': ('evaluation.gated.trajectory_harm.upper', 'Gated trajectory risk: exact one-sided upper bound / 门控轨迹风险精确单侧上界'),
+    'joint_rollout_first_lower': ('evaluation.gated.first_stage_execution.lower', 'First-stage execution: exact one-sided lower bound / 首步执行率精确单侧下界'),
+    'joint_rollout_monitor_mean': ('evaluation.monitor.final_cost.mean', 'Matched monitor final mean J / 配对监测对照最终平均J'),
+    'joint_rollout_gated_mean': ('evaluation.gated.final_cost.mean', 'Joint-risk gate final mean J / 联合风险门最终平均J'),
+    'joint_rollout_monitor_p90': ('evaluation.monitor.final_cost.p90', 'Matched monitor final p90 J / 配对监测对照最终p90 J'),
+    'joint_rollout_gated_p90': ('evaluation.gated.final_cost.p90', 'Joint-risk gate final p90 J / 联合风险门最终p90 J'),
+    'joint_rollout_monitor_sims': ('evaluation.monitor.simulation_counts.operating', 'Matched monitor operating simulations / 配对监测对照运行仿真数'),
+    'joint_rollout_gated_sims': ('evaluation.gated.simulation_counts.operating', 'Joint-risk gate operating simulations / 联合风险门运行仿真数'),
+    'joint_rollout_acceptance': ('acceptance.passed', 'All preregistered rollout criteria pass, 1=yes / 预注册轨迹验收全通过，1为是'),
+}
+ROLLOUT_README_IDS = {'joint_rollout_n', 'joint_rollout_any_harm', 'joint_rollout_risk_upper',
+                      'joint_rollout_first_lower',
+                      'joint_rollout_monitor_mean', 'joint_rollout_gated_mean',
+                      'joint_rollout_monitor_p90', 'joint_rollout_gated_p90'}
+
+
+def rollout_readme_section(payload, chinese=False):
+    def mark(key):
+        value = check.walk(payload, ROLLOUT_CLAIMS[key][0])
+        fmt = '.0f' if key in {'joint_rollout_n', 'joint_rollout_any_harm'} else '.6f'
+        return f"<!-- claim:{key} -->{check.render_value(value,fmt)}<!-- /claim -->"
+    n, harmful, upper = (mark(key) for key in ('joint_rollout_n', 'joint_rollout_any_harm', 'joint_rollout_risk_upper'))
+    gm, mm = (mark(key) for key in ('joint_rollout_gated_mean', 'joint_rollout_monitor_mean'))
+    gp, mp = (mark(key) for key in ('joint_rollout_gated_p90', 'joint_rollout_monitor_p90'))
+    lower = mark('joint_rollout_first_lower')
+    required = payload['protocol']['specification']['acceptance']['first_stage_execution_lower_min']
+    passed = payload['acceptance']['passed']
+    if chinese:
+        status = '通过' if passed else '未通过'
+        body = (f"**联合动作风险的多轮验收：{status}。** 冻结协议在{n}个独立测试对象上，"
+                f"门控策略有{harmful}条轨迹至少一次有害执行；概率的单侧95%精确上界为{upper}。"
+                f"门控/配对monitor对照的最终平均J为{gm}/{mm}，p90为{gp}/{mp}。"
+                f"首步执行率的单侧95%下界为{lower}，预注册最低要求为{required:.2f}。"
+                "全部判据、逐步独立校准、原始轨迹与适用范围见[联合风险多轮研究](docs/JOINT_RISK_ROLLOUT.md)。"
+                "此结果不把联合风险门默认接入通用Python、C或MATLAB部署；失败判据不会通过改阈值掩盖。")
+    else:
+        status = 'passed' if passed else 'not passed'
+        body = (f"**Joint-action risk rollout acceptance: {status}.** On {n} independent test plants under the frozen protocol, "
+                f"{harmful} gated trajectories contained a harmful execution; the exact one-sided 95% probability upper bound is {upper}. "
+                f"Gated/matched-monitor final mean J is {gm}/{mm}, and p90 is {gp}/{mp}. "
+                f"The one-sided 95% lower bound for first-stage execution is {lower}; its preregistered minimum is {required:.2f}. "
+                "See [JOINT_RISK_ROLLOUT](docs/JOINT_RISK_ROLLOUT.md) for every criterion, independent stage calibration, raw trajectories and scope. "
+                "This does not enable a joint-risk gate by default in general Python, C or MATLAB deployment; failed criteria are not hidden by retuning thresholds.")
+    return '<!-- joint-risk-rollout:start -->\n' + body + '\n<!-- joint-risk-rollout:end -->'
+
+
 def conformal_document(write=True):
     blob=json.loads((ROOT/'models/calibration.json').read_text(encoding='utf-8'))
     cp=blob['split_conformal']
@@ -92,6 +141,30 @@ calibration-only adaptation experiment explicitly disable CP, rather than reuse
 an invalid guarantee. Current control costs and tails are in ABLATION/BENCHMARK;
 prediction-set coverage is a different quantity from executed-action coverage.
 
+The actual-action target is separate from these teacher labels.
+[JOINT_RISK](JOINT_RISK.md) records the initial-state study;
+[JOINT_RISK_ROLLOUT](JOINT_RISK_ROLLOUT.md) records a new finite-horizon protocol.
+That protocol freezes the risk model and temperature, uses new independent
+calibration plants at each step under the frozen prefix, and allocates a fixed
+trajectory error budget across steps. It does not pool correlated states from
+one trajectory as IID calibration examples. Only the complete assessed action
+can be admitted; altered actions and rollback proposals do not inherit its label.
+Insufficient reached calibration samples use the conservative all-label set.
+
+A valid stepwise inclusion argument plus the union bound controls whether any
+assessed action is executed harmfully within the registered horizon, over
+calibration and fresh-trajectory randomness. The final test's exact one-sided
+binomial limit instead evaluates the fixed resulting policy. Neither statement
+is a bound on the harmful fraction conditional on acceptance, a requirement that
+every finite test achieve nominal coverage, or a physical safety certificate.
+The registered cost, activity and simulation-count criteria must also pass;
+the results and the restricted deployment decision are reported without tuning
+the protocol after seeing test outcomes.
+Here a harmful event means a trial-cost increase with zero tolerance. It is not
+an instability rate or the probability of returning worse gains: the returned
+gains always come from measured operating history. Suppressing exploration by
+stopping early can lower event frequency while worsening final cost.
+
 ## 简体中文
 
 冻结权重后，使用三个新生成、互不相交的IID模拟对象样本：温度拟合、CP分位数拟合、
@@ -114,6 +187,20 @@ alpha与集合大小上限是固定配置，不按测试代价调参；默认mon
 此处校准分布是初态，不是自适应轨迹；专家动作标签也不是稳定性或临床结局。
 理论出处见上方一手教程与讲义。改权重或T后需独立重拟CP；专门化和小样本温度适配实验显式关闭CP，
 不沿用失效保证。控制代价及尾部风险见ABLATION/BENCHMARK，集合覆盖率与实际动作执行率分别报告。
+
+实际动作的风险目标与上述专家标签分开。[JOINT_RISK](JOINT_RISK.md)记录初态研究，
+[JOINT_RISK_ROLLOUT](JOINT_RISK_ROLLOUT.md)记录新的有限步协议：冻结风险模型与温度，
+每步在固定前缀策略下用新独立对象校准，并在各步分配固定轨迹错误预算。
+不能将同一轨迹内相关状态混成IID校准样本。只允许执行整组已评价动作；修改动作或另作回滚
+不继承原标签保证。到达该步的校准样本不足时采用全标签集合保守保持。
+
+在逐步包含关系与交换性成立时，通过并集界约束注册时域内任一已评价动作被有害执行的概率，
+该界对校准与新轨迹抽样取边际。最终测试的精确单侧二项上界则验收已经固定的策略。
+两者均不等于获准子集中的条件有害率界，不要求每个有限测试样本恰达名义覆盖，更不是物理安全证书。
+预注册的代价、活动率与仿真计数条件也须分别满足；按原协议报告结果与受限部署结论，
+不在看到测试结果后改协议。
+此处有害事件是零容差下的试验代价上升，不是失稳率或返回更差增益的概率：返回增益始终来自
+真实操作历史中的最优测量。提前停止会减少探索，也可能在压低事件频率的同时损害最终代价。
 '''
     body=body.replace('The third axis\'s empirical result', comparison+'\nThe third axis\'s empirical result')
     cp_row=next(r for r in ablation['rows'] if r['variant']=='C3_temperature_CP')
@@ -191,6 +278,15 @@ def evidence_documents():
             if notice.strip() not in s:
                 s = s.replace("# jev-tune\n", "# jev-tune\n" + notice, 1)
         s = re.sub(r'\[!\[decision latency\].*?\n', '[![measured latency](https://img.shields.io/badge/latency-host%20measured-blue)](docs/COMPUTE.md)\n', s)
+        rollout_path = ROOT / 'research/results/joint_risk_rollout.json'
+        if rollout_path.is_file():
+            section = rollout_readme_section(json.loads(rollout_path.read_text(encoding='utf-8')), chinese)
+            if '<!-- joint-risk-rollout:start -->' in s:
+                s = re.sub(r'<!-- joint-risk-rollout:start -->.*?<!-- joint-risk-rollout:end -->',
+                           lambda _: section, s, flags=re.S)
+            else:
+                anchor = '## 15 秒看懂' if chinese else '## The 15-second version'
+                s = s.replace(anchor, section+'\n\n'+anchor, 1)
         path.write_text(s, encoding="utf-8")
 
     # Replace both obsolete robustness tables with generated current evidence.
@@ -226,6 +322,13 @@ def evidence_documents():
 def main():
     path = ROOT / "docs/claims.json"
     registry = json.loads(path.read_text(encoding="utf-8"))
+    if (ROOT / 'research/results/joint_risk_rollout.json').is_file():
+        existing = {claim['id'] for claim in registry['claims']}
+        for identifier, (source_path, label) in ROLLOUT_CLAIMS.items():
+            if identifier not in existing:
+                registry['claims'].append({'id':identifier, 'label':label,
+                    'source':'research/results/joint_risk_rollout.json', 'path':source_path,
+                    'reproduce':'python scripts/29_joint_risk_rollout.py'})
     conformal_document()
     registry["note"] = (
         "Registered current artifact values and explicitly linked prose only; not every number in historical documents. "
@@ -257,6 +360,9 @@ def main():
             claim["documents"] = [{"file": "docs/CLAIMS.md", "format": ".6f"}]
             if claim["id"] in {"decision_ms", "typed_decision_ms", "typed_decision_p99_ms"}:
                 claim["documents"] += [{"file": name, "format": ".3f"} for name in ("README.md", "README.zh-CN.md")]
+            if claim['id'] in ROLLOUT_README_IDS:
+                fmt = '.0f' if claim['id'] in {'joint_rollout_n', 'joint_rollout_any_harm'} else '.6f'
+                claim['documents'] += [{'file':name, 'format':fmt} for name in ('README.md','README.zh-CN.md')]
             if claim["id"].startswith(("cp_qhat_", "cp_coverage_", "cp_set_size_", "temperature_")) or claim["id"] in {"abl_regression_head","uncalibrated_median","abl_typed_vs_regression","cp_monitor_median","cp_hold_stop_median"}:
                 claim["documents"].append({"file": "docs/CONFORMAL.md", "format": ".6f"})
             value = f"<!-- claim:{claim['id']} -->{check.render_value(got,'.6f')}<!-- /claim -->"

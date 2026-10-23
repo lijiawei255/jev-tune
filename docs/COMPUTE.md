@@ -14,8 +14,8 @@ claimed**: nothing here was run on a board.
 | parameters, built-in (unused) value head | 8,513 |
 | parameters, separate `value_net.pt` (lookahead, off by default) | 5,761 |
 | multiply-accumulates per decision | 83,584 |
-| ONNX forward, p50 / p95 / p99 | 0.025 / 0.029 / 0.039 ms |
-| complete typed decision, p50 / p95 / p99 | 0.303 / 0.402 / 0.760 ms |
+| ONNX forward, p50 / p95 / p99 | 0.024 / 0.035 / 0.083 ms |
+| complete typed decision, p50 / p95 / p99 | 0.313 / 0.526 / 0.709 ms |
 | ONNX file | 164.1 KB |
 | C99 host read-only footprint (code 5.4 KB + read-only data 159.3 KB + metadata, `-Os`) | 165.3 KB |
 | C99 static RAM (`.data` + `.bss`) | 0 B |
@@ -37,7 +37,7 @@ the trunk and the five heads. Batch 1, one forward pass.
 
 ### What this does and does not support
 
-* Measured default TS+CP decision p50 / p99: 0.303 / 0.760 ms, including conformal masks and would-hold diagnostics. These are percentiles, not WCET.
+* Measured default TS+CP decision p50 / p99: 0.313 / 0.709 ms, including conformal masks and would-hold diagnostics. These are percentiles, not WCET.
 * It does **not** support: "runs on chip X". Static footprint from a host
   `gcc -Os` object is not a linker map for your target, and feature
   extraction plus the trace capture are usually the real cost.
@@ -60,8 +60,8 @@ the trunk and the five heads. Batch 1, one forward pass.
 | 参数量（内置但未使用的前瞻头） | 8,513 |
 | 参数量（独立 `value_net.pt`，默认关闭） | 5,761 |
 | 单次决策乘加数（MACs） | 83,584 |
-| ONNX 前向 p50 / p95 / p99 | 0.025 / 0.029 / 0.039 ms |
-| 完整类型化决策 p50 / p95 / p99 | 0.303 / 0.402 / 0.760 ms |
+| ONNX 前向 p50 / p95 / p99 | 0.024 / 0.035 / 0.083 ms |
+| 完整类型化决策 p50 / p95 / p99 | 0.313 / 0.526 / 0.709 ms |
 | ONNX 文件 | 164.1 KB |
 | C99 宿主只读占用（代码 5.4 KB + 只读数据 159.3 KB + 元数据，`-Os`） | 165.3 KB |
 | C99 静态 RAM（`.data` + `.bss`） | 0 B |
@@ -82,7 +82,7 @@ trunk 与五个头。批大小 1，一次前向。
 
 ### 这些数字支持什么、不支持什么
 
-* 默认TS+CP决策路径（含集合构建与would_hold诊断）实测 p50 / p99：0.303 / 0.760 ms。这是分位延迟，不是最坏执行时间保证。
+* 默认TS+CP决策路径（含集合构建与would_hold诊断）实测 p50 / p99：0.313 / 0.709 ms。这是分位延迟，不是最坏执行时间保证。
 * **不支持**「能在某款芯片上跑」：主机 `gcc -Os` 的目标文件不等于你目标板的链接
   映射；而且真正的成本通常是特征提取与波形采集。
 * 静态 RAM 不含栈与调用者缓冲区。自身栈帧不含嵌套调用、libm 与运行时，不等于峰值栈。

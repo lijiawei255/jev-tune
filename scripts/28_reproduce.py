@@ -25,8 +25,11 @@ COMMANDS = [
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--resume', action='store_true', help='keep successful runs and retry failed/incomplete commands')
+    parser.add_argument('--label', default='v070', help='local log directory label; does not change experiment parameters')
     args_cli = parser.parse_args()
-    logdir = ROOT / '.local-audit/reproduce_v060'
+    if not args_cli.label.replace('_','').replace('-','').isalnum():
+        raise SystemExit('log label must be alphanumeric')
+    logdir = ROOT / '.local-audit' / ('reproduce_' + args_cli.label)
     logdir.mkdir(parents=True, exist_ok=True)
     record = {'protocol': 'research/protocols/cp_decoupling.json', 'runs': []}
     destination = ROOT / 'research/results/reproduction.json'
