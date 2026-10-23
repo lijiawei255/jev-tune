@@ -68,7 +68,7 @@ def test_actual_early_stop_does_not_change_a_continuing_plants_sensor_noise():
     p = replace(noisy().take(np.array([0, 0])), noise_seed=np.array([71, 93]))
     gains = np.tile([1.6, .8, .02], (2, 1))
     result = evaluate_head(HoldAndStopFirst(), p, gains, np.ones(2), np.ones(2),
-                           budget=3, early_stop=True)
+                           budget=3, early_stop=True, stop_on_no_action=False)
     assert result.actual_simulations.tolist() == [1, 3]
     np.testing.assert_array_equal(result.trajectory["gains"][1], np.tile(gains[1], (3, 1)))
     np.testing.assert_array_equal(result.trajectory["cost"][1], np.repeat(result.trajectory["cost"][1, 0], 3))
@@ -82,3 +82,16 @@ def test_noisy_cma_returned_winner_cost_is_reproducible_outside_candidate_batch(
     response = simulate(p, result.gains)
     measured = cost_from_metrics(response["metrics"], y_curve=response["y_curve"])
     np.testing.assert_allclose(result.best_j, measured, rtol=0, atol=1e-12)
+
+
+def test_zero_action_stops_without_repeating_a_fixed_sensor_noise_realization():
+    p = noisy()
+    gains = np.array([[1.6, .8, .02]])
+    result = evaluate_head(HoldAndStopFirst(), p, gains, np.ones(1), np.ones(1), budget=4)
+    assert result.actual_simulations.tolist() == [1]
+    assert result.stop_reason.tolist() == ["no_action"]
+    assert result.decisions["decision_valid"].tolist() == [[True, False, False]]
+    assert not result.decisions["valid"].any()
+    response = simulate(p, result.gains)
+    j = cost_from_metrics(response["metrics"], y_curve=response["y_curve"])
+    np.testing.assert_array_equal(result.best_j, j)

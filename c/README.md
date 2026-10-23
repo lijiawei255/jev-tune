@@ -36,14 +36,14 @@ checkpoint, configuration, source-vector and exported-weight hashes.
 | `jev_head.h`, `jev_head.c` | forward, probabilities, decoder, abstention, rollback predicate, gain update, features/resampling |
 | `jev_head_weights.h` | generated float32 weights; do not edit |
 | `jev_config.h` | generated default temperatures, conformal quantiles/policy and checkpoint SHA-256 |
-| `test_vectors.json` | schema version 3: checkpoint hash, vocabulary/deltas, temperatures, conformal configuration, legacy thresholds, bounds, shrink, all outputs and policy cases |
+| `test_vectors.json` | schema version 4: checkpoint hash, vocabulary/deltas, temperatures, conformal configuration, legacy thresholds, bounds, shrink, all outputs and policy cases |
 | `test_vectors.h`, `test_features.h`, `test_policy.h` | generated C representations of that JSON |
 | `test_forward.c` | all Choice/Score/Noul logits/probabilities, proposed/step, conformal sets/sizes, held/escalate/reason |
 | `test_features.c` | 20 features, 2×64 curves, resampling |
 | `test_policy.c` | threshold boundaries, partial holds, confident no-change, Noul veto, early-stop, rollback and gain limits |
 
 The current fixture suite contains 24 model states, 6 feature cases, 3 resampling
-cases, 17 policy cases, 6 rollback cases and 3 gain-update cases. Comparisons reject
+cases, 27 policy cases, 6 rollback cases and 3 gain-update cases. Comparisons reject
 non-finite expected or actual values. A model passing numeric fixtures does not
 prove correct handling of every possible fault or operating environment.
 
@@ -60,7 +60,7 @@ jev_policy policy = {JEV_DEFAULT_POLICY[0], JEV_DEFAULT_POLICY[1],
                      JEV_DEFAULT_POLICY[2]};
 jev_conformal cp = {JEV_DEFAULT_CP_ENABLED,
                     {JEV_DEFAULT_CP_QHAT[0], JEV_DEFAULT_CP_QHAT[1],
-                     JEV_DEFAULT_CP_QHAT[2]}, JEV_DEFAULT_CP_K_MAX};
+                     JEV_DEFAULT_CP_QHAT[2]}, JEV_DEFAULT_CP_K_MAX, JEV_DEFAULT_CP_MODE};
 int escalations = 0;
 jev_forward(&s, &logits);
 jev_answer(&logits, JEV_DEFAULT_TEMPERATURE, &probabilities);
@@ -74,12 +74,13 @@ were vetoed. A confident ×1 choice has a zero step and is **not** abstention.
 `reason` values match Python: 0 act, 1 legacy low confidence, 2 legacy escalation,
 3 Noul veto, 4 empty conformal set, 5 set larger than `k_max`, 6 both positive
 and negative gain steps in the set. Noul takes precedence over CP, then legacy
-thresholds. An escalation is a flag for the caller, not an implemented supervisor.
+thresholds. An escalation is a flag for the caller, not an implemented supervisor. Invalid CP configuration returns -1 and holds every axis with reason7 (Noul reason3 takes precedence); valid calls return0.
 
 The default is temperature scaling plus split-conformal prediction sets,
-with alpha=0.10 and `k_max=3`. Membership uses `(1-p) <= qhat`, equivalent to
-`p >= 1-qhat`, including equality. Empty, oversized or contradictory sets hold
-that axis and flag escalation. `proposed` always uses the full calibrated
+in monitor mode (zero-initialized mode), with alpha=0.10 and `k_max=3`. Membership uses `(1-p) <= qhat`, equivalent to
+`p >= 1-qhat`, including equality. Complete sets and `conformal_would_hold`/`conformal_reason`
+are reported independently of actuation. Only explicit `JEV_CP_HARD_HOLD`
+holds empty, oversized or contradictory axes and flags escalation. `proposed` always uses the full calibrated
 distribution; CP never truncates or renormalizes it. Default legacy p_max and
 Noul thresholds are zero; explicit callers may still layer them on top.
 `qhat` is binary64 even though model weights and activations are binary32:
@@ -135,13 +136,13 @@ hash and whether hardware was tested. There are no registered community ports.
 | `jev_head.h`、`jev_head.c` | 前向、概率、解码、弃权、回滚判据、增益更新、特征与重采样 |
 | `jev_head_weights.h` | 生成的float32权重，不得手改 |
 | `jev_config.h` | 生成的默认温度、conformal分位数/策略与checkpoint SHA-256 |
-| `test_vectors.json` | schema v3：模型hash、词表/步长、温度、CP配置、旧阈值、限幅、缩步与全部期望输出/策略用例 |
+| `test_vectors.json` | schema v4：模型hash、词表/步长、温度、CP配置、旧阈值、限幅、缩步与全部期望输出/策略用例 |
 | 三个测试`.h`文件 | 与JSON同源生成的C数组 |
 | `test_forward.c` | Choice/Score/Noul各头logits/概率，以及proposed/step、CP集合/大小、held、escalate、reason |
 | `test_features.c` | 20个特征、2×64曲线与重采样 |
 | `test_policy.c` | 阈值边界、部分保持、主动不变、Noul否决、早停、回滚、增益限幅 |
 
-当前有24个模型状态、6个特征用例、3个重采样用例、17个策略用例、6个回滚用例和3个
+当前有24个模型状态、6个特征用例、3个重采样用例、27个策略用例、6个回滚用例和3个
 增益更新用例。期望值或实测值非有限都会失败；通过这些用例仍不等于覆盖所有故障与工况。
 
 ### 调用语义
@@ -149,11 +150,11 @@ hash and whether hardware was tested. There are no registered community ports.
 调用顺序见英文部分代码。`axis_held[a]`表示策略否决第a轴；`held`仅在所有轴均被否决
 时为真。高把握度主动选择×1时步长为0，但不是弃权。`reason`与Python一致：0执行、
 1旧把握度阈值、2旧升级标志、3 Noul否决、4 CP集合为空、5集合超过k_max、6集合同时
-包含正负增益步长。原因优先级为Noul、CP、旧阈值。升级只是供调用者处理的标志，没有上层接管器。
+包含正负增益步长。原因优先级为Noul、CP、旧阈值。升级只是供调用者处理的标志，没有上层接管器。无效CP配置返回-1并保持全部轴，reason7（Noul的reason3优先）；有效调用返回0。
 
-默认使用温度缩放加split-conformal集合，alpha=0.10、k_max=3。成员规则为
-`(1-p) <= qhat`，数学上等价于`p >= 1-qhat`，含等号。空集合、过大集合或正负方向
-冲突均保持该轴并标记升级。`proposed`仍由完整校准分布计算；CP不截断、不重新归一化。
+默认使用温度缩放加完整split-conformal集合的monitor模式（mode零初始化），alpha=0.10、k_max=3。成员规则为
+`(1-p) <= qhat`，数学上等价于`p >= 1-qhat`，含等号。完整集合及conformal_would_hold/conformal_reason
+独立于执行记录；仅显式JEV_CP_HARD_HOLD在空集、过宽或方向冲突时保持该轴并升级。`proposed`仍由完整校准分布计算；CP不截断、不重新归一化。
 旧p_max与Noul阈值默认均为0，显式调用者可叠加旧策略。模型权重和激活为binary32，
 但qhat保留binary64：接近1的分位数若舍入成float32的1，会错误地将所有选项纳入集合。
 
@@ -178,3 +179,7 @@ int8实验将权重取整后反量化，仍使用float32内核，并会改变部
 [迁移边界](../docs/TRANSFER.md)。
 
 社区移植可登记语言/平台、维护者、向量schema/模型hash及是否实测硬件；目前没有登记项目。
+
+Real MATLAB measurement-accounting regression: `python scripts/24_verify_matlab_runtime.py`; evidence in `research/results/matlab_runtime.json`.
+
+MATLAB真实测量计账回归：`python scripts/24_verify_matlab_runtime.py`，证据见`research/results/matlab_runtime.json`。

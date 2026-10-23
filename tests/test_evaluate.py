@@ -91,10 +91,11 @@ def test_history_is_monotone_and_ends_at_best_j():
     assert np.allclose(r.history[:, -1], r.best_j)
 
 
-def test_budget_is_spent_exactly_once_per_plant():
+def test_historical_repeat_mode_spends_full_budget_per_plant():
     plants = _plants(3)
     gzn, ku, tu = _gnz(plants)
-    r = evaluate_head(_Stub(), plants, gzn, ku, tu, budget=7, seed=0)
+    r = evaluate_head(_Stub(), plants, gzn, ku, tu, budget=7, seed=0,
+                      stop_on_no_action=False)
     assert r.budget == 7
     assert r.eval_axis.tolist() == list(range(1, 8))
     assert r.sims_per_plant == 7.0
@@ -118,6 +119,7 @@ def test_early_stop_fires_only_in_the_best_band():
         tu,
         budget=10,
         early_stop=True,
+        stop_on_no_action=False,
         seed=0,
     )
     lo = evaluate_head(
@@ -128,6 +130,7 @@ def test_early_stop_fires_only_in_the_best_band():
         tu,
         budget=10,
         early_stop=True,
+        stop_on_no_action=False,
         seed=0,
     )
     off = evaluate_head(
@@ -138,6 +141,7 @@ def test_early_stop_fires_only_in_the_best_band():
         tu,
         budget=10,
         early_stop=False,
+        stop_on_no_action=False,
         seed=0,
     )
     assert np.all(hi.stop_iter == 1), (
@@ -213,7 +217,9 @@ def test_abstention_holds_when_confidence_is_low():
     assert np.array_equal(r.gains, gzn), "every axis must be held at the start gains"
     report = r.decision_report()
     assert report["coverage"] == 0.0
-    assert report["abstain_rate"] == 1.0
+    assert report["proposal_coverage"] == 0.0
+    assert report["n_proposals"] == plants.n
+    assert r.actual_simulations.tolist() == [1] * plants.n
 
 
 def test_abstention_executes_when_confidence_is_high():
@@ -232,8 +238,11 @@ def test_abstention_executes_when_confidence_is_high():
         abstain=AbstainPolicy(tau_act=0.6),
     )
     report = r.decision_report()
-    assert report["coverage"] == 1.0
-    assert report["abstain_rate"] == 0.0
+    assert report["proposal_coverage"] == 1.0
+    assert report["n_proposals"] == plants.n
+    assert report["n_actions"] == 0
+    assert not r.decisions["axis_held"][:, 0].any()
+    assert r.stop_reason.tolist() == ["no_action"] * plants.n
 
 
 def test_default_loop_abstains_on_a_low_confidence_backend():
@@ -243,7 +252,9 @@ def test_default_loop_abstains_on_a_low_confidence_backend():
     # p_max = 1/7, so every axis is held
     r = evaluate_head(_Stub(), plants, gzn, ku, tu, budget=6, seed=0)
     assert np.array_equal(r.gains, gzn), "the default policy must hold when unsure"
-    assert r.decision_report()["abstain_rate"] == 1.0
+    assert r.decision_report()["proposal_coverage"] == 0.0
+    assert r.decision_report()["n_proposals"] == plants.n
+    assert r.actual_simulations.tolist() == [1] * plants.n
 
 
 def test_abstention_can_be_disabled_explicitly():

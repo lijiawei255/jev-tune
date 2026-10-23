@@ -341,7 +341,7 @@ def _markdown(payload: dict, args) -> str:
         f"--budget {payload['budget_per_plant']}"
         f"{(' --family ' + args.family) if args.family else ''}` on {date.today().isoformat()}.",
         "Iterative methods share a maximum budget; one-shot methods report their actual simulations.",
-        "Both head rows use temperature scaling plus split CP, without the legacy pmax threshold. CP label-set coverage is not a guarantee of closed-loop improvement or safety.",
+        "Both head rows use temperature scaling plus split CP monitor (no CP veto), without the legacy pmax threshold. CP label-set coverage is not a guarantee of closed-loop improvement or safety.",
         "",
         f"* plants: {payload['n_plants']}, families {payload['families']}, "
         f"heldout={payload['heldout']}",
@@ -390,7 +390,7 @@ def _markdown(payload: dict, args) -> str:
         f"由上面的命令生成。对象数{payload['n_plants']}，族{payload['families']}，"
         f"角色为`{payload['evaluation_role']}`。迭代方法最多使用{payload['budget_per_plant']}次实验，"
         "包含实际评估的共同起点；一次性方法按表中实际次数计费，不能说每种方法都恰好20次。",
-        "两个head行均使用温度缩放与Split CP，不叠加旧pmax阈值。CP标签集合覆盖不等于闭环改善或安全保证。",
+        "两个head行均使用温度缩放与Split CP monitor（不按集合否决），不叠加旧pmax阈值。CP标签集合覆盖不等于闭环改善或安全保证。",
         "",
         "表中的final J为最终返回增益对应的实测代价；success为达到参考目标的比例，"
         "sims to target只对达到目标的对象统计。CMA/BO/simplex/hill/head的共同ZN初值使用"

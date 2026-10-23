@@ -5,7 +5,7 @@
 ## English
 
 This repository supplies a reproducible PID testbed and reference components
-for typed probabilities, temperature scaling, split conformal sets, axis-wise abstention and a
+for typed probabilities, temperature scaling, split conformal sets, independent optional axis-wise abstention and a
 separate post-measurement fallback. It has not been evaluated on VLA, robots,
 neuromodulation or medical devices. Full-loop portability requires new action
 semantics, observations, objectives, data and verification.
@@ -76,7 +76,7 @@ those ideas do not confer their guarantees on this implementation.
 
 ## 简体中文
 
-本仓库提供可复现PID试验场，以及类型化概率、温度缩放、分裂CP集合、按轴弃权、独立事后回退的参考组件。
+本仓库提供可复现PID试验场，以及类型化概率、温度缩放、完整CP集合、独立可选按轴弃权、独立事后回退的参考组件。
 尚未在VLA、机器人、神经调控或医疗设备上评测。完整迁移需要重新设计动作、观测、目标、数据与验收。
 
 | 组件 | 复用边界 |
@@ -137,3 +137,17 @@ threshold was reselected to conceal it. The actual numbers are generated in
 专家标签包含率，不等于多轴联合、获准动作条件子集、自适应闭环或安全保证。改变T、权重、标签或分布后
 需要独立重校准与验证。有限留出样本的第三轴低于名义水平，未重选阈值掩盖；实际数字由
 [CONFORMAL](CONFORMAL.md)生成，代价对比见[ABLATION](ABLATION.md)。
+
+The deployment default monitors complete CP sets without changing proposals.
+This retains the original label-set inclusion statement on exchangeable inputs;
+it adds no guarantee for states reached by a changed policy. No-action stopping
+is for deterministic repeated trials, not a reason to stop physical monitoring.
+[JOINT_RISK](JOINT_RISK.md) calibrates the actual joint proposal on fresh initial
+states. Its unconditional harmful-execution bound is neither a conditional
+accepted-action risk bound nor a trajectory guarantee. The risk head is a
+research artifact, not silently enabled in Python/C/MATLAB deployment.
+
+部署默认仅监测完整集合而不修改提案。原标签包含性质在交换性输入上保留，但新策略访问的状态
+不会自动继承保证。无动作停止适用于确定性重复试验，不意味着停止物理监测。
+[JOINT_RISK](JOINT_RISK.md)用新初态样本校准实际联合提案；无条件有害执行概率界不等于
+获准动作条件风险界，也不保证整段轨迹。风险头是研究产物，不默认接入Python/C/MATLAB部署。

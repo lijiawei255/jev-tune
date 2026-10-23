@@ -126,13 +126,16 @@ def generated_documents() -> list[dict]:
     for number, artifact, doc in [("17_ablation","ablation.json","ABLATION.md"),
                                   ("20_abstention","abstention.json","ABSTENTION.md"),
                                   ("21_hardware","hardware.json","COMPUTE.md"),
-                                  ("22_calibrate_only","calibrate_only.json","CALIBRATE_ONLY.md")]:
+                                  ("22_calibrate_only","calibrate_only.json","CALIBRATE_ONLY.md"),
+                                  ("25_joint_risk","joint_risk.json","JOINT_RISK.md"),
+                                  ("26_cp_diagnosis","cp_diagnosis.json","CP_DIAGNOSIS.md")]:
         spec=importlib.util.spec_from_file_location(number, ROOT / "scripts" / (number+".py"))
         module=importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         source=f"research/results/{artifact}"
         payload=json.loads((ROOT/source).read_text(encoding="utf-8"))
-        expected=module._doc(payload).strip()
+        render = getattr(module, "_doc", None) or module.render
+        expected=render(payload).strip()
         actual=(ROOT/"docs"/doc).read_text(encoding="utf-8").strip()
         ok=expected==actual
         rows.append({"id":"generated:"+doc,"text":"Full bilingual document rendered from JSON",
@@ -151,6 +154,28 @@ def generated_documents() -> list[dict]:
     rows.append({"id":"generated:APPLICABILITY.md","text":"Bilingual robustness data and narrative",
                  "ok":ok,"value":None,"source":"research/results/robustness.json",
                  "detail":"both robustness sections match" if ok else "stale robustness table/narrative"})
+    return rows
+
+
+def decision_evidence() -> list[dict]:
+    """Check raw paired actions and monitor equivalence, not only prose."""
+    import numpy as np
+    from jev_tune.risk import risk_report, select_joint_gains
+    risk=json.loads((ROOT/'research/results/joint_risk.json').read_text(encoding='utf-8'))
+    raw=risk['per_plant']
+    report=risk_report(raw['probabilities'],raw['labels'],np.asarray(raw['prediction_set'],bool),raw['current_cost'],raw['proposed_cost'])
+    selected=select_joint_gains(raw['current_gains'],raw['proposed_gains'],np.asarray(raw['prediction_set'],bool))
+    ok=report==risk['evaluation'] and np.array_equal(selected,raw['selected_gains'])
+    ok=bool(ok and np.array_equal(np.asarray(raw['prediction_set'])[:,0]&~np.asarray(raw['prediction_set'])[:,1],raw['accepted']))
+    expected=np.where(raw['accepted'],raw['proposed_cost'],raw['current_cost'])
+    ok=bool(ok and np.array_equal(expected,raw['selected_cost']))
+    rows=[{'id':'raw:joint_risk','text':'Raw full-action admission and measured cost pairs','ok':ok,'value':None,
+           'source':'research/results/joint_risk.json','detail':'raw admission, coverage and paired costs match' if ok else 'raw risk evidence mismatch'}]
+    data=json.loads((ROOT/'research/results/ablation.json').read_text(encoding='utf-8'))
+    by={r['variant']:r for r in data['rows']}
+    ok=all(np.array_equal(a['per_plant'],b['per_plant']) for a,b in zip(by['C2_temperature_only']['per_draw'],by['C4_CP_monitor']['per_draw']))
+    rows.append({'id':'raw:monitor_equivalence','text':'Frozen matched-draw monitor costs equal Temp Only','ok':ok,'value':None,
+                 'source':'research/results/ablation.json','detail':'paired outcomes identical' if ok else 'monitor changed paired outcomes'})
     return rows
 
 
@@ -182,7 +207,7 @@ def main() -> int:
                 "source": claim["source"],
             }
         )
-    for row in benchmark_tables()+generated_documents():
+    for row in benchmark_tables()+generated_documents()+decision_evidence():
         rows.append(row)
         failed += not row["ok"]
 

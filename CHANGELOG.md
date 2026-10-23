@@ -7,6 +7,16 @@ file that produced them is named next to them.
 
 ## English
 
+## [0.6.0] - 2026-10-24
+
+* Default to CP monitor: retain the full label set and independent would-hold reasons while preserving the temperature-scaled continuous proposal. Explicit hard_hold remains a reproducible comparison.
+* Stop unchanged deterministic trials without spending another simulation; distinguish terminal proposals from measured transitions and report actual measurement counts. Repeated-observation mode remains explicit.
+* Synchronize monitor/hard_hold and diagnostics in Python, C99 and MATLAB, with generated parity fixtures and real MATLAB controller tests.
+* Add a fixed-protocol, independently trained/calibrated/evaluated joint-action risk study. It accepts or holds the whole assessed proposal; its one-state unconditional risk boundary does not certify adaptive closed-loop safety. This experimental head is not enabled in deployment.
+* Version the mechanism and paired-performance diagnostics, preserve unfavorable hard-hold outcomes, and rerun current studies. Separate proposal admission rates from measured-transition rates after stopping.
+* Correct the confidence-interval description to paired normal approximation (mean ±1.96 SE), regenerate bilingual evidence, and extend claims checks to the new reports.
+
+
 ## [0.5.0] - 2026-10-24
 
 ### Temperature + Split CP
@@ -310,6 +320,16 @@ six-method benchmark, the robustness study (200/200 plants not worse than the
 start) and the scale economics. See the release notes.
 
 ## 简体中文
+
+## [0.6.0] - 2026-10-24
+
+* 默认CP monitor保留完整标签集合及独立would_hold原因，保持温度缩放后的连续提案；hard_hold保留为可复现的显式对照。
+* 确定性参数不变时停止重复试验；区分终止提案和已测转移，报告真实测量次数，重复观测须显式开启。
+* 同步Python/C99/MATLAB模式与诊断，重新生成测试向量并运行真实MATLAB闭环验证。
+* 新增固定协议、独立训练/校准/评估的联合动作风险实验，整组接纳或保持被评估提案；单次初态无条件风险边界不证明自适应闭环安全，研究头不默认部署。
+* 将机制及配对性能诊断纳入仓库，保留硬保持的不利结果，重跑当前实验；停止后分别报告提案接纳率与已测转移接纳率。
+* 将置信区间表述纠正为配对正态近似（均值±1.96标准误），重新生成中英证据，claims覆盖新增报告。
+
 
 ### 0.5.0 — 审计修复与证据重算
 

@@ -14,38 +14,38 @@ versioned records; see BENCHMARK, ABLATION, ABSTENTION and CALIBRATE_ONLY for cu
 
 | ID | Quantity / 指标 | Value / 数值 | Artifact / 产物 |
 | :--- | :--- | ---: | :--- |
-| `decision_ms` | decision_ms | <!-- claim:decision_ms -->0.026250<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
-| `typed_decision_ms` | typed_decision_ms | <!-- claim:typed_decision_ms -->0.319150<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
-| `typed_decision_p99_ms` | typed_decision_p99_ms | <!-- claim:typed_decision_p99_ms -->0.708450<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
+| `decision_ms` | decision_ms | <!-- claim:decision_ms -->0.025200<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
+| `typed_decision_ms` | typed_decision_ms | <!-- claim:typed_decision_ms -->0.302700<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
+| `typed_decision_p99_ms` | typed_decision_p99_ms | <!-- claim:typed_decision_p99_ms -->0.760319<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `heldout_budget` | Iterative per-plant maximum budget / 迭代方法逐株预算上限 | <!-- claim:heldout_budget -->20.000000<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
-| `heldout_head_median` | heldout_head_median | <!-- claim:heldout_head_median -->0.682421<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
-| `heldout_head_p90` | heldout_head_p90 | <!-- claim:heldout_head_p90 -->1.304535<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
+| `heldout_head_median` | heldout_head_median | <!-- claim:heldout_head_median -->0.482278<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
+| `heldout_head_p90` | heldout_head_p90 | <!-- claim:heldout_head_p90 -->1.029825<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_bo_median` | heldout_bo_median | <!-- claim:heldout_bo_median -->0.546584<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_cmaes_median` | heldout_cmaes_median | <!-- claim:heldout_cmaes_median -->1.723096<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_pidtune_median` | heldout_pidtune_median | <!-- claim:heldout_pidtune_median -->0.741886<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_shrunk_zn_median` | heldout_shrunk_zn_median | <!-- claim:heldout_shrunk_zn_median -->1.289880<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
-| `test_head_median` | test_head_median | <!-- claim:test_head_median -->2.192650<!-- /claim --> | [research/results/eval_thermal_deadtime_120.json](../research/results/eval_thermal_deadtime_120.json) |
+| `test_head_median` | test_head_median | <!-- claim:test_head_median -->1.833026<!-- /claim --> | [research/results/eval_thermal_deadtime_120.json](../research/results/eval_thermal_deadtime_120.json) |
 | `test_hill_median` | test_hill_median | <!-- claim:test_hill_median -->1.710591<!-- /claim --> | [research/results/eval_thermal_deadtime_120.json](../research/results/eval_thermal_deadtime_120.json) |
 | `test_bo_median` | test_bo_median | <!-- claim:test_bo_median -->1.878133<!-- /claim --> | [research/results/eval_thermal_deadtime_120.json](../research/results/eval_thermal_deadtime_120.json) |
 | `test_sweep_recovered` | test_sweep_recovered | <!-- claim:test_sweep_recovered -->0.000000<!-- /claim --> | [research/results/eval_thermal_deadtime_120.json](../research/results/eval_thermal_deadtime_120.json) |
-| `abl_typed_vs_regression` | Temp+CP matched-gate median / 同门Temp+CP中位代价 | <!-- claim:abl_typed_vs_regression -->0.672046<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
+| `abl_typed_vs_regression` | Historical Temp+CP hard_hold matched-gate median / 历史硬保持同门中位代价 | <!-- claim:abl_typed_vs_regression -->0.672046<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 | `abl_regression_head` | Matched MLP control median / 同条件MLP代价 | <!-- claim:abl_regression_head -->0.455395<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 | `abstain_coverage` | CP permitted proposal rate (not label coverage) / CP动作获准率，非标签覆盖率 | <!-- claim:abstain_coverage -->0.466447<!-- /claim --> | [research/results/abstention.json](../research/results/abstention.json) |
-| `abstain_tau` | Legacy pmax candidate, null disables heuristic; default uses CP / 旧pmax候选，null表示关闭，默认使用CP | <!-- claim:abstain_tau -->null<!-- /claim --> | [research/results/abstention.json](../research/results/abstention.json) |
-| `race_head_median` | race_head_median | <!-- claim:race_head_median -->0.655203<!-- /claim --> | [research/results/race.json](../research/results/race.json) |
+| `abstain_tau` | Legacy pmax candidate; default CP monitor / 旧pmax候选；默认CP监测 | <!-- claim:abstain_tau -->null<!-- /claim --> | [research/results/abstention.json](../research/results/abstention.json) |
+| `race_head_median` | race_head_median | <!-- claim:race_head_median -->0.464681<!-- /claim --> | [research/results/race.json](../research/results/race.json) |
 | `race_cmaes_median` | race_cmaes_median | <!-- claim:race_cmaes_median -->1.658620<!-- /claim --> | [research/results/race.json](../research/results/race.json) |
 | `llm_turn_median_s` | llm_turn_median_s | <!-- claim:llm_turn_median_s -->5.344216<!-- /claim --> | [research/results/race.json](../research/results/race.json) |
 | `llm_parse_failures` | llm_parse_failures | <!-- claim:llm_parse_failures -->13.000000<!-- /claim --> | [research/results/race.json](../research/results/race.json) |
 | `robustness_no_worse` | robustness_no_worse | <!-- claim:robustness_no_worse -->200.000000<!-- /claim --> | [research/results/robustness.json](../research/results/robustness.json) |
 | `robustness_none_worse` | robustness_none_worse | <!-- claim:robustness_none_worse -->1.000000<!-- /claim --> | [research/results/robustness.json](../research/results/robustness.json) |
-| `generalization_beaten` | generalization_beaten | <!-- claim:generalization_beaten -->26.000000<!-- /claim --> | [research/results/generalization.json](../research/results/generalization.json) |
+| `generalization_beaten` | generalization_beaten | <!-- claim:generalization_beaten -->31.000000<!-- /claim --> | [research/results/generalization.json](../research/results/generalization.json) |
 | `generalization_ratio` | generalization_ratio | <!-- claim:generalization_ratio -->1.014908<!-- /claim --> | [research/results/generalization.json](../research/results/generalization.json) |
 | `params_decision_path` | params_decision_path | <!-- claim:params_decision_path -->40683.000000<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `macs_per_decision` | macs_per_decision | <!-- claim:macs_per_decision -->83584.000000<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
-| `c_static_flash` | c_static_flash | <!-- claim:c_static_flash -->168784.000000<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
+| `c_static_flash` | c_static_flash | <!-- claim:c_static_flash -->169248.000000<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `c_static_ram` | c_static_ram | <!-- claim:c_static_ram -->0.000000<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `int8_per_channel_argmax` | int8_per_channel_argmax | <!-- claim:int8_per_channel_argmax -->0.972656<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
-| `int8_per_channel_step` | int8_per_channel_step | <!-- claim:int8_per_channel_step -->0.717448<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
+| `int8_per_channel_step` | int8_per_channel_step | <!-- claim:int8_per_channel_step -->0.505208<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `bench_fast_restart_ms` | bench_fast_restart_ms | <!-- claim:bench_fast_restart_ms -->111.000000<!-- /claim --> | [research/bench/bench_log_15s.txt](../research/bench/bench_log_15s.txt) |
 | `bench_normal_ms` | bench_normal_ms | <!-- claim:bench_normal_ms -->868.800000<!-- /claim --> | [research/bench/bench_log_15s.txt](../research/bench/bench_log_15s.txt) |
 | `matlab_parity` | MATLAB maximum Choice logit error over 24 vectors / MATLAB 24向量最大logit误差 | <!-- claim:matlab_parity -->0.000006<!-- /claim --> | [research/results/matlab_parity.json](../research/results/matlab_parity.json) |
@@ -54,7 +54,7 @@ versioned records; see BENCHMARK, ABLATION, ABSTENTION and CALIBRATE_ONLY for cu
 | `calibration_samples` | calibration_samples | <!-- claim:calibration_samples -->48.000000<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
 | `calibration_simulations` | calibration_simulations | <!-- claim:calibration_simulations -->56.000000<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
 | `calibration_base_median` | calibration_base_median | <!-- claim:calibration_base_median -->2.261956<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
-| `calibration_T_only_median` | calibration_T_only_median | <!-- claim:calibration_T_only_median -->2.245982<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
+| `calibration_T_only_median` | calibration_T_only_median | <!-- claim:calibration_T_only_median -->2.246471<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
 | `calibration_tau_only_median` | calibration_tau_only_median | <!-- claim:calibration_tau_only_median -->2.285587<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
 | `temperature_Kp` | temperature_Kp | <!-- claim:temperature_Kp -->1.891494<!-- /claim --> | [models/calibration.json](../models/calibration.json) |
 | `cp_qhat_Kp` | cp_qhat_Kp | <!-- claim:cp_qhat_Kp -->0.906791<!-- /claim --> | [models/calibration.json](../models/calibration.json) |
@@ -70,6 +70,8 @@ versioned records; see BENCHMARK, ABLATION, ABSTENTION and CALIBRATE_ONLY for cu
 | `cp_set_size_Kd` | cp_set_size_Kd | <!-- claim:cp_set_size_Kd -->2.576172<!-- /claim --> | [models/calibration.json](../models/calibration.json) |
 | `uncalibrated_median` | uncalibrated_median | <!-- claim:uncalibrated_median -->0.435726<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 | `temperature_only_median` | temperature_only_median | <!-- claim:temperature_only_median -->0.453664<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
+| `cp_monitor_median` | CP monitor: mean of draw medians / 旁路CP中位代价均值 | <!-- claim:cp_monitor_median -->0.453664<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
+| `cp_hold_stop_median` | Explicit hard Hold with no-action stopping / 显式硬保持无动作停止 | <!-- claim:cp_hold_stop_median -->0.701220<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 
 Unmeasured work includes training-seed replication, full data learning curves,
 many-question scaling, broad hosted-model comparisons, mid-run domain shifts,
@@ -85,38 +87,38 @@ and physical robot/medical/MCU/FPGA validation. No success is inferred for them.
 
 | ID | Quantity / 指标 | Value / 数值 | Artifact / 产物 |
 | :--- | :--- | ---: | :--- |
-| `decision_ms` | decision_ms | <!-- claim:decision_ms -->0.026250<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
-| `typed_decision_ms` | typed_decision_ms | <!-- claim:typed_decision_ms -->0.319150<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
-| `typed_decision_p99_ms` | typed_decision_p99_ms | <!-- claim:typed_decision_p99_ms -->0.708450<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
+| `decision_ms` | decision_ms | <!-- claim:decision_ms -->0.025200<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
+| `typed_decision_ms` | typed_decision_ms | <!-- claim:typed_decision_ms -->0.302700<!-- /claim --> | [research/results/latency.json](../research/results/latency.json) |
+| `typed_decision_p99_ms` | typed_decision_p99_ms | <!-- claim:typed_decision_p99_ms -->0.760319<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `heldout_budget` | Iterative per-plant maximum budget / 迭代方法逐株预算上限 | <!-- claim:heldout_budget -->20.000000<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
-| `heldout_head_median` | heldout_head_median | <!-- claim:heldout_head_median -->0.682421<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
-| `heldout_head_p90` | heldout_head_p90 | <!-- claim:heldout_head_p90 -->1.304535<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
+| `heldout_head_median` | heldout_head_median | <!-- claim:heldout_head_median -->0.482278<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
+| `heldout_head_p90` | heldout_head_p90 | <!-- claim:heldout_head_p90 -->1.029825<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_bo_median` | heldout_bo_median | <!-- claim:heldout_bo_median -->0.546584<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_cmaes_median` | heldout_cmaes_median | <!-- claim:heldout_cmaes_median -->1.723096<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_pidtune_median` | heldout_pidtune_median | <!-- claim:heldout_pidtune_median -->0.741886<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
 | `heldout_shrunk_zn_median` | heldout_shrunk_zn_median | <!-- claim:heldout_shrunk_zn_median -->1.289880<!-- /claim --> | [research/results/eval_heldout_120.json](../research/results/eval_heldout_120.json) |
-| `test_head_median` | test_head_median | <!-- claim:test_head_median -->2.192650<!-- /claim --> | [research/results/eval_thermal_deadtime_120.json](../research/results/eval_thermal_deadtime_120.json) |
+| `test_head_median` | test_head_median | <!-- claim:test_head_median -->1.833026<!-- /claim --> | [research/results/eval_thermal_deadtime_120.json](../research/results/eval_thermal_deadtime_120.json) |
 | `test_hill_median` | test_hill_median | <!-- claim:test_hill_median -->1.710591<!-- /claim --> | [research/results/eval_thermal_deadtime_120.json](../research/results/eval_thermal_deadtime_120.json) |
 | `test_bo_median` | test_bo_median | <!-- claim:test_bo_median -->1.878133<!-- /claim --> | [research/results/eval_thermal_deadtime_120.json](../research/results/eval_thermal_deadtime_120.json) |
 | `test_sweep_recovered` | test_sweep_recovered | <!-- claim:test_sweep_recovered -->0.000000<!-- /claim --> | [research/results/eval_thermal_deadtime_120.json](../research/results/eval_thermal_deadtime_120.json) |
-| `abl_typed_vs_regression` | Temp+CP matched-gate median / 同门Temp+CP中位代价 | <!-- claim:abl_typed_vs_regression -->0.672046<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
+| `abl_typed_vs_regression` | Historical Temp+CP hard_hold matched-gate median / 历史硬保持同门中位代价 | <!-- claim:abl_typed_vs_regression -->0.672046<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 | `abl_regression_head` | Matched MLP control median / 同条件MLP代价 | <!-- claim:abl_regression_head -->0.455395<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 | `abstain_coverage` | CP permitted proposal rate (not label coverage) / CP动作获准率，非标签覆盖率 | <!-- claim:abstain_coverage -->0.466447<!-- /claim --> | [research/results/abstention.json](../research/results/abstention.json) |
-| `abstain_tau` | Legacy pmax candidate, null disables heuristic; default uses CP / 旧pmax候选，null表示关闭，默认使用CP | <!-- claim:abstain_tau -->null<!-- /claim --> | [research/results/abstention.json](../research/results/abstention.json) |
-| `race_head_median` | race_head_median | <!-- claim:race_head_median -->0.655203<!-- /claim --> | [research/results/race.json](../research/results/race.json) |
+| `abstain_tau` | Legacy pmax candidate; default CP monitor / 旧pmax候选；默认CP监测 | <!-- claim:abstain_tau -->null<!-- /claim --> | [research/results/abstention.json](../research/results/abstention.json) |
+| `race_head_median` | race_head_median | <!-- claim:race_head_median -->0.464681<!-- /claim --> | [research/results/race.json](../research/results/race.json) |
 | `race_cmaes_median` | race_cmaes_median | <!-- claim:race_cmaes_median -->1.658620<!-- /claim --> | [research/results/race.json](../research/results/race.json) |
 | `llm_turn_median_s` | llm_turn_median_s | <!-- claim:llm_turn_median_s -->5.344216<!-- /claim --> | [research/results/race.json](../research/results/race.json) |
 | `llm_parse_failures` | llm_parse_failures | <!-- claim:llm_parse_failures -->13.000000<!-- /claim --> | [research/results/race.json](../research/results/race.json) |
 | `robustness_no_worse` | robustness_no_worse | <!-- claim:robustness_no_worse -->200.000000<!-- /claim --> | [research/results/robustness.json](../research/results/robustness.json) |
 | `robustness_none_worse` | robustness_none_worse | <!-- claim:robustness_none_worse -->1.000000<!-- /claim --> | [research/results/robustness.json](../research/results/robustness.json) |
-| `generalization_beaten` | generalization_beaten | <!-- claim:generalization_beaten -->26.000000<!-- /claim --> | [research/results/generalization.json](../research/results/generalization.json) |
+| `generalization_beaten` | generalization_beaten | <!-- claim:generalization_beaten -->31.000000<!-- /claim --> | [research/results/generalization.json](../research/results/generalization.json) |
 | `generalization_ratio` | generalization_ratio | <!-- claim:generalization_ratio -->1.014908<!-- /claim --> | [research/results/generalization.json](../research/results/generalization.json) |
 | `params_decision_path` | params_decision_path | <!-- claim:params_decision_path -->40683.000000<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `macs_per_decision` | macs_per_decision | <!-- claim:macs_per_decision -->83584.000000<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
-| `c_static_flash` | c_static_flash | <!-- claim:c_static_flash -->168784.000000<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
+| `c_static_flash` | c_static_flash | <!-- claim:c_static_flash -->169248.000000<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `c_static_ram` | c_static_ram | <!-- claim:c_static_ram -->0.000000<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `int8_per_channel_argmax` | int8_per_channel_argmax | <!-- claim:int8_per_channel_argmax -->0.972656<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
-| `int8_per_channel_step` | int8_per_channel_step | <!-- claim:int8_per_channel_step -->0.717448<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
+| `int8_per_channel_step` | int8_per_channel_step | <!-- claim:int8_per_channel_step -->0.505208<!-- /claim --> | [research/results/hardware.json](../research/results/hardware.json) |
 | `bench_fast_restart_ms` | bench_fast_restart_ms | <!-- claim:bench_fast_restart_ms -->111.000000<!-- /claim --> | [research/bench/bench_log_15s.txt](../research/bench/bench_log_15s.txt) |
 | `bench_normal_ms` | bench_normal_ms | <!-- claim:bench_normal_ms -->868.800000<!-- /claim --> | [research/bench/bench_log_15s.txt](../research/bench/bench_log_15s.txt) |
 | `matlab_parity` | MATLAB maximum Choice logit error over 24 vectors / MATLAB 24向量最大logit误差 | <!-- claim:matlab_parity -->0.000006<!-- /claim --> | [research/results/matlab_parity.json](../research/results/matlab_parity.json) |
@@ -125,7 +127,7 @@ and physical robot/medical/MCU/FPGA validation. No success is inferred for them.
 | `calibration_samples` | calibration_samples | <!-- claim:calibration_samples -->48.000000<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
 | `calibration_simulations` | calibration_simulations | <!-- claim:calibration_simulations -->56.000000<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
 | `calibration_base_median` | calibration_base_median | <!-- claim:calibration_base_median -->2.261956<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
-| `calibration_T_only_median` | calibration_T_only_median | <!-- claim:calibration_T_only_median -->2.245982<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
+| `calibration_T_only_median` | calibration_T_only_median | <!-- claim:calibration_T_only_median -->2.246471<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
 | `calibration_tau_only_median` | calibration_tau_only_median | <!-- claim:calibration_tau_only_median -->2.285587<!-- /claim --> | [research/results/calibrate_only.json](../research/results/calibrate_only.json) |
 | `temperature_Kp` | temperature_Kp | <!-- claim:temperature_Kp -->1.891494<!-- /claim --> | [models/calibration.json](../models/calibration.json) |
 | `cp_qhat_Kp` | cp_qhat_Kp | <!-- claim:cp_qhat_Kp -->0.906791<!-- /claim --> | [models/calibration.json](../models/calibration.json) |
@@ -141,6 +143,8 @@ and physical robot/medical/MCU/FPGA validation. No success is inferred for them.
 | `cp_set_size_Kd` | cp_set_size_Kd | <!-- claim:cp_set_size_Kd -->2.576172<!-- /claim --> | [models/calibration.json](../models/calibration.json) |
 | `uncalibrated_median` | uncalibrated_median | <!-- claim:uncalibrated_median -->0.435726<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 | `temperature_only_median` | temperature_only_median | <!-- claim:temperature_only_median -->0.453664<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
+| `cp_monitor_median` | CP monitor: mean of draw medians / 旁路CP中位代价均值 | <!-- claim:cp_monitor_median -->0.453664<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
+| `cp_hold_stop_median` | Explicit hard Hold with no-action stopping / 显式硬保持无动作停止 | <!-- claim:cp_hold_stop_median -->0.701220<!-- /claim --> | [research/results/ablation.json](../research/results/ablation.json) |
 
 未测项目包括训练种子重复、完整数据学习曲线、多问题扩展、广泛托管模型对比、
 运行中域变化及机器人、医疗、MCU/FPGA实物验证；不推断这些项目已成功。

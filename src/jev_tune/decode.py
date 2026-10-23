@@ -159,11 +159,16 @@ REASON_CP_DIRECTION = 6
 
 @dataclass(frozen=True)
 class ConformalPolicy:
-    """Marginal teacher-label prediction sets, not a closed-loop safety bound."""
+    """Report label-set uncertainty; optional hard holds are a separate policy.
+
+    ``monitor`` preserves the numeric proposal. ``hard_hold`` applies the
+    historical empty/large/mixed-direction veto. Neither mode is a safety bound.
+    """
 
     q_hat: tuple[float, ...]
     alpha: float = 0.10
     k_max: int = 3
+    mode: str = "monitor"
 
     def __post_init__(self):
         q = np.asarray(self.q_hat, dtype=float)
@@ -171,11 +176,14 @@ class ConformalPolicy:
             raise ValueError("q_hat must contain finite per-axis quantiles in [0, 1]")
         if not 0 < self.alpha < 1 or not isinstance(self.k_max, int) or self.k_max < 1:
             raise ValueError("need 0 < alpha < 1 and a positive integer k_max")
+        if self.mode not in ("monitor", "hard_hold"):
+            raise ValueError("conformal mode must be 'monitor' or 'hard_hold'")
 
     @classmethod
     def from_calibration(cls, blob):
         c = blob.get("split_conformal")
-        return None if c is None else cls(tuple(c["qhat_per_axis"]), float(c["alpha"]), int(c["k_max"]))
+        return None if c is None else cls(tuple(c["qhat_per_axis"]), float(c["alpha"]),
+                                         int(c["k_max"]), c.get("mode", "monitor"))
 
 DEFAULT_ABSTAIN = AbstainPolicy()
 """Legacy pmax heuristic, used by backends without conformal metadata.
@@ -184,8 +192,9 @@ The selection draw and independent validation draws are reported separately in
 ``research/results/abstention.json``. Coverage distinguishes axes, proposals
 and actual nonzero actions. Pass
 `abstain=None` to `evaluate_head` to disable it (that is the A4 row of the
-ablation). A checkpoint carrying split CP instead uses set-based abstention by
-default; the legacy pmax heuristic is disabled unless explicitly combined.
+ablation). A checkpoint carrying split CP instead monitors label sets by
+default; hard holds are opt-in, and the legacy pmax heuristic is disabled
+unless explicitly combined.
 """
 
 
@@ -203,6 +212,9 @@ class Decision:
     set_size: np.ndarray | None = None
     conformal_set: tuple[np.ndarray, ...] | None = None
     conformal_applied: bool = False
+    conformal_would_hold: np.ndarray | None = None
+    conformal_reason: np.ndarray | None = None
+    conformal_mode: str = "off"
 
     @property
     def any_held(self) -> np.ndarray:
@@ -210,31 +222,40 @@ class Decision:
 
 
 def apply_conformal(decision, probabilities, deltas, policy):
-    """Veto broad, empty or directionally contradictory LAC prediction sets.
+    """Report complete LAC sets and a separate optional hard-hold decision.
 
     Keep the original temperature-scaled distribution and proposal intact.
-    Noul's explicit override has priority over CP's distinct reason codes.
+    Monitor mode never changes step/held/escalate/reason. Noul has priority in
+    the executed hard-hold reason, while the independent CP reason is retained.
     """
     if policy is not None and len(policy.q_hat) != len(probabilities):
         raise ValueError("conformal quantiles must match the number of axes")
-    masks, sizes = [], []
+    masks, sizes, would_hold, reasons = [], [], [], []
     for axis, (p, d) in enumerate(zip(probabilities, deltas)):
         mask = np.zeros_like(p, dtype=bool) if policy is None else (1.0 - p) <= policy.q_hat[axis]
         size = mask.sum(axis=-1)
         masks.append(mask)
         sizes.append(size)
         if policy is None:
+            would_hold.append(np.zeros_like(size, dtype=bool))
+            reasons.append(np.zeros_like(size, dtype=int))
             continue
         mixed = (mask & (d < 0)).any(axis=-1) & (mask & (d > 0)).any(axis=-1)
         empty, large = size == 0, size > policy.k_max
         veto = empty | large | mixed
-        decision.held[..., axis] |= veto
-        decision.escalate[..., axis] |= veto
         reason = np.where(empty, REASON_CP_EMPTY, np.where(large, REASON_CP_LARGE, REASON_CP_DIRECTION))
-        decision.reason[..., axis] = np.where(veto & (decision.reason[..., axis] != REASON_NOUL), reason, decision.reason[..., axis])
+        would_hold.append(veto)
+        reasons.append(np.where(veto, reason, REASON_ACT))
+        if policy.mode == "hard_hold":
+            decision.held[..., axis] |= veto
+            decision.escalate[..., axis] |= veto
+            decision.reason[..., axis] = np.where(veto & (decision.reason[..., axis] != REASON_NOUL), reason, decision.reason[..., axis])
     decision.set_size = np.stack(sizes, axis=-1)
     decision.conformal_set = tuple(masks)
     decision.conformal_applied = policy is not None
+    decision.conformal_would_hold = np.stack(would_hold, axis=-1)
+    decision.conformal_reason = np.stack(reasons, axis=-1)
+    decision.conformal_mode = "off" if policy is None else policy.mode
     decision.step = np.where(decision.held, 0.0, decision.step)
     return decision
 

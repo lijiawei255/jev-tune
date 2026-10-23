@@ -22,13 +22,14 @@ Temperature
 ``models/calibration.json`` holds one fitted temperature per gain axis.  They
 are fitted on a fresh plant-level split independent of CP fitting/evaluation.
 They change probabilities and expectation-decoded actions; the ablation measures
-this effect. Split-CP metadata is loaded alongside them for set-based abstention.
+this effect. Split-CP metadata is loaded alongside them for label-set monitoring;
+its historical hard-hold intervention remains an explicit option.
 """
 
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Protocol, Sequence, runtime_checkable
 
@@ -73,9 +74,17 @@ def read_temperature(models_dir: str | Path) -> list[float] | None:
     return None if t is None else [float(x) for x in t]
 
 
-def read_conformal(models_dir: str | Path) -> ConformalPolicy | None:
+def read_conformal(models_dir: str | Path, *, mode: str | None = None) -> ConformalPolicy | None:
+    """Load set calibration; intervention is opt-in through the policy mode."""
+    if mode is not None and mode not in ("monitor", "hard_hold"):
+        raise ValueError("conformal mode must be 'monitor' or 'hard_hold'")
     path = Path(models_dir) / "calibration.json"
-    return None if not path.is_file() else ConformalPolicy.from_calibration(json.loads(path.read_text(encoding="utf-8-sig")))
+    policy = None if not path.is_file() else ConformalPolicy.from_calibration(json.loads(path.read_text(encoding="utf-8-sig")))
+    if mode is not None:
+        if policy is None:
+            raise ValueError("an explicit conformal mode requires calibration metadata")
+        policy = replace(policy, mode=mode)
+    return policy
 
 
 @dataclass(frozen=True)
@@ -185,7 +194,7 @@ class NumericBackend:
         model.load_state_dict(torch.load(d / "jev_head.pt", map_location="cpu"))
         model.eval()
         temperature = read_temperature(d)
-        model.conformal = read_conformal(d)
+        model.conformal = read_conformal(d, mode=kwargs.pop("conformal_mode", None))
         if temperature is not None:
             # carry provenance with the model so `as_backend()` can apply the
             # same temperatures when a script passes a bare `JevHead`
@@ -389,12 +398,14 @@ def load_backend(
     kind: str = "torch",
     calibrate: bool = True,
     space: ActionSpace | None = None,
+    conformal_mode: str | None = None,
 ) -> NumericBackend | OnnxBackend:
     """The one loader every entry point should use.
 
     ``kind="onnx"`` uses the exported graph (0.19 ms forward, no torch);
     ``kind="torch"`` loads the checkpoint.  Both read ``calibration.json`` and
-    apply it unless ``calibrate=False``.
+    apply it unless ``calibrate=False``. CP defaults to monitoring;
+    ``conformal_mode="hard_hold"`` explicitly enables its intervention policy.
     """
     d = Path(models_dir)
     if kind == "onnx":
@@ -403,11 +414,12 @@ def load_backend(
             space=space,
             temperature=read_temperature(d),
             calibrate=calibrate,
-            conformal=read_conformal(d),
+            conformal=read_conformal(d, mode=conformal_mode),
         )
     if kind != "torch":
         raise ValueError("kind must be 'torch' or 'onnx'")
-    return NumericBackend.from_checkpoint(d, space=space, calibrate=calibrate)
+    return NumericBackend.from_checkpoint(d, space=space, calibrate=calibrate,
+                                         conformal_mode=conformal_mode)
 
 
 __all__ = [

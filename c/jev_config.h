@@ -7,6 +7,7 @@ static const float JEV_DEFAULT_TEMPERATURE[3] = {0x1.e438fa0000000p+0f, 0x1.859a
 static const float JEV_DEFAULT_POLICY[3] = {0x0.0p+0f, 0x0.0p+0f, 0x0.0p+0f};
 
 #define JEV_DEFAULT_CP_ENABLED 1
+#define JEV_DEFAULT_CP_MODE 0
 #define JEV_DEFAULT_CP_K_MAX 3
 #define JEV_DEFAULT_CP_ALPHA 0.1
 static const double JEV_DEFAULT_CP_QHAT[3] = {0x1.d046e2620ee22p-1, 0x1.c0c34f116e60ap-1, 0x1.d05250f14a344p-1};

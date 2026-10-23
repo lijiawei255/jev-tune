@@ -11,8 +11,8 @@
 [![中文](https://img.shields.io/badge/README-简体中文-red)](README.zh-CN.md)
 
 **PID autotuning with typed probabilistic decisions and explicit abstention.**
-The numeric head uses one CPU forward pass. Empty, broad or opposing-direction CP sets veto axes. Held axes keep their
-last tested parameters; other axes may still change. Holding does not certify safety.
+The numeric head uses one CPU forward pass. Complete CP sets are monitored independently of actuation.
+Hard Hold is an explicit comparison policy; unchanged deterministic trials stop without repeated simulation.
 
 > **Jev-inspired, not affiliated.** It uses the *Jev interface* — the three typed
 > primitives `choice` / `score` / `noul` with calibrated probabilities — not the
@@ -118,16 +118,16 @@ experiments (~0.55 s of simulation); the stall detector stopped the loop at nine
 
 ---
 
-See [Temperature + Split CP](docs/CONFORMAL.md) for the independent calibration results and precise coverage limits. Current CP costs are worse than the temperature-only control; neither a label-coverage theorem nor a hold certifies closed-loop safety.
+See [Temperature + Split CP](docs/CONFORMAL.md) for the independent calibration results and precise coverage limits. Historical CP hard-hold costs are worse than the temperature-only control; default monitor preserves the temperature-only proposal; neither a label-coverage theorem nor a hold certifies closed-loop safety.
 
 ## The 15-second version
 
 | | |
 | :--- | :--- |
 | **What it does** | picks the next PID gain step from the response it just measured, and holds when it is not confident |
-| **How fast** | ONNX forward <!-- claim:decision_ms -->0.026<!-- /claim --> ms median; Python default typed/abstention path <!-- claim:typed_decision_ms -->0.319<!-- /claim --> ms median, <!-- claim:typed_decision_p99_ms -->0.708<!-- /claim --> ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |
+| **How fast** | ONNX forward <!-- claim:decision_ms -->0.025<!-- /claim --> ms median; Python default typed/abstention path <!-- claim:typed_decision_ms -->0.303<!-- /claim --> ms median, <!-- claim:typed_decision_p99_ms -->0.760<!-- /claim --> ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |
 | **How few experiments** | **5 experiments** on a real Simulink motor cut the cost from **1.238 to 0.598** (the recorded run; with the corrected gain sweep the same model starts better and the tuner returns the lab's own gains instead — [why](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)); the result is never worse than the better of the start and the gains your model already had |
-| **How it generalises** | Validation median 0.682; frozen thermal median 2.193. Current baselines and prior information are shown below. |
+| **How it generalises** | Validation median 0.482; frozen thermal median 1.833. Current baselines and prior information are shown below. |
 
 ![before and after](assets/before_after.png)
 
@@ -319,11 +319,11 @@ breakdown, the blocking/concurrency trade-off and the version matrix:
 
 | method | median J | p90 J | actual simulations |
 | :--- | ---: | ---: | ---: |
+| `jev_head` | 0.482 | 1.030 | 20 |
 | `bo` | 0.547 | 1.552 | 20 |
-| `jev_head_swept` | 0.615 | 1.401 | 20 |
+| `jev_head_swept` | 0.510 | 1.014 | 20 |
 | `shrunk_zn` | 1.290 | 1.905 | 1 |
 | `identify+pidtune_PID` | 0.742 | 1.705 | 2 |
-| `jev_head` | 0.682 | 1.305 | 20 |
 | `swept_zn` | 1.860 | 2.791 | 8 |
 | `vocab_hill` | 1.463 | 2.212 | 20 |
 | `cmaes` | 1.723 | 2.521 | 20 |
@@ -335,11 +335,11 @@ breakdown, the blocking/concurrency trade-off and the version matrix:
 | method | median J | p90 J | actual simulations |
 | :--- | ---: | ---: | ---: |
 | `vocab_hill` | 1.711 | 2.447 | 20 |
-| `jev_head_swept` | 2.000 | 5.177 | 20 |
+| `jev_head_swept` | 1.785 | 3.800 | 20 |
+| `jev_head` | 1.833 | 2.816 | 20 |
 | `bo` | 1.878 | 2.684 | 20 |
 | `cmaes` | 2.000 | 2.879 | 20 |
 | `identify+pidtune_PID` | 2.330 | 3.064 | 2 |
-| `jev_head` | 2.193 | 3.199 | 20 |
 | `zn_classic` | 2.682 | 3.374 | 1 |
 | `swept_zn` | 3.580 | 5.334 | 8 |
 | `shrunk_zn` | 4.854 | 5.158 | 1 |
@@ -528,3 +528,5 @@ MIT © JIAWEI LI — see [`LICENSE`](LICENSE).
 ---
 
 阅读其他语言：[简体中文](README.zh-CN.md)
+
+Current CP-decoupling diagnostics and the independent joint-action risk experiment: [CP_DIAGNOSIS](docs/CP_DIAGNOSIS.md), [JOINT_RISK](docs/JOINT_RISK.md). The risk experiment is research-only.

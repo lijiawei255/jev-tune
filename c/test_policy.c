@@ -17,6 +17,7 @@ int main(void) {
         pol.tau_noul = JEV_PC_POLICY[c][2];
         cp.enabled = (int)JEV_PC_CP_ENABLED[c][0];
         cp.k_max = (int)JEV_PC_CP_K_MAX[c][0];
+        cp.mode = (int)JEV_PC_CP_MODE[c][0];
         for (ax = 0; ax < 3; ++ax) cp.qhat[ax] = JEV_PC_CP_QHAT[c][ax];
         for (ax = 0; ax < 3; ++ax)
             for (i = 0; i < JEV_K; ++i) p.choice[ax][i] = JEV_PC_PROBS[c][ax * JEV_K + i];
@@ -32,12 +33,15 @@ int main(void) {
                 a.escalate[ax] != (int)JEV_PC_ESCALATE[c][ax] ||
                 a.reason[ax] != (int)JEV_PC_REASON[c][ax]) failures++;
             if (a.set_size[ax] != (int)JEV_PC_SET_SIZE[c][ax]) failures++;
+            if (a.conformal_would_hold[ax] != (int)JEV_PC_CONFORMAL_WOULD_HOLD[c][ax] ||
+                a.conformal_reason[ax] != (int)JEV_PC_CONFORMAL_REASON[c][ax]) failures++;
             for (i = 0; i < JEV_K; ++i)
                 if (a.conformal_set[ax][i] != (int)JEV_PC_CONFORMAL_SET[c][ax * JEV_K + i]) failures++;
             expected_escalations += (int)JEV_PC_ESCALATE[c][ax];
         }
         if (escalations != expected_escalations ||
             a.conformal_applied != cp.enabled ||
+            a.conformal_mode != (cp.enabled ? cp.mode : JEV_CP_OFF) ||
             a.held != (a.axis_held[0] && a.axis_held[1] && a.axis_held[2]) ||
             jev_should_stop(&p, 0) != (int)JEV_PC_STOP[c][0]) failures++;
         if (jev_should_stop(&p, 1)) failures++;
@@ -61,6 +65,34 @@ int main(void) {
     /* The checker itself must reject every non-finite pairing. */
     if (finite_diff(NAN, 0) <= 1 || finite_diff(0, NAN) <= 1 ||
         finite_diff(INFINITY, INFINITY) <= 1) failures++;
+    {
+        jev_conformal cp = {0}; /* an omitted mode must default to MONITOR */
+        jev_probs p = {0};
+        jev_action a;
+        int error_case;
+        cp.enabled = 1; cp.k_max = 3;
+        p.noul = p.score[0] = 1.0f;
+        for (ax = 0; ax < 3; ++ax) {
+            cp.qhat[ax] = .75;
+            for (i = 3; i < JEV_K; ++i) p.choice[ax][i] = .25f;
+        }
+        jev_decode(&p, &a);
+        if (jev_apply_conformal(&a, &p, &cp, 0) != 0) failures++;
+        for (ax = 0; ax < 3; ++ax)
+            if (!a.conformal_would_hold[ax] || a.axis_held[ax] ||
+                a.step[ax] != a.proposed[ax] || a.conformal_mode != JEV_CP_MONITOR) failures++;
+        for (error_case = 0; error_case < 4; ++error_case) {
+            int escalations = 0;
+            cp.mode = error_case == 0 ? 99 : (error_case == 1 ? JEV_CP_OFF : JEV_CP_MONITOR);
+            cp.qhat[0] = error_case == 2 ? NAN : .75;
+            cp.k_max = error_case == 3 ? 0 : 3;
+            jev_decode(&p, &a);
+            if (jev_apply_conformal(&a, &p, &cp, &escalations) != -1 ||
+                !a.held || a.conformal_applied || escalations != 3) failures++;
+            for (ax = 0; ax < 3; ++ax)
+                if (a.step[ax] != 0 || !a.axis_held[ax] || a.reason[ax] != 7) failures++;
+        }
+    }
     printf("policy_cases %d gate_cases %d apply_cases %d failures %d\n",
            JEV_PC_N, JEV_GC_N, JEV_AC_N, failures);
     return failures ? 1 : 0;

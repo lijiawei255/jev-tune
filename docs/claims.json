@@ -6,7 +6,7 @@
       "text": "Current registered decision_ms; see artifact and protocol",
       "source": "research/results/latency.json",
       "path": "onnx_forward_ms",
-      "value": 0.026249999791616574,
+      "value": 0.025199995434377342,
       "tol": 1e-09,
       "reproduce": "python scripts/04_export_onnx.py",
       "documents": [
@@ -29,7 +29,7 @@
       "text": "Current registered typed_decision_ms; see artifact and protocol",
       "source": "research/results/latency.json",
       "path": "typed_decision_ms",
-      "value": 0.3191499999957159,
+      "value": 0.3026999984285794,
       "tol": 1e-09,
       "reproduce": "python scripts/04_export_onnx.py",
       "documents": [
@@ -52,7 +52,7 @@
       "text": "Current registered typed_decision_p99_ms; see artifact and protocol",
       "source": "research/results/hardware.json",
       "path": "typed_decision_p99_ms",
-      "value": 0.7084500025666784,
+      "value": 0.7603190048394026,
       "tol": 1e-09,
       "reproduce": "python scripts/21_hardware.py",
       "documents": [
@@ -91,7 +91,7 @@
       "text": "Current registered heldout_head_median; see artifact and protocol",
       "source": "research/results/eval_heldout_120.json",
       "path": "rows[method=jev_head].final_cost_median",
-      "value": 0.6824209871302402,
+      "value": 0.4822782414523,
       "tol": 1e-09,
       "reproduce": "python scripts/03_evaluate.py --plants 120 --budget 20",
       "documents": [
@@ -106,7 +106,7 @@
       "text": "Current registered heldout_head_p90; see artifact and protocol",
       "source": "research/results/eval_heldout_120.json",
       "path": "rows[method=jev_head].final_cost_p90",
-      "value": 1.3045351854998664,
+      "value": 1.029825166540459,
       "tol": 1e-09,
       "reproduce": "same",
       "documents": [
@@ -181,7 +181,7 @@
       "text": "Current registered test_head_median; see artifact and protocol",
       "source": "research/results/eval_thermal_deadtime_120.json",
       "path": "rows[method=jev_head].final_cost_median",
-      "value": 2.1926502839522044,
+      "value": 1.8330259786384449,
       "tol": 1e-09,
       "reproduce": "python scripts/03_evaluate.py --family thermal_deadtime --plants 120 --budget 20",
       "documents": [
@@ -238,7 +238,7 @@
     },
     {
       "id": "abl_typed_vs_regression",
-      "text": "Temp+CP matched-gate median / 同门Temp+CP中位代价",
+      "text": "Historical Temp+CP hard_hold matched-gate median / 历史硬保持同门中位代价",
       "source": "research/results/ablation.json",
       "path": "rows[variant=C3_temperature_CP].median_mean",
       "value": 0.6720461646419523,
@@ -254,7 +254,7 @@
           "format": ".6f"
         }
       ],
-      "label": "Temp+CP matched-gate median / 同门Temp+CP中位代价"
+      "label": "Historical Temp+CP hard_hold matched-gate median / 历史硬保持同门中位代价"
     },
     {
       "id": "abl_regression_head",
@@ -294,13 +294,13 @@
     },
     {
       "id": "abstain_tau",
-      "text": "Legacy pmax candidate, null disables heuristic; default uses CP / 旧pmax候选，null表示关闭，默认使用CP",
+      "text": "Legacy pmax candidate; default CP monitor / 旧pmax候选；默认CP监测",
       "source": "research/results/abstention.json",
       "path": "chosen_tau_act",
       "value": null,
       "tol": 1e-09,
       "reproduce": "same",
-      "label": "Legacy pmax candidate, null disables heuristic; default uses CP / 旧pmax候选，null表示关闭，默认使用CP",
+      "label": "Legacy pmax candidate; default CP monitor / 旧pmax候选；默认CP监测",
       "documents": [
         {
           "file": "docs/CLAIMS.md",
@@ -313,7 +313,7 @@
       "text": "Current registered race_head_median; see artifact and protocol",
       "source": "research/results/race.json",
       "path": "runs.head.curve[-1]",
-      "value": 0.6552030131501959,
+      "value": 0.4646813161074981,
       "tol": 1e-09,
       "reproduce": "python scripts/12_make_race.py --reuse",
       "documents": [
@@ -411,7 +411,7 @@
       "text": "Current registered generalization_beaten; see artifact and protocol",
       "source": "research/results/generalization.json",
       "path": "plants_beaten",
-      "value": 26.0,
+      "value": 31.0,
       "tol": 1e-09,
       "reproduce": "python scripts/08_generalize.py",
       "documents": [
@@ -471,7 +471,7 @@
       "text": "Current registered c_static_flash; see artifact and protocol",
       "source": "research/results/hardware.json",
       "path": "c_flash_bytes",
-      "value": 168784.0,
+      "value": 169248.0,
       "tol": 1e-09,
       "reproduce": "same",
       "documents": [
@@ -516,7 +516,7 @@
       "text": "Current registered int8_per_channel_step; see artifact and protocol",
       "source": "research/results/hardware.json",
       "path": "int8.per_channel.steps_within_1e-3",
-      "value": 0.7174479166666666,
+      "value": 0.5052083333333334,
       "tol": 1e-09,
       "reproduce": "same",
       "documents": [
@@ -653,7 +653,7 @@
       "text": "Current registered calibration_T_only_median; see artifact and protocol",
       "source": "research/results/calibrate_only.json",
       "path": "arms.temperature_only.median",
-      "value": 2.2459818137519196,
+      "value": 2.2464713695923386,
       "reproduce": "python scripts/22_calibrate_only.py",
       "tol": 1e-09,
       "documents": [
@@ -933,6 +933,44 @@
       "value": 0.45366397183945456,
       "reproduce": "python scripts/17_ablation.py",
       "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "cp_monitor_median",
+      "label": "CP monitor: mean of draw medians / 旁路CP中位代价均值",
+      "source": "research/results/ablation.json",
+      "path": "rows[variant=C4_CP_monitor].median_mean",
+      "value": 0.45366397183945456,
+      "tol": 1e-09,
+      "text": "CP monitor: mean of draw medians / 旁路CP中位代价均值",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "cp_hold_stop_median",
+      "label": "Explicit hard Hold with no-action stopping / 显式硬保持无动作停止",
+      "source": "research/results/ablation.json",
+      "path": "rows[variant=C5_CP_hold_stop].median_mean",
+      "value": 0.7012199317389299,
+      "tol": 1e-09,
+      "text": "Explicit hard Hold with no-action stopping / 显式硬保持无动作停止",
       "documents": [
         {
           "file": "docs/CLAIMS.md",

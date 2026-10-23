@@ -28,6 +28,9 @@
 #define JEV_MAX_STEP 0.32f
 #define JEV_GAIN_LO 1e-4f
 #define JEV_GAIN_HI 1e3f
+#define JEV_CP_MONITOR 0
+#define JEV_CP_HARD_HOLD 1
+#define JEV_CP_OFF -1
 
 /* one decision state: 20 features + 2 x 64 resampled trace samples */
 typedef struct {
@@ -57,10 +60,14 @@ typedef struct {
     int axis_held[3];     /* policy veto, distinct from a confident zero step */
     int escalate[3];      /* held and below tau_esc */
     int reason[3];        /* 0 act, 1 low confidence, 2 escalate, 3 noul,
-                            4 empty CP set, 5 oversized CP set, 6 mixed signs */
+                            4 empty CP set, 5 oversized CP set, 6 mixed signs,
+                            7 invalid conformal policy (fail closed) */
     int set_size[3];      /* conformal set size; zero when disabled */
     int conformal_set[3][JEV_K];
     int conformal_applied;
+    int conformal_mode;  /* OFF, MONITOR, or HARD_HOLD */
+    int conformal_would_hold[3]; /* diagnostic, even when monitor executes */
+    int conformal_reason[3];     /* 0 none, 4 empty, 5 large, 6 mixed signs */
 } jev_action;
 
 /* forward pass: conv1d(2->16, k5, s2) -> conv1d(16->32, k5, s2) -> avgpool
@@ -95,14 +102,18 @@ void jev_abstain(jev_action *act, const jev_probs *p, const jev_policy *pol,
 
 /* Split-conformal label sets; these quantify teacher-label coverage, not
  * closed-loop stability. Apply after the optional legacy p_max/Noul policy.
- * Every CP rejection also flags escalation; Noul has reason precedence. */
+ * MONITOR preserves the action and records would_hold/reason. Only HARD_HOLD
+ * vetoes and flags escalation; Noul has main-reason precedence. */
 typedef struct {
     int enabled;
     double qhat[3];      /* retain near-one calibration quantiles exactly */
     int k_max;
+    int mode;           /* zero initialization defaults to MONITOR */
 } jev_conformal;
 
-void jev_apply_conformal(jev_action *act, const jev_probs *p,
+/* Return 0 on success, -1 for an invalid enabled policy. Invalid mode,
+ * quantile or k_max holds all axes without claiming a valid prediction set. */
+int jev_apply_conformal(jev_action *act, const jev_probs *p,
                          const jev_conformal *cp, int *escalations);
 
 /* gains <- clip(gains * 10^step) */

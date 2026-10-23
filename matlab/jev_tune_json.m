@@ -18,6 +18,9 @@ function out = jev_tune_json(cfgPath, outPath)
 %     instrument_block tap this block with a Scope on the working copy
 %     ref_source       'auto' or a number
 %     u_max            actuator limit used for the saturation feature
+%     cp_mode          'monitor' (default) or explicit 'hard_hold'
+%     stop_on_no_action true (default): stop on unchanged gains; false retains
+%                      repeated observations for noise/dynamic monitoring
 %
 %   Explicit keys always win over what discovery proposes: the user (or the
 %   agent acting for them) has the last word.
@@ -73,7 +76,15 @@ try
     out.n_rollbacks = R.n_rollbacks;
     out.n_escalations = R.n_escalations;
     out.decision_policy = R.decision_policy;
-    out.n_experiments = numel(R.hist);
+    out.n_experiments = R.n_recorded_measurements;
+    out.n_history_records = numel(R.hist);
+    % Includes loop/final measurement attempts, excluding cached final rows;
+    % the own-gain probe and Ku/Tu sweep precede this recorded history.
+    out.n_recorded_measurements = R.n_recorded_measurements;
+    out.n_no_action_stops = R.n_no_action_stops;
+    out.stop_reason = R.stop_reason;
+    out.measurements = R.measurements;
+    out.n_total_simulations = R.n_total_simulations;
     out.warnings = {};
     if isfield(R, 'stopTime') && abs(R.stopTime - 10) / 10 > 0.5
         out.warnings{end+1} = sprintf(['stopTime %.2f s is far from the 10 s training horizon; ' ...
@@ -243,10 +254,13 @@ for i = 1:n
     h(i).gains = hist(i).gains(:).';
     h(i).step = hist(i).step(:).';
     h(i).event = char(hist(i).event);
-    for name = {'next_gains', 'proposed', 'held', 'escalate', 'reason', 'set_size'}
+    for name = {'next_gains', 'proposed', 'held', 'escalate', 'reason', 'set_size', ...
+            'conformal_would_hold', 'conformal_reason'}
         h(i).(name{1}) = hist(i).(name{1})(:).';
     end
     h(i).conformal_set = hist(i).conformal_set.'; % JSON axes x vocabulary
     h(i).conformal_applied = hist(i).conformal_applied;
+    h(i).conformal_mode = hist(i).conformal_mode;
+    h(i).measurement_reused = hist(i).measurement_reused;
 end
 end

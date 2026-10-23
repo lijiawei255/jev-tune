@@ -23,7 +23,7 @@ Accounting rules (they are the point of this file, so they are stated once):
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import numpy as np
 
@@ -61,6 +61,7 @@ class HeadResult:
     actual_simulations: np.ndarray | None = None
     measurement_counts: np.ndarray | None = None
     trajectory: dict | None = None
+    stop_reason: np.ndarray | None = None
 
     @property
     def sims_per_plant(self) -> float:
@@ -100,6 +101,7 @@ class HeadResult:
         valid = np.asarray(d.get("valid", np.ones_like(d["held"], dtype=bool)))
         event = np.asarray(d.get("event", np.full(valid.shape, "proposal")))
         policy = valid & (event != "rollback")
+        proposals = np.asarray(d.get("decision_valid", policy), dtype=bool)
         conf = np.asarray(d["confidence"], dtype=float)[policy]
         held = np.asarray(d["held"], dtype=bool)[policy]
         improved = np.asarray(d["improved"], dtype=bool)[policy]
@@ -112,6 +114,9 @@ class HeadResult:
             "coverage": float(executed.mean()) if conf.size else 0.0,
             "abstain_rate": float(held.mean()) if conf.size else 0.0,
             "n_executed": int(executed.sum()),
+            "n_proposals": int(proposals.sum()),
+            "proposal_coverage": (float((~np.asarray(d["held"], dtype=bool)[proposals]).mean())
+                                  if proposals.any() else 0.0),
         }
         if "axis_held" in d:
             axis_held = np.asarray(d["axis_held"], dtype=bool)[policy]
@@ -125,13 +130,24 @@ class HeadResult:
             out["action_rate"] = float(moved.mean()) if moved.size else 0.0
             out["n_actions"] = int(moved.sum())
         if "conformal_applied" in d:
-            cp = policy & np.asarray(d["conformal_applied"], dtype=bool)
+            # Include a real terminal proposal even though no next simulation
+            # was performed. Outcome/harm statistics above still use valid.
+            cp = proposals & np.asarray(d["conformal_applied"], dtype=bool)
             sizes = np.asarray(d["set_size"])[cp]
             out["conformal_applied"] = bool(cp.any())
             out["average_set_size"] = float(sizes.mean()) if sizes.size else None
             out["conformal_hold_axis_rate"] = (
                 float(np.asarray(d["cp_veto"], dtype=bool)[cp].mean()) if sizes.size else None
             )
+            out["conformal_would_hold_axis_rate"] = (
+                float(np.asarray(d.get("conformal_would_hold", d["cp_veto"]), dtype=bool)[cp].mean())
+                if sizes.size else None
+            )
+            modes = np.unique(np.asarray(d.get("conformal_mode", np.full(valid.shape, "hard_hold")))[cp])
+            out["conformal_mode"] = str(modes[0]) if modes.size == 1 else "off"
+        if self.stop_reason is not None:
+            reasons, numbers = np.unique(self.stop_reason, return_counts=True)
+            out["stop_reasons"] = {str(reason): int(number) for reason, number in zip(reasons, numbers)}
         if executed.any():
             out["improvement_rate"] = float(improved[executed].mean())
             out["harmful_rate"] = float(harmful[executed].mean())
@@ -246,6 +262,7 @@ def evaluate_head(
     record: bool = True,
     hold_mask_provider=None,
     conformal: ConformalPolicy | str | None = "backend",
+    stop_on_no_action: bool = True,
     **sim_kwargs,
 ) -> HeadResult:
     """Tune ``plants`` with at most ``budget`` experiments each (default 21).
@@ -266,14 +283,24 @@ def evaluate_head(
     the corresponding trajectory slots are marked unmeasured. The MATLAB
     bridge uses a different stopping rule (five iterations without improvement).
 
-    ``conformal="backend"`` loads the checkpoint's split-CP policy by default.
-    Empty, broad or directionally mixed sets veto axes; this does not guarantee
-    safety on adaptive trajectories. ``conformal=None`` disables this policy.
-    With CP, the implicit DEFAULT_ABSTAIN pmax heuristic is disabled.
+    ``conformal="backend"`` loads the checkpoint's split-CP policy (monitor by
+    default). Monitoring retains full sets and hypothetical veto reasons without
+    changing actions. ``conformal="hard_hold"`` explicitly restores the historic
+    CP veto using the backend's quantiles; ``None`` disables CP. With CP present,
+    the implicit DEFAULT_ABSTAIN pmax heuristic is disabled in either mode.
+
+    ``stop_on_no_action`` stops a plant when the final bounded gains are exactly
+    unchanged. The simulator resets and uses fixed per-plant noise streams, so
+    repeating these parameters supplies no new response. This is a stopping
+    policy, not a convergence or safety proof: later iteration features could
+    otherwise change a proposal. Pass False for historical repeated-trial runs.
+    ``stop_reason`` distinguishes budget, early_stop and no_action termination.
+    A terminal proposal keeps decision_valid=True and all CP telemetry, but
+    valid=False because no next response was measured; padded slots remain empty.
 
     ``abstain`` is the legacy a-priori hold (`decode.AbstainPolicy`): a step is
-    executed only when the calibrated `p_max` clears `tau_act`.  It is **on** by
-    for legacy backends without CP; pass
+    executed only when the calibrated `p_max` clears `tau_act`. It is on by
+    default for legacy backends without CP; pass
     `abstain=None` to disable it.  ``record`` keeps the per-decision trace
     (confidence, axis hold masks, costs before/after, and parameters). A trace
     slot is valid only after its resulting parameters have been measured.
@@ -289,11 +316,18 @@ def evaluate_head(
     space = space or ActionSpace()
     backend = as_backend(model, space=space)
     if isinstance(conformal, str):
-        if conformal != "backend":
-            raise ValueError("conformal must be 'backend', None, or a ConformalPolicy")
+        mode = conformal
+        if mode not in ("backend", "monitor", "hard_hold"):
+            raise ValueError("conformal must be 'backend', 'monitor', 'hard_hold', None, or a ConformalPolicy")
         conformal = getattr(backend, "conformal", None)
-    # A checkpoint carrying CP uses set-based abstention by default. Explicit
-    # caller-supplied heuristic policies can still be combined for experiments.
+        if mode != "backend":
+            if conformal is None:
+                raise ValueError("an explicit conformal mode requires backend calibration")
+            conformal = replace(conformal, mode=mode)
+    if conformal is not None and not isinstance(conformal, ConformalPolicy):
+        raise ValueError("conformal must be a ConformalPolicy or supported mode")
+    # CP monitoring and its optional intervention are both distinct from the
+    # legacy pmax heuristic. Explicit fresh policies may still be combined.
     if conformal is not None and abstain is DEFAULT_ABSTAIN:
         abstain = None
     normalization = {key: sim_kwargs[key] for key in ("horizon", "ref") if key in sim_kwargs}
@@ -315,6 +349,7 @@ def evaluate_head(
     best_cost = np.full(n, np.inf)
     best_gains = gains.copy()
     done = np.zeros(n, dtype=bool)
+    stop_reason = np.full(n, "budget", dtype="<U24")
     rollbacks = np.zeros(n, dtype=int)
     actual = np.zeros(n, dtype=int)
     hist = np.full((n, budget), np.inf)
@@ -331,6 +366,9 @@ def evaluate_head(
             "axis_held": np.ones((*shape, 3), dtype=bool),
             "external_hold": np.zeros((*shape, 3), dtype=bool),
             "conformal_applied": np.zeros(shape, dtype=bool),
+            "conformal_mode": np.full(shape, "off", dtype="<U12"),
+            "conformal_would_hold": np.zeros((*shape, 3), dtype=bool),
+            "conformal_reason": np.zeros((*shape, 3), dtype=int),
             "set_size": np.zeros((*shape, 3), dtype=int),
             "conformal_set": np.zeros((*shape, 3, space.k), dtype=bool),
             "cp_veto": np.zeros((*shape, 3), dtype=bool),
@@ -344,7 +382,8 @@ def evaluate_head(
             "gains_before": np.full((*shape, 3), np.nan),
             "gains_after": np.full((*shape, 3), np.nan),
             "valid": np.zeros(shape, dtype=bool),
-            "event": np.full(shape, "unmeasured", dtype="<U12"),
+            "decision_valid": np.zeros(shape, dtype=bool),
+            "event": np.full(shape, "unmeasured", dtype="<U24"),
         }
         trajectory = {
             "gains": np.full((n, budget, 3), np.nan),
@@ -394,6 +433,9 @@ def evaluate_head(
             rollbacks[rollback_idx] += 1
             prev_action[rollback_idx] = 0.0
             prev_cost[rollback_idx] = j[blowing]
+            rollback_unchanged = np.all(gains[rollback_idx] == old, axis=-1) & stop_on_no_action
+            done[rollback_idx[rollback_unchanged]] = True
+            stop_reason[rollback_idx[rollback_unchanged]] = "rollback_no_action"
             if trace is not None:
                 trace["event"][rollback_idx, k] = "rollback"
                 trace["cost_before"][rollback_idx, k] = j[blowing]
@@ -403,6 +445,7 @@ def evaluate_head(
                 trace["step"][rollback_idx, k] = rollback_step
                 trace["applied_step"][rollback_idx, k] = rollback_step
                 trace["step_norm"][rollback_idx, k] = np.abs(rollback_step).max(axis=-1)
+                trace["event"][rollback_idx[rollback_unchanged], k] = "stop_rollback_no_action"
 
         normal = ~blowing
         idx = active[normal]
@@ -430,6 +473,7 @@ def evaluate_head(
         if early_stop:
             converged = (np.argmax(score_p, axis=1) == stop_band) & (decision.noul > 0.9)
             done[idx[converged]] = True
+            stop_reason[idx[converged]] = "early_stop"
 
         extra_hold = np.zeros_like(decision.held, dtype=bool)
         if hold_mask_provider is not None:
@@ -440,31 +484,41 @@ def evaluate_head(
         step = np.where(held, 0.0, decision.step)
         moving = ~converged
         target = idx[moving]
-        old = gains[target].copy()
-        gains[target] = apply_step(old, step[moving])
-        applied_step = np.log10(gains[target] / old)
+        old = gains[idx].copy()
+        gains[target] = apply_step(old[moving], step[moving])
+        applied_step = np.log10(gains[idx] / old)
+        no_action = moving & np.all(gains[idx] == old, axis=-1) & stop_on_no_action
+        done[idx[no_action]] = True
+        stop_reason[idx[no_action]] = "no_action"
         prev_action[target] = step[moving]
         prev_cost[target] = j[normal][moving]
         if trace is not None:
-            trace["confidence"][target, k] = decision.confidence[moving].mean(axis=-1)
-            trace["confidence_axis"][target, k] = decision.confidence[moving]
-            trace["choice_probs"][target, k] = answer_record["choice_probs"][moving]
-            trace["axis_held"][target, k] = held[moving]
-            trace["external_hold"][target, k] = extra_hold[moving]
-            trace["conformal_applied"][target, k] = decision.conformal_applied
-            trace["set_size"][target, k] = decision.set_size[moving]
-            trace["conformal_set"][target, k] = np.stack(decision.conformal_set, axis=1)[moving]
-            trace["cp_veto"][target, k] = np.isin(decision.reason[moving], [4, 5, 6])
-            trace["held"][target, k] = held[moving].all(axis=-1)
-            trace["reason"][target, k] = decision.reason[moving].max(axis=-1)
-            trace["step"][target, k] = step[moving]
-            trace["applied_step"][target, k] = applied_step
-            trace["proposed"][target, k] = decision.proposed[moving]
-            trace["step_norm"][target, k] = np.abs(applied_step).max(axis=-1)
-            trace["cost_before"][target, k] = j[normal][moving]
-            trace["gains_before"][target, k] = old
-            trace["gains_after"][target, k] = gains[target]
-            trace["event"][target, k] = np.where(held[moving].all(axis=-1), "hold", "proposal")
+            trace["decision_valid"][idx, k] = True
+            trace["confidence"][idx, k] = decision.confidence.mean(axis=-1)
+            trace["confidence_axis"][idx, k] = decision.confidence
+            trace["choice_probs"][idx, k] = answer_record["choice_probs"]
+            trace["axis_held"][idx, k] = held
+            trace["external_hold"][idx, k] = extra_hold
+            trace["conformal_applied"][idx, k] = decision.conformal_applied
+            trace["conformal_mode"][idx, k] = decision.conformal_mode
+            trace["conformal_would_hold"][idx, k] = decision.conformal_would_hold
+            trace["conformal_reason"][idx, k] = decision.conformal_reason
+            trace["set_size"][idx, k] = decision.set_size
+            trace["conformal_set"][idx, k] = np.stack(decision.conformal_set, axis=1)
+            trace["cp_veto"][idx, k] = (decision.conformal_would_hold
+                if decision.conformal_mode == "hard_hold" else False)
+            trace["held"][idx, k] = held.all(axis=-1)
+            trace["reason"][idx, k] = decision.reason.max(axis=-1)
+            trace["step"][idx, k] = np.where(converged[:, None], 0.0, step)
+            trace["applied_step"][idx, k] = applied_step
+            trace["proposed"][idx, k] = decision.proposed
+            trace["step_norm"][idx, k] = np.abs(applied_step).max(axis=-1)
+            trace["cost_before"][idx, k] = j[normal]
+            trace["gains_before"][idx, k] = old
+            trace["gains_after"][idx, k] = gains[idx]
+            trace["event"][idx, k] = np.where(held.all(axis=-1), "hold", "proposal")
+            trace["event"][idx[converged], k] = "stop_early"
+            trace["event"][idx[no_action], k] = "stop_no_action"
 
     if trace is not None:
         trace["improved"] = trace["valid"] & (trace["after"] < trace["cost_before"])
@@ -486,6 +540,7 @@ def evaluate_head(
         actual_simulations=actual + sims_already_spent,
         measurement_counts=counts + sims_already_spent,
         trajectory=trajectory,
+        stop_reason=stop_reason,
     )
 
 

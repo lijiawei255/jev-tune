@@ -32,11 +32,11 @@ def conformal_document(write=True):
     table=header+'\n'.join(rows)+'\n'
     ablation=json.loads((ROOT/'research/results/ablation.json').read_text(encoding='utf-8'))
     compare='| variant | mean of draw medians | p90 summary | rollbacks |\n| :--- | ---: | ---: | ---: |\n'
-    for key,identifier in [('C0_MLP_regression','abl_regression_head'),('C1_uncalibrated','uncalibrated_median'),('C2_temperature_only','temperature_only_median'),('C3_temperature_CP','abl_typed_vs_regression')]:
+    for key,identifier in [('C0_MLP_regression','abl_regression_head'),('C1_uncalibrated','uncalibrated_median'),('C2_temperature_only','temperature_only_median'),('C3_temperature_CP','abl_typed_vs_regression'),('C4_CP_monitor','cp_monitor_median'),('C5_CP_hold_stop','cp_hold_stop_median')]:
         row=next(r for r in ablation['rows'] if r['variant']==key)
         compare+=f"| {key} | {mark(identifier,row['median_mean'])} | {row['p90_median']:.6f} | {row['rollbacks']} |\n"
     paired=ablation['paired_vs_temperature_only']['C3_temperature_CP']
-    comparison=(compare+f"\nCP minus Temp Only paired mean cost difference: {paired['mean_delta']:+.6f}; bootstrap 95% CI [{paired['ci95'][0]:+.6f}, {paired['ci95'][1]:+.6f}]. These are measured differences, not a safety benefit.\n")
+    comparison=(compare+f"\nHistorical hard_hold minus Temp Only paired mean cost difference: {paired['mean_delta']:+.6f}; paired normal-approximation 95% CI (mean +/- 1.96 SE) [{paired['ci95'][0]:+.6f}, {paired['ci95'][1]:+.6f}]. These are measured differences, not a safety benefit.\n")
     body='''# Temperature + split conformal prediction / 温度与分裂共形预测
 
 [English](#english) · [简体中文](#简体中文)
@@ -52,15 +52,18 @@ in [calibration.json](../models/calibration.json); datasets are release assets.
 For each axis, score s=1-p(teacher label) uses the temperature-scaled distribution.
 q_hat is order statistic ceil((n+1)(1-alpha)); rank n+1 uses the bounded endpoint
 1. The set C includes labels with p >= 1-q_hat (computed as 1-p <= q_hat to keep
-floating-point ties). Empty sets, sets larger than k_max, or sets containing
-both positive and negative deltas veto that axis before actuation. Allowed axes
+floating-point ties). Default monitor mode records full sets and would-hold
+reasons without changing the proposal. Explicit hard_hold mode vetoes empty,
+large or opposing-direction sets; it remains a comparison policy. Proposals
 retain the full probability expectation and variance shrink, without truncation
 or renormalization to C. A numeric zero proposal is distinct from a veto;
 even a singleton zero-label set does not force the full-distribution proposal to zero.
 
 Default alpha and maximum set size are fixed configuration, not tuned to the
 test costs. The old pmax threshold is a separate optional heuristic; the shipped
-CP path replaces it. Noul remains an optional override, and rollback remains a
+monitor path disables it. Deterministic no-action trials stop without another
+simulation; repeated measurements require stop_on_no_action=False. Noul remains
+an optional override, and rollback remains a
 separate post-measurement rule. Python, MATLAB and C share policy test vectors.
 
 '''+f"CP calibration n={cp['n_calibration']}, rank={cp['quantile_rank']}, alpha={cp['alpha']}, k_max={cp['k_max']}; independent evaluation n={cp['evaluation']['n_states']}.\n\n"+table+'''
@@ -97,12 +100,12 @@ prediction-set coverage is a different quantity from executed-action coverage.
 
 逐轴使用温度缩放概率计算s=1-p(专家标签)，取ceil((n+1)(1-alpha))次序统计量；
 rank=n+1时使用有界端点1。候选集p>=1-q_hat以数值等价的1-p<=q_hat实现，保留浮点边界。
-空集、超过k_max或同时包含正负方向时，在施加动作前否决该轴。获准轴仍用完整概率分布的
+默认monitor记录完整集合及would_hold原因，不修改提案；显式hard_hold保留空集、超过k_max或正负冲突时的逐轴否决作为对照。提案仍用完整概率分布的
 期望与方差缩步，不将分布截断或归一化到候选集。数值零提案与弃权不同；即使集合只含零标签，
 也不强制将完整分布的提案归零。
 
-alpha与集合大小上限是固定配置，不按测试代价调参；新默认CP取代旧pmax阈值启发式，
-后者仍可显式组合。Noul是可选否决，事后回滚独立。Python/MATLAB/C共用策略测试向量。
+alpha与集合大小上限是固定配置，不按测试代价调参；默认monitor关闭旧pmax阈值；后者仍可显式组合。
+确定性无动作试验停止重复仿真；需要重复观测时显式设stop_on_no_action=False。Noul是可选否决，事后回滚独立。Python/MATLAB/C共用策略测试向量。
 
 '''+f"CP校准n={cp['n_calibration']}、rank={cp['quantile_rank']}、alpha={cp['alpha']}、k_max={cp['k_max']}；独立评估n={cp['evaluation']['n_states']}。\n\n"+table+'''
 第三轴经验覆盖率低于名义水平，按实测保留，不重选q_hat凑数。在交换性且模型/T独立固定的条件下，
@@ -117,7 +120,7 @@ alpha与集合大小上限是固定配置，不按测试代价调参；新默认
     t_row=next(r for r in ablation['rows'] if r['variant']=='C2_temperature_only')
     mean_relation='更高' if paired['mean_delta']>0 else ('更低' if paired['mean_delta']<0 else '相同')
     tail_relation='更高' if cp_row['p90_median']>t_row['p90_median'] else ('更低' if cp_row['p90_median']<t_row['p90_median'] else '相同')
-    body=body.replace('第三轴经验覆盖率',comparison+f'\n配对均值差与区间来自原始JSON；当前CP配对平均代价{mean_relation}，p90{tail_relation}，不把标签覆盖定理当作闭环性能收益。\n\n第三轴经验覆盖率')
+    body=body.replace('第三轴经验覆盖率',comparison+f'\n配对均值差与区间来自原始JSON；旧hard_hold配对平均代价{mean_relation}，p90{tail_relation}，不把标签覆盖定理当作闭环性能收益。\n\n第三轴经验覆盖率')
     if write:
         (ROOT/'docs/CONFORMAL.md').write_text(body,encoding='utf-8')
     return body
@@ -158,8 +161,8 @@ def evidence_documents():
         # Replace the full lead, leaving its established affiliation notice.
         if not chinese:
             intro = ("**PID autotuning with typed probabilistic decisions and explicit abstention.**\n"
-                     "The numeric head uses one CPU forward pass. Empty, broad or opposing-direction CP sets veto axes. Held axes keep their\n"
-                     "last tested parameters; other axes may still change. Holding does not certify safety.\n\n")
+                     "The numeric head uses one CPU forward pass. Complete CP sets are monitored independently of actuation.\n"
+                     "Hard Hold is an explicit comparison policy; unchanged deterministic trials stop without repeated simulation.\n\n")
             s = re.sub(r"\*\*PID autotuning (?:where|with).*?(?=> \*\*Jev-inspired)", intro, s, flags=re.S)
             s = re.sub(r"\| \*\*How fast\*\*.*", f"| **How fast** | ONNX forward {marked('decision_ms',latency['onnx_forward_ms'])} ms median; Python default typed/abstention path {marked('typed_decision_ms',latency['typed_decision_ms'])} ms median, {marked('typed_decision_p99_ms',latency['typed_decision_p99_ms'])} ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |", s)
             s = re.sub(r"\| \*\*How it generalises\*\*.*", f"| **How it generalises** | Validation median {vm['final_cost_median']:.3f}; frozen thermal median {tm['final_cost_median']:.3f}. Current baselines and prior information are shown below. |", s)
@@ -173,7 +176,7 @@ def evidence_documents():
             s = s[:s.index(start)] + body + s[s.index(end):]
             s = s.replace("Two comparisons this project does not make.", "The following are two of the project's unmeasured comparisons.")
         else:
-            intro = ("**PID调参：温度缩放与分裂CP集合弃权。**\n数值头在CPU上一次前向；空集、过宽或正负矛盾集合否决对应轴，保持上次实测参数，其他轴仍可能改变，保持不证明安全。\n\n")
+            intro = ("**PID调参：温度缩放、完整CP集合与独立执行策略。**\n数值头在CPU上一次前向；默认monitor保留集合而不否决动作，hard_hold作为显式对照，确定性参数不变时停止重复仿真。\n\n")
             s = re.sub(r'\*\*PID(?: 调参，每一次|调参：).*?(?=> \*\*受 Jev)', intro, s, flags=re.S)
             s = re.sub(r"\| \*\*多快\*\*.*", f"| **多快** | ONNX前向中位{marked('decision_ms',latency['onnx_forward_ms'])} ms；Python默认类型化/弃权路径中位{marked('typed_decision_ms',latency['typed_decision_ms'])} ms、p99 {marked('typed_decision_p99_ms',latency['typed_decision_p99_ms'])} ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |", s)
             s = re.sub(r"\| \*\*多能泛化\*\*.*", f"| **多能泛化** | 验证族中位{vm['final_cost_median']:.3f}；冻结热工族中位{tm['final_cost_median']:.3f}，当前基线和先验来源见下表。 |", s)
@@ -254,7 +257,7 @@ def main():
             claim["documents"] = [{"file": "docs/CLAIMS.md", "format": ".6f"}]
             if claim["id"] in {"decision_ms", "typed_decision_ms", "typed_decision_p99_ms"}:
                 claim["documents"] += [{"file": name, "format": ".3f"} for name in ("README.md", "README.zh-CN.md")]
-            if claim["id"].startswith(("cp_qhat_", "cp_coverage_", "cp_set_size_", "temperature_")) or claim["id"] in {"abl_regression_head","uncalibrated_median","abl_typed_vs_regression"}:
+            if claim["id"].startswith(("cp_qhat_", "cp_coverage_", "cp_set_size_", "temperature_")) or claim["id"] in {"abl_regression_head","uncalibrated_median","abl_typed_vs_regression","cp_monitor_median","cp_hold_stop_median"}:
                 claim["documents"].append({"file": "docs/CONFORMAL.md", "format": ".6f"})
             value = f"<!-- claim:{claim['id']} -->{check.render_value(got,'.6f')}<!-- /claim -->"
         # Text describes a quantity, never embeds a stale rounded measurement.

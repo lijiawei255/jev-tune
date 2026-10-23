@@ -13,15 +13,18 @@ in [calibration.json](../models/calibration.json); datasets are release assets.
 For each axis, score s=1-p(teacher label) uses the temperature-scaled distribution.
 q_hat is order statistic ceil((n+1)(1-alpha)); rank n+1 uses the bounded endpoint
 1. The set C includes labels with p >= 1-q_hat (computed as 1-p <= q_hat to keep
-floating-point ties). Empty sets, sets larger than k_max, or sets containing
-both positive and negative deltas veto that axis before actuation. Allowed axes
+floating-point ties). Default monitor mode records full sets and would-hold
+reasons without changing the proposal. Explicit hard_hold mode vetoes empty,
+large or opposing-direction sets; it remains a comparison policy. Proposals
 retain the full probability expectation and variance shrink, without truncation
 or renormalization to C. A numeric zero proposal is distinct from a veto;
 even a singleton zero-label set does not force the full-distribution proposal to zero.
 
 Default alpha and maximum set size are fixed configuration, not tuned to the
 test costs. The old pmax threshold is a separate optional heuristic; the shipped
-CP path replaces it. Noul remains an optional override, and rollback remains a
+monitor path disables it. Deterministic no-action trials stop without another
+simulation; repeated measurements require stop_on_no_action=False. Noul remains
+an optional override, and rollback remains a
 separate post-measurement rule. Python, MATLAB and C share policy test vectors.
 
 CP calibration n=512, rank=462, alpha=0.1, k_max=3; independent evaluation n=512.
@@ -38,8 +41,10 @@ CP calibration n=512, rank=462, alpha=0.1, k_max=3; independent evaluation n=512
 | C1_uncalibrated | <!-- claim:uncalibrated_median -->0.435726<!-- /claim --> | 1.060245 | 0 |
 | C2_temperature_only | <!-- claim:temperature_only_median -->0.453664<!-- /claim --> | 1.029825 | 0 |
 | C3_temperature_CP | <!-- claim:abl_typed_vs_regression -->0.672046<!-- /claim --> | 1.309521 | 0 |
+| C4_CP_monitor | <!-- claim:cp_monitor_median -->0.453664<!-- /claim --> | 1.029825 | 0 |
+| C5_CP_hold_stop | <!-- claim:cp_hold_stop_median -->0.701220<!-- /claim --> | 1.353294 | 0 |
 
-CP minus Temp Only paired mean cost difference: +0.240389; bootstrap 95% CI [+0.194164, +0.286614]. These are measured differences, not a safety benefit.
+Historical hard_hold minus Temp Only paired mean cost difference: +0.240389; paired normal-approximation 95% CI (mean +/- 1.96 SE) [+0.194164, +0.286614]. These are measured differences, not a safety benefit.
 
 The third axis's empirical result below the nominal level is reported as
 observed. It is not repaired by reselecting q_hat. Under exchangeability and
@@ -74,12 +79,12 @@ prediction-set coverage is a different quantity from executed-action coverage.
 
 逐轴使用温度缩放概率计算s=1-p(专家标签)，取ceil((n+1)(1-alpha))次序统计量；
 rank=n+1时使用有界端点1。候选集p>=1-q_hat以数值等价的1-p<=q_hat实现，保留浮点边界。
-空集、超过k_max或同时包含正负方向时，在施加动作前否决该轴。获准轴仍用完整概率分布的
+默认monitor记录完整集合及would_hold原因，不修改提案；显式hard_hold保留空集、超过k_max或正负冲突时的逐轴否决作为对照。提案仍用完整概率分布的
 期望与方差缩步，不将分布截断或归一化到候选集。数值零提案与弃权不同；即使集合只含零标签，
 也不强制将完整分布的提案归零。
 
-alpha与集合大小上限是固定配置，不按测试代价调参；新默认CP取代旧pmax阈值启发式，
-后者仍可显式组合。Noul是可选否决，事后回滚独立。Python/MATLAB/C共用策略测试向量。
+alpha与集合大小上限是固定配置，不按测试代价调参；默认monitor关闭旧pmax阈值；后者仍可显式组合。
+确定性无动作试验停止重复仿真；需要重复观测时显式设stop_on_no_action=False。Noul是可选否决，事后回滚独立。Python/MATLAB/C共用策略测试向量。
 
 CP校准n=512、rank=462、alpha=0.1、k_max=3；独立评估n=512。
 
@@ -95,10 +100,12 @@ CP校准n=512、rank=462、alpha=0.1、k_max=3；独立评估n=512。
 | C1_uncalibrated | <!-- claim:uncalibrated_median -->0.435726<!-- /claim --> | 1.060245 | 0 |
 | C2_temperature_only | <!-- claim:temperature_only_median -->0.453664<!-- /claim --> | 1.029825 | 0 |
 | C3_temperature_CP | <!-- claim:abl_typed_vs_regression -->0.672046<!-- /claim --> | 1.309521 | 0 |
+| C4_CP_monitor | <!-- claim:cp_monitor_median -->0.453664<!-- /claim --> | 1.029825 | 0 |
+| C5_CP_hold_stop | <!-- claim:cp_hold_stop_median -->0.701220<!-- /claim --> | 1.353294 | 0 |
 
-CP minus Temp Only paired mean cost difference: +0.240389; bootstrap 95% CI [+0.194164, +0.286614]. These are measured differences, not a safety benefit.
+Historical hard_hold minus Temp Only paired mean cost difference: +0.240389; paired normal-approximation 95% CI (mean +/- 1.96 SE) [+0.194164, +0.286614]. These are measured differences, not a safety benefit.
 
-配对均值差与区间来自原始JSON；当前CP配对平均代价更高，p90更高，不把标签覆盖定理当作闭环性能收益。
+配对均值差与区间来自原始JSON；旧hard_hold配对平均代价更高，p90更高，不把标签覆盖定理当作闭环性能收益。
 
 第三轴经验覆盖率低于名义水平，按实测保留，不重选q_hat凑数。在交换性且模型/T独立固定的条件下，
 分裂CP保证对校准样本及新测试抽样取边际后的逐轴专家标签包含率至少1-alpha；不保证某次有限评估

@@ -74,8 +74,8 @@ solver      ...
 
 [![English](https://img.shields.io/badge/README-English-blue)](README.md)
 
-**PID调参：温度缩放与分裂CP集合弃权。**
-数值头在CPU上一次前向；空集、过宽或正负矛盾集合否决对应轴，保持上次实测参数，其他轴仍可能改变，保持不证明安全。
+**PID调参：温度缩放、完整CP集合与独立执行策略。**
+数值头在CPU上一次前向；默认monitor保留集合而不否决动作，hard_hold作为显式对照，确定性参数不变时停止重复仿真。
 
 > **受 Jev 启发，非官方关联。** 这里借的是它的**接口规范**：`choice`（多选一）、
 > `score`（分档打分）、`noul`（是否安全）三个带校准概率的原语。**不是** TypeSafe 的
@@ -100,16 +100,16 @@ solver      ...
 
 ---
 
-独立校准结果及覆盖边界见[温度与分裂CP](docs/CONFORMAL.md)。当前CP代价逊于温度单独校准；标签覆盖定理或保持动作均不证明闭环安全。
+独立校准结果及覆盖边界见[温度与分裂CP](docs/CONFORMAL.md)。旧CP硬保持代价逊于温度单独校准；默认monitor保留温度单独校准的提案；标签覆盖定理或保持动作均不证明闭环安全。
 
 ## 15 秒看懂
 
 | | |
 | :--- | :--- |
 | **做什么** | 看刚测到的响应，决定下一步把 PID 增益乘多少 |
-| **多快** | ONNX前向中位<!-- claim:decision_ms -->0.026<!-- /claim --> ms；Python默认类型化/弃权路径中位<!-- claim:typed_decision_ms -->0.319<!-- /claim --> ms、p99 <!-- claim:typed_decision_p99_ms -->0.708<!-- /claim --> ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |
+| **多快** | ONNX前向中位<!-- claim:decision_ms -->0.025<!-- /claim --> ms；Python默认类型化/弃权路径中位<!-- claim:typed_decision_ms -->0.303<!-- /claim --> ms、p99 <!-- claim:typed_decision_p99_ms -->0.760<!-- /claim --> ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |
 | **多省实验** | 真实 Simulink 电机上 **5 次实验**把代价从 **1.238 降到 0.598**（v0.2 的记录运行；修正增益扫描后同一模型起点更好，整定器会直接返回电机自带的增益——[原因](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)）；结果不会比 ZN 起点与模型自带增益中更好的那组更差 |
-| **多能泛化** | 验证族中位0.682；冻结热工族中位2.193，当前基线和先验来源见下表。 |
+| **多能泛化** | 验证族中位0.482；冻结热工族中位1.833，当前基线和先验来源见下表。 |
 
 ![前后对比](assets/before_after.png)
 
@@ -273,11 +273,11 @@ jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
 
 | method | median J | p90 J | actual simulations |
 | :--- | ---: | ---: | ---: |
+| `jev_head` | 0.482 | 1.030 | 20 |
 | `bo` | 0.547 | 1.552 | 20 |
-| `jev_head_swept` | 0.615 | 1.401 | 20 |
+| `jev_head_swept` | 0.510 | 1.014 | 20 |
 | `shrunk_zn` | 1.290 | 1.905 | 1 |
 | `identify+pidtune_PID` | 0.742 | 1.705 | 2 |
-| `jev_head` | 0.682 | 1.305 | 20 |
 | `swept_zn` | 1.860 | 2.791 | 8 |
 | `vocab_hill` | 1.463 | 2.212 | 20 |
 | `cmaes` | 1.723 | 2.521 | 20 |
@@ -289,11 +289,11 @@ jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
 | method | median J | p90 J | actual simulations |
 | :--- | ---: | ---: | ---: |
 | `vocab_hill` | 1.711 | 2.447 | 20 |
-| `jev_head_swept` | 2.000 | 5.177 | 20 |
+| `jev_head_swept` | 1.785 | 3.800 | 20 |
+| `jev_head` | 1.833 | 2.816 | 20 |
 | `bo` | 1.878 | 2.684 | 20 |
 | `cmaes` | 2.000 | 2.879 | 20 |
 | `identify+pidtune_PID` | 2.330 | 3.064 | 2 |
-| `jev_head` | 2.193 | 3.199 | 20 |
 | `zn_classic` | 2.682 | 3.374 | 1 |
 | `swept_zn` | 3.580 | 5.334 | 8 |
 | `shrunk_zn` | 4.854 | 5.158 | 1 |
@@ -430,3 +430,5 @@ assets/          README 用到的 GIF 和图片
 ## 许可证
 
 MIT © JIAWEI LI — 见 [`LICENSE`](LICENSE)。
+
+CP解耦专项诊断与独立联合动作风险实验见[CP_DIAGNOSIS](docs/CP_DIAGNOSIS.md)、[JOINT_RISK](docs/JOINT_RISK.md)。联合风险头保持研究用途，不默认部署。

@@ -38,13 +38,19 @@ D.reason = zeros(1, 3);
 D.reason(low) = 1; D.reason(D.escalate) = 2;
 D.conformal_applied = logical(field_default(W, 'cp_enabled', false));
 D.conformal_set = false(7, 3); D.set_size = zeros(1, 3);
+D.conformal_mode = 'off';
+D.conformal_would_hold = false(1, 3); D.conformal_reason = zeros(1, 3);
 if D.conformal_applied
+    D.conformal_mode = char(field_default(W, 'cp_mode', 'monitor'));
+    if ~any(strcmp(D.conformal_mode, {'monitor', 'hard_hold'}))
+        error('jev:cp_mode', 'cp_mode must be monitor or hard_hold');
+    end
     qhat = double(W.cp_qhat(:).');
     validateattributes(qhat, {'numeric'}, {'size', [1 3], 'finite', '>=', 0, '<=', 1});
     validateattributes(W.cp_k_max, {'numeric'}, {'scalar', 'integer', 'positive', 'finite'});
     validateattributes(W.cp_alpha, {'numeric'}, {'scalar', 'finite', '>', 0, '<', 1});
     % Keep the full TS distribution for the expected-value proposal. The CP
-    % set is a separate permission mask, never a truncated/renormalized p.
+    % set is never a truncated/renormalized p. Monitor only records evidence.
     D.conformal_set = (1 - p) <= qhat;
     D.set_size = sum(D.conformal_set, 1);
     mixed = any(D.conformal_set & (d.' > 0), 1) & ...
@@ -52,11 +58,15 @@ if D.conformal_applied
     empty = D.set_size == 0;
     oversized = D.set_size > W.cp_k_max;
     reject = empty | oversized | mixed;
-    D.held = D.held | reject;
-    D.escalate = D.escalate | reject;
-    D.reason(mixed) = 6;
-    D.reason(oversized) = 5;
-    D.reason(empty) = 4;
+    D.conformal_would_hold = reject;
+    D.conformal_reason(mixed) = 6;
+    D.conformal_reason(oversized) = 5;
+    D.conformal_reason(empty) = 4;
+    if strcmp(D.conformal_mode, 'hard_hold')
+        D.held = D.held | reject;
+        D.escalate = D.escalate | reject;
+        D.reason(reject) = D.conformal_reason(reject);
+    end
 end
 if D.noul < tauNoul, D.reason(:) = 3; end
 D.step = D.proposed; D.step(D.held) = 0;

@@ -14,8 +14,10 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_matlab_report_binds_the_exported_inputs_and_implementation():
     report = json.loads((ROOT / "research/results/matlab_parity.json").read_text())
-    assert report["ok"] and report["cases"] == 24 and report["policy_cases"] >= 17
-    assert report["schema_version"] == 2 and report["configuration"]["conformal"]["enabled"]
+    assert report["ok"] and report["cases"] == 24 and report["policy_cases"] >= 27
+    assert report["schema_version"] == 3 and report["configuration"]["conformal"]["enabled"]
+    assert report["configuration"]["conformal"]["mode"] == "monitor"
+    assert {c["conformal_mode"] for c in report["policy_outputs"]} == {"off", "monitor", "hard_hold"}
     for field, name in {
         "model_sha256": "models/jev_head.pt",
         "calibration_sha256": "models/calibration.json",
@@ -38,17 +40,43 @@ def _script(name):
     return module
 
 
+def test_matlab_runtime_report_binds_actual_closed_loop_evidence():
+    module = _script("24_verify_matlab_runtime")
+    report = json.loads((ROOT / "research/results/matlab_runtime.json").read_text())
+    assert report["ok"] and report["schema_version"] == 1
+    assert report["source_log_sha256"] == hashlib.sha256(report["source_log"].encode("utf-8")).hexdigest()
+    records = [line[len(module.MARKER):] for line in report["source_log"].splitlines()
+               if line.startswith(module.MARKER)]
+    assert len(records) == 1 and json.loads(records[0]) == report["test_results"]
+    for name in module.SOURCES:
+        assert report["source_hashes"][name] == module.file_hash(ROOT / name), name
+    result = report["test_results"]
+    assert result["first_iteration_rollbacks"] == 1 and result["first_iteration_escalations"] == 0
+    assert result["monitor_off_max_cost_difference"] < 1e-10
+    assert result["monitor_off_max_gain_difference"] < 1e-10
+    assert result["hard_hold_no_action_stops"] == 1 and result["hard_hold_final_reused"]
+    assert result["no_action_measurements"] == 1 and result["repeated_observation_measurements"] == 5
+    assert result["hard_hold_n_experiments"] == 1 and result["hard_hold_n_history_records"] == 2
+    assert result["hard_hold_total_simulations"] == sum(result["hard_hold_measurements"].values())
+    assert result["rollback_no_action_measurements"] == 2
+    assert result["rollback_no_action_reason"] == "rollback_no_action"
+    assert result["rollback_no_action_final_reused"]
+    assert result["hard_hold_final_J"] <= min(result["hard_hold_initial_J"], result["hard_hold_own_J"])
+    assert result["monitor_final_J"] <= min(result["monitor_initial_J"], result["monitor_own_J"])
+
+
 def test_committed_vectors_match_current_model_and_policy():
     from jev_tune.decision import load_backend
     from jev_tune.decode import decide
 
     artifact = json.loads((ROOT / "c/test_vectors.json").read_text())
-    assert artifact["schema_version"] == 3
+    assert artifact["schema_version"] == 4
     assert artifact["model_sha256"] == hashlib.sha256((ROOT / "models/jev_head.pt").read_bytes()).hexdigest()
     backend = load_backend(ROOT / "models")
     config = artifact["configuration"]
     assert config["policy"] == {"tau_act": 0., "tau_esc": 0., "tau_noul": 0.}
     assert config["conformal"]["enabled"]
+    assert config["conformal"]["mode"] == backend.conformal.mode == "monitor"
     assert config["conformal"]["qhat_per_axis"] == list(backend.conformal.q_hat)
     assert config["conformal"]["k_max"] == backend.conformal.k_max
     np.testing.assert_array_equal(config["temperature"], backend.temperature)
@@ -60,6 +88,8 @@ def test_committed_vectors_match_current_model_and_policy():
     np.testing.assert_array_equal(decision.held, [c["held"] for c in cases])
     np.testing.assert_array_equal(decision.escalate, [c["escalate"] for c in cases])
     np.testing.assert_array_equal(decision.set_size, [c["set_size"] for c in cases])
+    np.testing.assert_array_equal(decision.conformal_would_hold, [c["conformal_would_hold"] for c in cases])
+    np.testing.assert_array_equal(decision.conformal_reason, [c["conformal_reason"] for c in cases])
     np.testing.assert_array_equal(np.stack(decision.conformal_set, axis=-2), [c["conformal_set"] for c in cases])
     np.testing.assert_allclose(decision.proposed, [c["proposed"] for c in cases], atol=artifact["tolerance"]["step"], rtol=0)
     for actual, expected in [(ans.score.dist, [c["score_probs"] for c in cases]),
@@ -67,6 +97,22 @@ def test_committed_vectors_match_current_model_and_policy():
         np.testing.assert_allclose(actual, expected, atol=artifact["tolerance"]["probs"], rtol=0)
     for axis, ch in enumerate(ans.choice):
         np.testing.assert_allclose(ch.probs, [c["probs"][axis] for c in cases], atol=artifact["tolerance"]["probs"], rtol=0)
+
+
+def test_portable_modes_share_sets_but_only_hard_hold_changes_actions():
+    artifact = json.loads((ROOT / "c/test_vectors.json").read_text())
+    cases = {c["name"]: c for c in artifact["policy_cases"]}
+    for name, hard in cases.items():
+        if hard["conformal_mode"] != "hard_hold":
+            continue
+        monitor = cases[name + "_monitor"]
+        for key in ("conformal_set", "set_size", "conformal_would_hold", "conformal_reason", "proposed"):
+            assert monitor[key] == hard[key], (name, key)
+        if hard["policy"] == {"tau_act": 0., "tau_esc": 0., "tau_noul": 0.}:
+            assert not any(monitor["held"]) and not any(monitor["escalate"])
+            assert monitor["reason"] == [0, 0, 0]
+            assert monitor["step"] == monitor["proposed"]
+            assert hard["held"] == hard["conformal_would_hold"]
 
 
 @pytest.mark.skipif(shutil.which("gcc") is None, reason="gcc unavailable")

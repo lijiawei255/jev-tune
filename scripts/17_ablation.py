@@ -183,7 +183,9 @@ VARIANTS = (
     ("C0_MLP_regression", "regress", True, 0.0, False, True, False, None, False),
     ("C1_uncalibrated", "head", True, 1.0, False, True, False, None, False),
     ("C2_temperature_only", "head", True, 1.0, False, True, True, None, False),
-    ("C3_temperature_CP", "head", True, 1.0, False, True, True, None, True),
+    ("C3_temperature_CP", "head", True, 1.0, False, True, True, None, "hard_hold"),
+    ("C4_CP_monitor", "head", True, 1.0, False, True, True, None, "monitor"),
+    ("C5_CP_hold_stop", "head", True, 1.0, False, True, True, None, "hard_hold"),
     ("A0_regress", "regress", True, 0.0, False, False, True, None, False),
     ("A1_argmax", "head", False, 0.0, False, False, True, None, False),
     ("A2_expect", "head", True, 0.0, False, False, True, None, False),
@@ -237,6 +239,7 @@ def main():
         "draws": [d["seed"] for d in draws],
         "rows": [],
         "calibration_evidence": json.loads((Path(args.models)/"calibration.json").read_text(encoding="utf-8")),
+        "policy_protocol": "C3 historical hard_hold repeats; C4 default monitor; C5 hard_hold stops unchanged gains. Fixed configurations, no outcome-based selection.",
         "training_protocol": {
             "training_seed": 0, "training_seeds_repeated": False,
             "training_states": len(tr), "legacy_validation_states": len(va),
@@ -320,7 +323,8 @@ def main():
                 early_stop=early,
                 safety_gate=gate,
                 abstain=policy,
-                conformal="backend" if cp else None,
+                conformal=cp if cp else None,
+                stop_on_no_action=name in ("C4_CP_monitor", "C5_CP_hold_stop"),
             )
             rep = r.decision_report()
             per_draw.append(
@@ -333,6 +337,10 @@ def main():
                     "rollbacks": int(r.rollbacks.sum()),
                     "failures": int((r.best_j >= 50.0).sum()),
                     "coverage": rep.get("coverage"),
+                    "measured_transition_coverage": rep.get("coverage"),
+                    "proposal_coverage": rep.get("proposal_coverage"),
+                    "n_measured_policy_transitions": rep.get("n_decisions"),
+                    "n_proposals": rep.get("n_proposals"),
                     "harmful_rate": rep.get("harmful_rate"),
                     "ece": None if backend_kind == "regress" else rep.get("ece"),
                     "decision_report": rep,
@@ -342,7 +350,8 @@ def main():
             print(
                 f"  {name:15s} draw {di}  median {per_draw[-1]['median']:.3f}  "
                 f"exp {per_draw[-1]['mean_experiments']:.1f}  "
-                f"cov {per_draw[-1]['coverage']:.2f}",
+                f"proposal cov {per_draw[-1]['proposal_coverage']:.2f}  "
+                f"measured cov {per_draw[-1]['coverage']:.2f}",
                 flush=True,
             )
 
@@ -355,7 +364,7 @@ def main():
             {
                 "variant": name,
                 "configuration": {"backend":backend_kind,"temperature":calibrate if backend_kind == "head" else False,
-                    "conformal":cp,"gate":gate,"shrinkage":shrink,
+                    "conformal":bool(cp),"conformal_mode":cp or "off", "stop_on_no_action":name in ("C4_CP_monitor", "C5_CP_hold_stop"),"gate":gate,"shrinkage":shrink,
                     "pmax_abstention":policy is not None},
                 "median_mean": float(med.mean()),
                 "median_std": float(med.std(ddof=1)) if len(med) > 1 else 0.0,
@@ -364,6 +373,10 @@ def main():
                 "rollbacks": int(sum(x["rollbacks"] for x in per_draw)),
                 "failures": int(sum(x["failures"] for x in per_draw)),
                 "coverage": float(np.mean([x["coverage"] for x in per_draw])),
+                "measured_transition_coverage": float(np.mean([x["coverage"] for x in per_draw])),
+                "proposal_coverage": float(np.mean([x["proposal_coverage"] for x in per_draw])),
+                "n_measured_policy_transitions": int(sum(x["n_measured_policy_transitions"] for x in per_draw)),
+                "n_proposals": int(sum(x["n_proposals"] for x in per_draw)),
                 "harmful_rate": float(
                     np.mean(
                         [
@@ -449,10 +462,11 @@ def _doc(result: dict) -> str:
         "* C0 MLP Regression / C1 Uncalibrated / C2 Temp Only / C3 Temp+CP share the start, plants, maximum budget and deterministic gate; none uses the pmax heuristic",
         "* C0 preserves its continuous expectation without variance shrinkage; C1-C3 share the same expectation/variance decoder. C3 alone enables CP, so C3 versus C2 isolates its hold rule",
         "* the A0-A6 ladder disables CP; A5 is the legacy pmax policy, not the shipped default",
-        "* coverage below means permitted-action coverage, not teacher-label set coverage. Independent CP empirical coverage and set size are stored in calibration_evidence in the JSON",
+        "* both action-coverage columns count at least one permitted axis. Proposal coverage includes terminal proposals; measured transition coverage (the JSON coverage alias) includes only policy decisions followed by an actual measurement, excluding rollbacks. Rates are means across draws; counts in the JSON are totals",
+        "* stopping after a fully held proposal excludes that proposal from the measured denominator. C5 can therefore have measured transition coverage 1.0 while rejecting proposals; proposal coverage shows those holds. Neither quantity is teacher-label set coverage, whose independent evaluation is stored in calibration_evidence",
         "",
-        "| variant | median J | std | p90 | experiments | coverage | harmful | ECE | Δ vs A4 |",
-        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| variant | median J | std | p90 | experiments | proposal coverage | measured transition coverage | harmful | ECE | Δ vs A4 |",
+        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for r in rows:
         pd = result.get("paired_vs_A4", {}).get(r["variant"], {})
@@ -462,7 +476,7 @@ def _doc(result: dict) -> str:
         lines.append(
             f"| `{r['variant']}` | {r['median_mean']:.3f} | {r['median_std']:.3f} | "
             f"{r['p90_median']:.3f} | {r['experiments_mean']:.1f} | "
-            f"{r['coverage']:.2f} | {harm} | {ece} | {delta} |"
+            f"{r['proposal_coverage']:.4f} | {r['measured_transition_coverage']:.4f} | {harm} | {ece} | {delta} |"
         )
     if "paired_vs_A4" in result:
         lines += [
@@ -508,10 +522,11 @@ def _doc(result: dict) -> str:
         "* C0 MLP Regression / C1 Uncalibrated / C2 Temp Only / C3 Temp+CP共享起点、对象、预算上限与确定性安全门，均不使用pmax启发式阈值",
         "* C0保持连续期望且不做方差缩步；C1-C3共享期望/方差解码。只有C3启用CP，故C3与C2的差异隔离CP保持规则",
         "* A0-A6阶梯关闭CP；A5是旧pmax策略，不是当前出厂默认",
-        "* 下表coverage是动作获准比例，不是标签被预测集覆盖的比例。独立CP经验标签覆盖率与集合大小保存在JSON的calibration_evidence",
+        "* 两种动作覆盖率均统计至少一轴获准的比例。提案覆盖率包含终止提案；已测转移覆盖率（JSON中的coverage别名）仅统计后续确有测量的策略决策，不含回滚。覆盖率取各轮均值，JSON中的计数为各轮合计",
+        "* 全轴保持后立即终止的提案不进入已测转移分母。因此C5的已测转移覆盖率可以是1.0，同时仍拒绝部分提案；提案覆盖率会计入这些保持。二者均不是专家标签集合覆盖率，后者的独立评估保存在calibration_evidence",
         "",
-        "| 变体 | 中位 J | 标准差 | p90 | 实验次数 | 覆盖率 | 有害步 | ECE | 相对 A4 |",
-        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "| 变体 | 中位 J | 标准差 | p90 | 实验次数 | 提案覆盖率 | 已测转移覆盖率 | 有害步 | ECE | 相对 A4 |",
+        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for r in rows:
         pd = result.get("paired_vs_A4", {}).get(r["variant"], {})
@@ -521,7 +536,7 @@ def _doc(result: dict) -> str:
         lines.append(
             f"| `{r['variant']}` | {r['median_mean']:.3f} | {r['median_std']:.3f} | "
             f"{r['p90_median']:.3f} | {r['experiments_mean']:.1f} | "
-            f"{r['coverage']:.2f} | {harm} | {ece} | {delta} |"
+            f"{r['proposal_coverage']:.4f} | {r['measured_transition_coverage']:.4f} | {harm} | {ece} | {delta} |"
         )
     lines += _reading(result, zh=True)
     lines += [
@@ -547,13 +562,16 @@ def _reading(result: dict, *, zh: bool) -> list[str]:
     lines = ["", "**What the ladder says**" if not zh else "**阶梯说了什么**", ""]
     lines += conformal_evidence_lines(result.get('calibration_evidence', {}), zh=zh)
     if all(name in by for name in ("C0_MLP_regression", "C1_uncalibrated", "C2_temperature_only", "C3_temperature_CP")):
-        for name in ("C0_MLP_regression", "C1_uncalibrated", "C2_temperature_only", "C3_temperature_CP"):
+        for name in ("C0_MLP_regression", "C1_uncalibrated", "C2_temperature_only", "C3_temperature_CP", "C4_CP_monitor", "C5_CP_hold_stop"):
             r = by[name]
             set_size = 'n/a' if r.get('average_set_size') is None else f"{r['average_set_size']:.4f}"
             lines.append(
                 f"* {name}: median {r['median_mean']:.4f}, p90 {r['p90_median']:.4f}, "
                 f"{'回滚' if zh else 'rollbacks'} {r['rollbacks']}, "
-                f"{'动作覆盖率' if zh else 'action coverage'} {r['coverage']:.4f}, "
+                f"{'提案覆盖率' if zh else 'proposal coverage'} {r['proposal_coverage']:.4f} "
+                f"(n={r['n_proposals']}), "
+                f"{'已测转移覆盖率' if zh else 'measured transition coverage'} {r['measured_transition_coverage']:.4f} "
+                f"(n={r['n_measured_policy_transitions']}), "
                 f"{'闭环平均集合大小' if zh else 'rollout mean set size'} {set_size}."
             )
         pd = result.get("paired_vs_temperature_only", {}).get("C3_temperature_CP")

@@ -22,7 +22,7 @@ official architecture evidence; its implementation claims are not relied on here
 | Score | five ordered cost bands, distribution | fixed synthetic rubric |
 | Noul | synthetic healthy-step label | no independently validated safety probability; tau_noul defaults to 0 |
 | Calibration | per-axis NLL temperature loaded at runtime | expert agreement differs from outcome calibration; T also changes expectation actions |
-| Abstention | default split-CP sets; optional legacy tau_act/tau_esc and global tau_noul | keep last tested parameter; escalation flag only; separate measured rollback |
+| Abstention | default split-CP monitoring; optional hard_hold and legacy tau_act/tau_esc and global tau_noul | keep last tested parameter; escalation flag only; separate measured rollback |
 | Many questions | three Choice + Score + Noul in one forward | scaling with arbitrary question count unmeasured |
 | Registry | fixed supported IDs, UnknownQuestion on unsupported IDs | no natural-language questions or arbitrary rubric |
 | Training | supervised imitation of simulated coordinate search | no Jev training recipe reused |
@@ -49,7 +49,7 @@ contains ECE 0.466→0.081 on its own task; it is background, not a matched PID 
 | Score | 5个有序代价档及分布 | 固定合成评分标准 |
 | Noul | 合成健康动作标签 | 不是独立验证的安全概率，tau_noul默认0 |
 | 校准 | 每轴NLL温度在运行时应用 | 专家一致性不等于结果校准，T也改变期望动作 |
-| 弃权 | 默认分裂CP集合，可选旧tau_act/tau_esc及全局tau_noul | 保持上次实测参数，升级仅标记，事后回滚独立 |
+| 弃权 | 默认完整CP集合监测，可选hard_hold及旧tau_act/tau_esc及全局tau_noul | 保持上次实测参数，升级仅标记，事后回滚独立 |
 | 多问题 | 一次前向回答3个Choice及Score/Noul | 任意问题数扩展未测 |
 | 注册表 | 固定ID，未知项抛UnknownQuestion | 不接受自然语言问题或任意标准 |
 | 训练 | 仿真坐标搜索专家的监督模仿 | 未复用Jev训练配方 |

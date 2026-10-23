@@ -1,0 +1,76 @@
+{
+  "registered_utc": "2026-10-23T18:20:13.863454+00:00",
+  "specification": {
+    "protocol_version": 1,
+    "name": "joint_action_risk_initial_state_v1",
+    "n_per_split": 512,
+    "split_seeds": {
+      "train": 72601,
+      "temperature_fit": 72602,
+      "cp_fit": 72603,
+      "empirical_eval": 72604
+    },
+    "families": [
+      "fopdt",
+      "sopdt",
+      "third_rhp",
+      "integrating",
+      "pmsm_speed",
+      "position_loop"
+    ],
+    "sampling": "IID uniform family mixture; one initial analytic-ZN state per independent plant",
+    "label": {
+      "noninferior": 0,
+      "harmful": 1,
+      "rule": "J_proposal <= J_current",
+      "tolerance": 0.0
+    },
+    "proposal": {
+      "checkpoint_sha256": "8546f50dc25c1027d16c2d7da38b2320b23f9b82ba90b48a8315068c875ea82c",
+      "choice_temperature": [
+        1.8914944004413212,
+        1.5218893482685463,
+        1.5022457291115834
+      ],
+      "expectation": true,
+      "shrinkage": 1.0,
+      "per_axis_conformal": false,
+      "pmax_abstention": false,
+      "gain_bounds": [
+        0.0001,
+        1000.0
+      ],
+      "action": "complete three-axis proposal, after production gain bounds"
+    },
+    "features": "20 state + 3 complete applied log10 steps + 21 temperature-scaled choice probabilities",
+    "risk_model": {
+      "standard_scaler_fit": "train only",
+      "classifier": "LogisticRegression",
+      "C": 1.0,
+      "penalty": "l2",
+      "solver": "lbfgs",
+      "max_iter": 2000,
+      "tol": 0.0001,
+      "class_weight": null,
+      "random_state": 72601
+    },
+    "risk_temperature": {
+      "fit_split": "temperature_fit",
+      "method": "existing calibrate_temperature NLL"
+    },
+    "conformal": {
+      "fit_split": "cp_fit",
+      "alpha": 0.1,
+      "score": "1-p(actual paired-cost label)",
+      "rank": "ceil((n+1)*(1-alpha))",
+      "accept": "set exactly {noninferior}",
+      "otherwise": "hold complete current gains; no per-axis clipping"
+    },
+    "evaluation": {
+      "split": "empirical_eval",
+      "no_parameter_selection": true,
+      "measure_every_candidate": true,
+      "expected_total_simulated_plant_runs": 4096
+    }
+  }
+}

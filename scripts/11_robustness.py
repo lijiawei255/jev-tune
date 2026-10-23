@@ -43,6 +43,18 @@ def load_head(models: str) -> JevHead:
     return load_backend(models).model
 
 
+def measured_values_json(values, measured):
+    """Serialize unmeasured padding as null, rejecting invalid observations."""
+    values, measured = np.asarray(values), np.asarray(measured, dtype=bool)
+    if values.shape[:measured.ndim] != measured.shape:
+        raise ValueError("measurement mask must match the trajectory dimensions")
+    if not np.isfinite(values[measured]).all():
+        raise ValueError("measured trajectory values must be finite")
+    result = values.astype(object)
+    result[~measured] = None
+    return result.tolist()
+
+
 def run_group(head, plants, label, *, gate: bool, seed: int = 0, budget: int = 20):
     ku, tu = ultimate_gain(plants)
     kuf = np.where(np.isfinite(ku) & (ku > 0), ku, 1.0)
@@ -63,6 +75,9 @@ def run_group(head, plants, label, *, gate: bool, seed: int = 0, budget: int = 2
         safety_gate=gate,
         seed=seed,
     )
+    measured = r.trajectory["measured"]
+    measured_cost = measured_values_json(r.trajectory["cost"], measured)
+    measured_gains = measured_values_json(r.trajectory["gains"], measured)
     start = r.history[:, 0]
     final = r.best_j
     ratio = final / np.maximum(start, 1e-9)
@@ -101,9 +116,13 @@ def run_group(head, plants, label, *, gate: bool, seed: int = 0, budget: int = 2
             "max_tested_J": max_tested.tolist(),
             "rollbacks": r.rollbacks.tolist(),
             "actual_simulations": r.actual_simulations.tolist(),
-            "measured_cost": r.trajectory["cost"].tolist(),
-            "measured_gains": r.trajectory["gains"].tolist(),
+            "measured_cost": measured_cost,
+            "measured_gains": measured_gains,
+            "measured": measured.tolist(),
+            "stop_reason": r.stop_reason.tolist(),
             "transition_events": r.decisions["event"].tolist(),
+            "transition_valid": r.decisions["valid"].tolist(),
+            "decision_valid": r.decisions["decision_valid"].tolist(),
         },
     }
 

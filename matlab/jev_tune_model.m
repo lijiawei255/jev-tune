@@ -40,11 +40,16 @@ defaults = struct( ...
     'instrument_block', '', ...    % tap this block on the working copy
     'instrument_port', 1, ...      % which output port to tap
     'tau_act', [], 'tau_esc', [], 'tau_noul', [], ... % optional policy overrides
-    'cp_enabled', [], 'cp_qhat', [], 'cp_alpha', [], 'cp_k_max', [], ...
+    'cp_enabled', [], 'cp_qhat', [], 'cp_alpha', [], 'cp_k_max', [], 'cp_mode', [], ...
+    'stop_on_no_action', true, ... % false for noisy/repeated or dynamic observations
     'keep_loaded', false);         % true => leave the model compiled for reuse
 f = fieldnames(defaults);
 for i = 1:numel(f)
     if ~isfield(cfg, f{i}), cfg.(f{i}) = defaults.(f{i}); end
+end
+validateattributes(cfg.stop_on_no_action, {'logical', 'numeric'}, {'scalar', 'finite'});
+if ~ismember(cfg.stop_on_no_action, [0 1])
+    error('jev:stop_on_no_action', 'stop_on_no_action must be true or false');
 end
 % Caching a compiled model is only safe in a non-interactive session: in the
 % desktop, a later close_system raises a modal "exit Fast Restart?" dialog that
@@ -58,7 +63,7 @@ here = fileparts(mfilename('fullpath'));
 addpath(here);
 thisDir = fileparts(here);
 W = load(fullfile(thisDir, 'models', 'jev_head_weights.mat'));
-for policyName = {'tau_act', 'tau_esc', 'tau_noul', 'cp_enabled', 'cp_qhat', 'cp_alpha', 'cp_k_max'}
+for policyName = {'tau_act', 'tau_esc', 'tau_noul', 'cp_enabled', 'cp_qhat', 'cp_alpha', 'cp_k_max', 'cp_mode'}
     if ~isempty(cfg.(policyName{1})), W.(policyName{1}) = cfg.(policyName{1}); end
 end
 
@@ -67,6 +72,8 @@ end
 % than a 0.1 s simulation.  With keep_loaded the compiled model is cached and
 % reused by the next job (that is what makes the warm-worker throughput real).
 T = struct('setup', 0, 'sweep', 0, 'loop', 0, 'save', 0);
+measurements = struct('reference_probe', 0, 'sweep', 0, 'own_gain_probe', 0, ...
+    'tuning', 0, 'final_verification', 0);
 tSetup = tic;
 if ~isfolder(workDir), mkdir(workDir); end
 mdlName = 'jev_lab_model';
@@ -167,6 +174,7 @@ refCmd = 1.0;
 [refCmd, refSrc, refOK] = infer_reference(mdlName, cfg);
 if ~refOK
     try
+        measurements.reference_probe = measurements.reference_probe + 1;
         [t0, y0, ~] = runOnce();
         tail = y0(max(1, round(0.8 * numel(y0))):end);
         guess = abs(median(tail));
@@ -232,6 +240,7 @@ else
         for i = 1:numel(kpGrid)
             apply([kpGrid(i), 0, 0]);
             try
+                measurements.sweep = measurements.sweep + 1;
                 [t, y, ~] = sweepOnce();
                 [oscScore(i), tuGuess(i)] = oscillation_score(t, y);
             catch err
@@ -313,6 +322,7 @@ ownJ = inf; ownT = []; ownY = []; ownU = [];
 if any(abs(gOwn - gzn) > 1e-9 * max(1, abs(gOwn)))
     apply(gOwn);
     try
+        measurements.own_gain_probe = measurements.own_gain_probe + 1;
         [ownT, ownY, ownU] = runOnce();
         ownJ = jev_cost(jev_metrics(ownT, ownY, ownU, refCmd, stopTime, cfg.u_max), ...
             stopTime, refCmd);
@@ -336,6 +346,8 @@ prevAction = zeros(1, 3);
 prevCost = 0;
 nRollbacks = 0;
 nEscalated = 0;
+stoppedNoAction = false;
+stopReason = 'budget';
 stall = 0;
 hist = struct('gains', {}, 'M', {}, 'J', {}, 't', {}, 'y', {}, 'u', {}, 'step', {}, 'event', {});
 
@@ -347,6 +359,7 @@ for it = 0:iters-1
     % as an infinitely bad candidate and handed to the safety gate.
     simOK = true;
     try
+        measurements.tuning = measurements.tuning + 1;
         [t, y, u] = runOnce();
         M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
         J = jev_cost(M, stopTime, refCmd);
@@ -366,6 +379,9 @@ for it = 0:iters-1
     hist(end).proposed = zeros(1, 3); hist(end).reason = zeros(1, 3);
     hist(end).set_size = zeros(1, 3); hist(end).conformal_set = false(7, 3);
     hist(end).conformal_applied = false;
+    hist(end).conformal_mode = 'off';
+    hist(end).conformal_would_hold = false(1, 3); hist(end).conformal_reason = zeros(1, 3);
+    hist(end).measurement_reused = false;
 
     if J < bestJ - 1e-3
         bestJ = J; bestGains = gains; bestY = y; bestT = t; bestU = u;
@@ -375,6 +391,7 @@ for it = 0:iters-1
     end
     if stall >= 5
         hist(end).event = "stop";
+        stopReason = 'early_stop';
         fprintf('[jev] early stop: no improvement for 5 iterations\n');
         break
     end
@@ -389,16 +406,25 @@ for it = 0:iters-1
             it, J, nRollbacks, gains(1), gains(2), gains(3));
         hist(end).next_gains = gains; hist(end).event = event;
         prevAction = zeros(1, 3); prevCost = J;
+        if cfg.stop_on_no_action && isequal(gains, hist(end).gains)
+            stoppedNoAction = true;
+            stopReason = 'rollback_no_action';
+            hist(end).event = "stop_rollback_no_action";
+            fprintf('[jev] stopping: rollback would repeat the same gains\n');
+            break
+        end
         continue
     end
     if ~simOK
         hist(end).event = "simulation_failed";
+        stopReason = 'simulation_failed';
         % the gate is exhausted and the model still will not run: stop instead
         % of feeding empty signals to the feature builder
         fprintf('[jev] stopping: the model does not simulate at these gains\n');
         break
     end
     if ~isfinite(bestJ) && nRollbacks >= 2
+        stopReason = 'no_successful_simulation';
         fprintf('[jev] stopping: nothing has simulated successfully yet\n');
         break
     end
@@ -416,6 +442,9 @@ for it = 0:iters-1
     hist(end).proposed = decision.proposed; hist(end).reason = decision.reason;
     hist(end).set_size = decision.set_size; hist(end).conformal_set = decision.conformal_set;
     hist(end).conformal_applied = decision.conformal_applied;
+    hist(end).conformal_mode = decision.conformal_mode;
+    hist(end).conformal_would_hold = decision.conformal_would_hold;
+    hist(end).conformal_reason = decision.conformal_reason;
 
     fprintf('[jev] iter %2d  J=%.3f  gains=[%.3g %.3g %.3g]  step=[%+.3f %+.3f %+.3f]\n', ...
         it, J, gains(1), gains(2), gains(3), step(1), step(2), step(3));
@@ -424,12 +453,30 @@ for it = 0:iters-1
     prevCost = J;
     gains = min(max(gains .* (10 .^ step), 1e-4), 1e3);
     hist(end).next_gains = gains;
+    if cfg.stop_on_no_action && isequal(gains, hist(end).gains)
+        % This offline simulation path can stop when no gain changes. It does
+        % not certify a fixed point: history features or a new observation may
+        % change a later decision. Set false for noise/dynamic monitoring.
+        stoppedNoAction = true;
+        stopReason = 'no_action';
+        hist(end).event = "stop_no_action";
+        fprintf('[jev] stopping: no actual gain change; repeated observations disabled\n');
+        break
+    end
 end
 
 % ---------------------------------------------------------------- finish
 apply(bestGains);
+% A no-action stop ends deterministic offline search. The best response was
+% already measured (possibly by the own-gain probe), so reuse that trace.
+finalReused = stoppedNoAction && ~isempty(bestY);
 try
-    [t, y, u] = runOnce();
+    if finalReused
+        t = bestT; y = bestY; u = bestU;
+    else
+        measurements.final_verification = measurements.final_verification + 1;
+        [t, y, u] = runOnce();
+    end
     M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
     J = jev_cost(M, stopTime, refCmd);
 catch err
@@ -457,6 +504,9 @@ hist(end).held = false(1, 3); hist(end).escalate = false(1, 3);
 hist(end).proposed = zeros(1, 3); hist(end).reason = zeros(1, 3);
 hist(end).set_size = zeros(1, 3); hist(end).conformal_set = false(7, 3);
 hist(end).conformal_applied = false;
+hist(end).conformal_mode = 'off';
+hist(end).conformal_would_hold = false(1, 3); hist(end).conformal_reason = zeros(1, 3);
+hist(end).measurement_reused = finalReused;
 
 T.loop = toc(tLoop);
 tSave = tic;
@@ -465,10 +515,14 @@ R = struct('model', mdlName, 'stopTime', stopTime, 'iters', iters, ...
     'own_gains', gOwn, 'own_J', ownJ, ...
     'final_gains', bestGains, 'final_J', bestJ, 'n_rollbacks', nRollbacks, 'stepGain', stepGain, ...
     'n_escalations', nEscalated, ...
+    'n_no_action_stops', double(stoppedNoAction), ...
+    'stop_reason', stopReason, 'measurements', measurements, ...
+    'n_total_simulations', sum(cell2mat(struct2cell(measurements))), ...
+    'n_recorded_measurements', measurements.tuning + measurements.final_verification, ...
     'hist', hist, 'scopes', {scopes}, 'best_t', bestT, 'best_y', bestY, 'best_u', bestU);
-R.decision_policy = struct('step_gain', stepGain);
+R.decision_policy = struct('step_gain', stepGain, 'stop_on_no_action', logical(cfg.stop_on_no_action));
 for policyName = {'temperature', 'tau_act', 'tau_esc', 'tau_noul', ...
-        'cp_enabled', 'cp_qhat', 'cp_alpha', 'cp_k_max', 'cp_n_calibration', ...
+        'cp_enabled', 'cp_qhat', 'cp_alpha', 'cp_k_max', 'cp_mode', 'cp_n_calibration', ...
         'cp_quantile_rank', 'cp_method', 'model_sha256', 'calibration_sha256'}
     if isfield(W, policyName{1})
         R.decision_policy.(policyName{1}) = W.(policyName{1});

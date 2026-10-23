@@ -15,9 +15,9 @@ Both are answered with measurements, not adjectives.
 
 | group | n | start J | returned J | improved % | worse % | rollbacks | final diverged | search diverged |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| zoo | 120 | 2.341 | 1.874 | 90.0 | 0.0 | 0 | 0 | 0 |
-| heldout | 40 | 2.367 | 0.732 | 97.5 | 0.0 | 0 | 0 | 0 |
-| outofzoo | 40 | 3.983 | 3.378 | 75.0 | 0.0 | 0 | 5 | 5 |
+| zoo | 120 | 2.341 | 1.382 | 97.5 | 0.0 | 0 | 0 | 0 |
+| heldout | 40 | 2.367 | 0.463 | 100.0 | 0.0 | 0 | 0 | 0 |
+| outofzoo | 40 | 3.983 | 3.016 | 82.5 | 0.0 | 0 | 5 | 5 |
 
 Across 200 plants, returned measured-best costs have worse_pct as listed above. This is bookkeeping, not a bound on trial costs or stability. OOD search divergence: 5; final divergence: 5. Total rollbacks: 0. Gate-on/off unchanged pairs: 40/40 at absolute tolerance 1e-06.
 
@@ -103,9 +103,9 @@ four ideas transfer to any "take a bounded action, measure, repeat" problem.
 
 | group | n | start J | returned J | improved % | worse % | rollbacks | final diverged | search diverged |
 | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| zoo | 120 | 2.341 | 1.874 | 90.0 | 0.0 | 0 | 0 | 0 |
-| heldout | 40 | 2.367 | 0.732 | 97.5 | 0.0 | 0 | 0 | 0 |
-| outofzoo | 40 | 3.983 | 3.378 | 75.0 | 0.0 | 0 | 5 | 5 |
+| zoo | 120 | 2.341 | 1.382 | 97.5 | 0.0 | 0 | 0 | 0 |
+| heldout | 40 | 2.367 | 0.463 | 100.0 | 0.0 | 0 | 0 | 0 |
+| outofzoo | 40 | 3.983 | 3.016 | 82.5 | 0.0 | 0 | 5 | 5 |
 
 200株返回实测最优值，其worse_pct如上表；这是记账性质，不约束试验过程代价或证明稳定性。分布外搜索发散5株，最终发散5株，总回滚0次。门开关有40/40对在绝对容差1e-06下无实质差异。
 

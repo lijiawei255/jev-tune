@@ -184,7 +184,7 @@ def int8_agreement(models: Path, cases: int = 256) -> dict:
 
     out = {"cases": int(cases), "activations": "float32",
            "conformal_policy": None if conformal is None else {
-               "qhat_per_axis": list(conformal.q_hat), "alpha": conformal.alpha, "k_max": conformal.k_max},
+               "qhat_per_axis": list(conformal.q_hat), "alpha": conformal.alpha, "k_max": conformal.k_max, "mode": conformal.mode},
            "float32_mean_set_size_per_axis": dec_a.set_size.mean(axis=0).tolist()}
     for mode in ("per_tensor", "per_channel"):
         q = load()
@@ -211,6 +211,7 @@ def int8_agreement(models: Path, cases: int = 256) -> dict:
         step_diff = np.abs(dec_a.step - dec_b.step)
         same_argmax = probs_a.argmax(-1) == probs_b.argmax(-1)
         held_diff = dec_a.held != dec_b.held
+        would_hold_diff = dec_a.conformal_would_hold != dec_b.conformal_would_hold
         out[mode] = {
             "argmax_agreement": float(
                 same_argmax.mean()
@@ -220,6 +221,8 @@ def int8_agreement(models: Path, cases: int = 256) -> dict:
             "held_axis_disagreements": int(held_diff.sum()),
             "held_state_disagreements": int(held_diff.any(axis=-1).sum()),
             "held_pattern_same": bool(np.array_equal(dec_a.held, dec_b.held)),
+            "conformal_would_hold_axis_disagreements": int(would_hold_diff.sum()),
+            "conformal_would_hold_state_disagreements": int(would_hold_diff.any(axis=-1).sum()),
             "conformal_set_axis_disagreements": int(set_changed.sum()),
             "conformal_set_state_disagreements": int(set_changed.any(axis=-1).sum()),
             "conformal_set_joint_agreement": float((~set_changed.any(axis=-1)).mean()),
@@ -361,6 +364,7 @@ def _doc(p: dict) -> str:
         f"| int8 (per-channel): same argmax | {100 * q['per_channel']['argmax_agreement']:.1f}% |",
         f"| int8 (per-channel): all three argmax choices agree | {100 * q['per_channel']['argmax_joint_agreement']:.1f}% |",
         f"| int8 (per-channel): states with changed hold mask | {q['per_channel']['held_state_disagreements']} / {q['cases']} |",
+        f"| int8 (per-channel): changed would-hold diagnostics | {q['per_channel']['conformal_would_hold_state_disagreements']} / {q['cases']} |",
         f"| int8 (per-channel): states with changed conformal sets | {q['per_channel']['conformal_set_state_disagreements']} / {q['cases']} |",
         f"| int8 (per-channel): step within 1e-3 | {100 * q['per_channel']['steps_within_1e-3']:.1f}% |",
         f"| int8 (per-channel): max step difference | {q['per_channel']['step_max_abs_diff']:.2e} |",
@@ -371,7 +375,7 @@ def _doc(p: dict) -> str:
         "",
         "### What this does and does not support",
         "",
-        f"* Measured default TS+CP decision p50 / p99: {p['typed_decision_ms']:.3f} / {p['typed_decision_p99_ms']:.3f} ms, including conformal masks and vetoes. These are percentiles, not WCET.",
+        f"* Measured default TS+CP decision p50 / p99: {p['typed_decision_ms']:.3f} / {p['typed_decision_p99_ms']:.3f} ms, including conformal masks and would-hold diagnostics. These are percentiles, not WCET.",
         '* It does **not** support: "runs on chip X". Static footprint from a host',
         "  `gcc -Os` object is not a linker map for your target, and feature",
         "  extraction plus the trace capture are usually the real cost.",
@@ -406,6 +410,7 @@ def _doc(p: dict) -> str:
         f"| int8（逐通道）：argmax 一致 | {100 * q['per_channel']['argmax_agreement']:.1f}% |",
         f"| int8（逐通道）：三个轴 argmax 全部一致 | {100 * q['per_channel']['argmax_joint_agreement']:.1f}% |",
         f"| int8（逐通道）：保持掩码改变的状态数 | {q['per_channel']['held_state_disagreements']} / {q['cases']} |",
+        f"| int8（逐通道）：would_hold诊断改变的状态数 | {q['per_channel']['conformal_would_hold_state_disagreements']} / {q['cases']} |",
         f"| int8（逐通道）：CP集合改变的状态数 | {q['per_channel']['conformal_set_state_disagreements']} / {q['cases']} |",
         f"| int8（逐通道）：步长误差 ≤1e-3 | {100 * q['per_channel']['steps_within_1e-3']:.1f}% |",
         f"| int8（逐通道）：最大步长差 | {q['per_channel']['step_max_abs_diff']:.2e} |",
@@ -415,7 +420,7 @@ def _doc(p: dict) -> str:
         "",
         "### 这些数字支持什么、不支持什么",
         "",
-        f"* 默认TS+CP决策路径（含集合构建与否决）实测 p50 / p99：{p['typed_decision_ms']:.3f} / {p['typed_decision_p99_ms']:.3f} ms。这是分位延迟，不是最坏执行时间保证。",
+        f"* 默认TS+CP决策路径（含集合构建与would_hold诊断）实测 p50 / p99：{p['typed_decision_ms']:.3f} / {p['typed_decision_p99_ms']:.3f} ms。这是分位延迟，不是最坏执行时间保证。",
         "* **不支持**「能在某款芯片上跑」：主机 `gcc -Os` 的目标文件不等于你目标板的链接",
         "  映射；而且真正的成本通常是特征提取与波形采集。",
         "* 静态 RAM 不含栈与调用者缓冲区。自身栈帧不含嵌套调用、libm 与运行时，不等于峰值栈。",

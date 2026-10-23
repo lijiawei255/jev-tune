@@ -25,6 +25,7 @@ int main(void) {
     pol.tau_esc = JEV_TV_TAU_ESC;
     pol.tau_noul = JEV_TV_TAU_NOUL;
     cp.enabled = JEV_TV_CP_ENABLED; cp.k_max = JEV_TV_CP_K_MAX;
+    cp.mode = JEV_TV_CP_MODE;
     for (a = 0; a < 3; ++a) cp.qhat[a] = JEV_TV_CP_QHAT[a];
 
     for (c = 0; c < JEV_TV_N; ++c) {
@@ -83,6 +84,8 @@ int main(void) {
                     act.escalate[a] != (int)JEV_TV_ESCALATE[c][a] ||
                     act.reason[a] != (int)JEV_TV_REASON[c][a]) failures++;
                 if (act.set_size[a] != (int)JEV_TV_SET_SIZE[c][a]) failures++;
+                if (act.conformal_would_hold[a] != (int)JEV_TV_CONFORMAL_WOULD_HOLD[c][a] ||
+                    act.conformal_reason[a] != (int)JEV_TV_CONFORMAL_REASON[c][a]) failures++;
                 for (i = 0; i < JEV_K; ++i)
                     if (act.conformal_set[a][i] != (int)JEV_TV_CONFORMAL_SET[c][a * JEV_K + i]) failures++;
                 expected_escalations += (int)JEV_TV_ESCALATE[c][a];
@@ -100,6 +103,7 @@ int main(void) {
                 if (v > dp) dp = v;
                 if (act.held != (act.axis_held[0] && act.axis_held[1] && act.axis_held[2])) failures++;
                 if (act.conformal_applied != JEV_TV_CP_ENABLED) failures++;
+                if (act.conformal_mode != (cp.enabled ? cp.mode : JEV_CP_OFF)) failures++;
             }
             if (dl > worst_logits) worst_logits = dl;
             if (dp > worst_probs) worst_probs = dp;

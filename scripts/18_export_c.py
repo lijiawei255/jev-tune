@@ -21,6 +21,7 @@ import json
 import hashlib
 import shutil
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -79,8 +80,10 @@ def _c_double(name: str, values, *, rows=False) -> str:
 def _conformal_config(cp):
     return {"enabled": cp is not None, "qhat_per_axis": list(cp.q_hat) if cp else [0.] * 3,
             "alpha": cp.alpha if cp else .1, "k_max": cp.k_max if cp else 3,
+            "mode": cp.mode if cp else "monitor",
             "inclusion": "(1 - p) <= qhat; equivalent to p >= 1-qhat",
-            "hold": "empty or size > k_max or both positive and negative payloads",
+            "would_hold": "empty or size > k_max or both positive and negative payloads",
+            "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
             "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"}
 
 
@@ -221,7 +224,7 @@ def _policy_cases() -> list[dict]:
     mixed = np.array([.5, 0, 0, 0, 0, 0, .5])
     tails = np.array([0, 0, 0, 0, .125, .125, .75])
     tiny_tail = np.array([0, 0, 0, 0, 0, 2.**-41, 1 - 2.**-41])
-    cp = lambda q: ConformalPolicy(q_hat=(q,) * 3, alpha=.1, k_max=3)
+    cp = lambda q: ConformalPolicy(q_hat=(q,) * 3, alpha=.1, k_max=3, mode="hard_hold")
     specs = [(*s, None) for s in legacy_specs] + [
         ("cp_empty", [uniform] * 3, 1., (0., 0., 0.), cp(.5)),
         ("cp_oversized", [quarter] * 3, 1., (0., 0., 0.), cp(.75)),
@@ -234,6 +237,8 @@ def _policy_cases() -> list[dict]:
         ("cp_noul_precedence", [mixed, half, uniform], .49, (0., 0., .5), cp(.5)),
         ("cp_legacy_precedence", [uniform, half, unit[3]], 1., (.35, .25, 0.), cp(.5)),
     ]
+    specs += [(name + "_monitor", probs, noul, thresholds, replace(conformal, mode="monitor"))
+              for name, probs, noul, thresholds, conformal in specs if conformal is not None]
     cases = []
     for name, probs, noul, thresholds, conformal in specs:
         policy = AbstainPolicy(*thresholds)
@@ -252,6 +257,9 @@ def _policy_cases() -> list[dict]:
                       "step": dec.step.tolist(), "held": dec.held.tolist(),
                       "proposed": dec.proposed.tolist(), "set_size": dec.set_size.tolist(),
                       "conformal_set": np.stack(dec.conformal_set).tolist(),
+                      "conformal_mode": dec.conformal_mode,
+                      "conformal_would_hold": dec.conformal_would_hold.tolist(),
+                      "conformal_reason": dec.conformal_reason.tolist(),
                       "argmax_step": argmax_dec.step.tolist(),
                       "escalate": dec.escalate.tolist(), "reason": dec.reason.tolist(),
                       "should_stop": noul > .9})
@@ -330,6 +338,7 @@ def main():
         _c_array("JEV_DEFAULT_TEMPERATURE", temperature),
         _c_array("JEV_DEFAULT_POLICY", list(config["policy"].values())),
         f'#define JEV_DEFAULT_CP_ENABLED {int(conformal is not None)}',
+        f'#define JEV_DEFAULT_CP_MODE {int(config["conformal"]["mode"] == "hard_hold")}',
         f'#define JEV_DEFAULT_CP_K_MAX {config["conformal"]["k_max"]}',
         f'#define JEV_DEFAULT_CP_ALPHA {config["conformal"]["alpha"]}',
         _c_double("JEV_DEFAULT_CP_QHAT", config["conformal"]["qhat_per_axis"]),
@@ -412,6 +421,9 @@ def main():
                 "proposed": decision.proposed.tolist(),
                 "set_size": decision.set_size.tolist(),
                 "conformal_set": np.stack(decision.conformal_set).tolist(),
+                "conformal_mode": decision.conformal_mode,
+                "conformal_would_hold": decision.conformal_would_hold.tolist(),
+                "conformal_reason": decision.conformal_reason.tolist(),
                 "held": [bool(x) for x in decision.held],
                 "escalate": decision.escalate.tolist(),
                 "reason": decision.reason.tolist(),
@@ -420,7 +432,7 @@ def main():
 
     payload = {
         "generated_by": "scripts/18_export_c.py",
-        "schema_version": 3,
+        "schema_version": 4,
         "model_sha256": model_hash,
         "configuration_sha256": hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest(),
         "calibration_sha256": hashlib.sha256((models / "calibration.json").read_bytes().replace(b"\r\n", b"\n")).hexdigest() if (models / "calibration.json").is_file() else None,
@@ -433,7 +445,8 @@ def main():
         "tolerance": {"logits": 5e-4, "probs": 1e-5, "step": 1e-5, "feats": 1e-5},
         "note": (
             "logits are the raw head outputs; probs apply the fitted temperature; "
-            "step is full-distribution expectation + variance shrink + clip then CP mask; "
+            "step is full-distribution expectation + variance shrink + clip; "
+            "CP monitor preserves step and hard_hold alone applies its veto; "
             "held records policy vetoes, never merely a zero-valued action"
         ),
         "cases": cases,
@@ -476,6 +489,8 @@ def main():
         _c_2d("JEV_TV_PROPOSED", np.array([c["proposed"] for c in cases])),
         _c_2d("JEV_TV_SET_SIZE", np.array([c["set_size"] for c in cases])),
         _c_2d("JEV_TV_CONFORMAL_SET", np.array([c["conformal_set"] for c in cases])),
+        _c_2d("JEV_TV_CONFORMAL_WOULD_HOLD", np.array([c["conformal_would_hold"] for c in cases])),
+        _c_2d("JEV_TV_CONFORMAL_REASON", np.array([c["conformal_reason"] for c in cases])),
         _c_2d("JEV_TV_SCORE_LOGITS", np.array([c["score_logits"] for c in cases])),
         _c_2d("JEV_TV_SCORE_PROBS", np.array([c["score_probs"] for c in cases])),
         _c_2d("JEV_TV_NOUL_LOGITS", np.array([[c["noul_logit"]] for c in cases])),
@@ -488,6 +503,7 @@ def main():
         "static const float JEV_TV_TAU_ESC = 0.0f;",
         "static const float JEV_TV_TAU_NOUL = 0.0f;",
         f'#define JEV_TV_CP_ENABLED {int(conformal is not None)}',
+        f'#define JEV_TV_CP_MODE {int(config["conformal"]["mode"] == "hard_hold")}',
         f'#define JEV_TV_CP_K_MAX {config["conformal"]["k_max"]}',
         _c_double("JEV_TV_CP_QHAT", config["conformal"]["qhat_per_axis"]),
         "",
@@ -508,8 +524,11 @@ def main():
         "JEV_PC_PROPOSED": [c["proposed"] for c in pc],
         "JEV_PC_SET_SIZE": [c["set_size"] for c in pc],
         "JEV_PC_CONFORMAL_SET": [c["conformal_set"] for c in pc],
+        "JEV_PC_CONFORMAL_WOULD_HOLD": [c["conformal_would_hold"] for c in pc],
+        "JEV_PC_CONFORMAL_REASON": [c["conformal_reason"] for c in pc],
         "JEV_PC_CP_ENABLED": [[c["conformal"]["enabled"]] for c in pc],
         "JEV_PC_CP_K_MAX": [[c["conformal"]["k_max"]] for c in pc],
+        "JEV_PC_CP_MODE": [[int(c["conformal"]["mode"] == "hard_hold")] for c in pc],
         "JEV_PC_ARGMAX_STEP": [c["argmax_step"] for c in pc],
         "JEV_PC_HELD": [c["held"] for c in pc],
         "JEV_PC_ESCALATE": [c["escalate"] for c in pc],

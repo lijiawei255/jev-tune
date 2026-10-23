@@ -186,10 +186,12 @@ void jev_decode(const jev_probs *p, jev_action *out) {
         out->confidence[ax] = conf;
         out->axis_held[ax] = out->escalate[ax] = out->reason[ax] = 0;
         out->set_size[ax] = 0;
+        out->conformal_would_hold[ax] = out->conformal_reason[ax] = 0;
         for (i = 0; i < JEV_K; ++i) out->conformal_set[ax][i] = 0;
     }
     out->held = 0;
     out->conformal_applied = 0;
+    out->conformal_mode = JEV_CP_OFF;
 }
 
 void jev_decode_argmax(const jev_probs *p, jev_action *out) {
@@ -207,10 +209,12 @@ void jev_decode_argmax(const jev_probs *p, jev_action *out) {
         out->confidence[ax] = conf;
         out->axis_held[ax] = out->escalate[ax] = out->reason[ax] = 0;
         out->set_size[ax] = 0;
+        out->conformal_would_hold[ax] = out->conformal_reason[ax] = 0;
         for (i = 0; i < JEV_K; ++i) out->conformal_set[ax][i] = 0;
     }
     out->held = 0;
     out->conformal_applied = 0;
+    out->conformal_mode = JEV_CP_OFF;
 }
 
 int jev_gate_rollback(float cost, float best_cost, int rollbacks,
@@ -244,10 +248,30 @@ void jev_abstain(jev_action *act, const jev_probs *p, const jev_policy *pol,
     act->held = act->axis_held[0] && act->axis_held[1] && act->axis_held[2];
 }
 
-void jev_apply_conformal(jev_action *act, const jev_probs *p,
+int jev_apply_conformal(jev_action *act, const jev_probs *p,
                          const jev_conformal *cp, int *escalations) {
-    int ax, i;
+    int ax, i, invalid = 0;
+    if (cp != 0 && cp->enabled) {
+        invalid = (cp->mode != JEV_CP_MONITOR && cp->mode != JEV_CP_HARD_HOLD) || cp->k_max < 1;
+        for (ax = 0; ax < 3; ++ax)
+            invalid |= !isfinite(cp->qhat[ax]) || cp->qhat[ax] < 0.0 || cp->qhat[ax] > 1.0;
+    }
+    if (invalid) {
+        act->conformal_applied = 0;
+        act->conformal_mode = JEV_CP_OFF;
+        for (ax = 0; ax < 3; ++ax) {
+            if (!act->escalate[ax] && escalations != 0) (*escalations)++;
+            act->axis_held[ax] = act->escalate[ax] = 1;
+            act->step[ax] = 0.0f;
+            if (act->reason[ax] != 3) act->reason[ax] = 7;
+            act->set_size[ax] = act->conformal_would_hold[ax] = act->conformal_reason[ax] = 0;
+            for (i = 0; i < JEV_K; ++i) act->conformal_set[ax][i] = 0;
+        }
+        act->held = 1;
+        return -1;
+    }
     act->conformal_applied = cp != 0 && cp->enabled;
+    act->conformal_mode = act->conformal_applied ? cp->mode : JEV_CP_OFF;
     for (ax = 0; ax < 3; ++ax) {
         int n = 0, positive = 0, negative = 0, reason = 0;
         for (i = 0; i < JEV_K; ++i) {
@@ -260,11 +284,14 @@ void jev_apply_conformal(jev_action *act, const jev_probs *p,
             }
         }
         act->set_size[ax] = n;
+        act->conformal_would_hold[ax] = act->conformal_reason[ax] = 0;
         if (!act->conformal_applied) continue;
         if (n == 0) reason = 4;
         else if (n > cp->k_max) reason = 5;
         else if (positive && negative) reason = 6;
-        if (reason) {
+        act->conformal_would_hold[ax] = reason != 0;
+        act->conformal_reason[ax] = reason;
+        if (reason && cp->mode == JEV_CP_HARD_HOLD) {
             if (!act->escalate[ax] && escalations != 0) (*escalations)++;
             act->axis_held[ax] = act->escalate[ax] = 1;
             act->step[ax] = 0.0f;
@@ -272,6 +299,7 @@ void jev_apply_conformal(jev_action *act, const jev_probs *p,
         }
     }
     act->held = act->axis_held[0] && act->axis_held[1] && act->axis_held[2];
+    return 0;
 }
 
 void jev_apply_step(float gains[3], const float step[3]) {
