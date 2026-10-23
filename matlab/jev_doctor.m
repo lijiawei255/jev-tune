@@ -48,6 +48,7 @@ tmpDir = fullfile(opts.work_dir, 'copy');
 if ~isfolder(tmpDir), mkdir(tmpDir); end
 [~, ~, ext] = fileparts(mdlPath);
 copyPath = fullfile(tmpDir, ['jev_doctor_model' ext]);
+jev_assert_distinct_paths(mdlPath, copyPath);
 if isfile(copyPath), delete(copyPath); end
 copyfile(mdlPath, copyPath);
 srcDir = fileparts(mdlPath);
@@ -181,7 +182,9 @@ if opts.discover
         out.next = first_of(D.warnings);
     end
     out.discovery = struct('ok', D.ok, 'confidence', D.confidence, ...
-        'code', getif(D, 'code', ''), 'loops', numel(getif(D, 'loops', {{}})));
+        'code', getif(D, 'code', ''), 'loops', numel(getif(D, 'loops', {{}})), ...
+        'measurements', D.measurements, 'n_total_simulations', D.n_total_simulations);
+    out.n_total_simulations = D.n_total_simulations;
 end
 
 finish(out, outPath);

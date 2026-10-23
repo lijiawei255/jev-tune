@@ -272,6 +272,7 @@ def run_all_loops(
     iters: int = 20,
     units=None,
     timeout: int = 3600,
+    config: dict | None = None,
 ) -> dict:
     """Tune every independent loop of a model, carrying the gains forward.
 
@@ -287,7 +288,8 @@ def run_all_loops(
         tmp_path = Path(tmp)
         cfg_file = tmp_path / "all.json"
         out_file = tmp_path / "all.out.json"
-        cfg = {"model": str(Path(model).resolve()), "iters": int(iters)}
+        cfg = dict(config or {})
+        cfg.update({"model": str(Path(model).resolve()), "iters": int(iters)})
         if work_dir:
             cfg["work_dir"] = work_dir
         cfg_file.write_text(json.dumps(cfg), encoding="utf-8")

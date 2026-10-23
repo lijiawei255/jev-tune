@@ -9,6 +9,8 @@ mdl = 'tc_history';
 make_demo_model(workRoot, 'second_order', struct('name', mdl));
 source = fullfile(workRoot, [mdl '.slx']);
 load_system(source);
+% Use explicit nonzero own gains; the runtime preserves genuine zeros now.
+set_param([mdl '/PID Controller'], 'I', '0.001', 'D', '0.001');
 set_param(mdl, 'StartFcn', [ ...
     'if str2double(get_param(''jev_lab_model/PID Controller'',''I'')) > 0.01; ' ...
     'error(''jev:fixture_fault'',''intentional integral-gain failure''); end']);

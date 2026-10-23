@@ -4,60 +4,32 @@
 
 ## English
 
-280 passed; 0 skipped; coverage 77.8%; 141 automatic document checks.
+361 passed; 0 skipped; coverage 83.14%; 149 automatic claims checks; 0 unverified.
 
-Counts come from actual JUnit, pytest logs and claims recomputation. Software verification and research enablement are separate conclusions.
+v0.9.0 prioritizes model-adapter correctness and simulation-budget evidence. Real MATLAB adapter/controller regressions and the complete local pytest suite were rerun. Claims reconstruct registered evidence, including the preserved failed research, without treating old studies as new experiments. The new practical budget comparison has its own frozen protocol and raw trial ledger. Its synthetic plants do not establish performance on a user's real model.
 
-Strict scientific evidence reconstruction and exact canonical-JSON replay were verified on the recorded Windows reference host. Linux with matching Python/scientific package versions failed the first training-cohort identity-hash check; initial gains passed the original tolerance but cannot replace identity validation, and later v2 reconstruction was not established there. This failure is preserved in cohort_portability.json. Hosted Windows CI is a separate environment that must actually pass; Linux Python/C99 runtime support does not imply cross-platform bitwise scientific replay.
+The release fixes Ideal PID conversion, ambiguous Scope selection, variable-step integration, original-file collisions and stale cross-job model/sweep reuse. CLI options and write-back failures are propagated, worker queue writes are atomic, and total simulation counts include discovery and setup. Simplex respects small budgets and gain bounds; failed identification cannot silently fall back to an oracle baseline.
 
-New study acceptance: **FAIL**; `research_only`.
-Failed criteria: empirical_mean_cost_noninferior, empirical_p90_cost_noninferior.
+The practical comparison used 7995 actual simulations. At budget 20, head/hill mean J is 8.022816/7.047616, p90 is 38.097492/11.168309, and mean actual calls are 17.953125/20.000000. Fewer calls did not establish overall superiority; scenario-specific benefits and failures are preserved. No parameters were tuned from these results.
 
-Additional implementation validity audit: coverage premises are not established and deployment is prohibited. Batch/row-dependent floating-point inference leaves score exchangeability and trajectory-event independence unestablished; nominal CP/binomial quantities are not an exact probability guarantee for this implementation. This post-hoc audit does not revise frozen numerical acceptance.
+Deeper joint-risk research is paused; failed acceptance and unestablished coverage premises remain unchanged, with deployment disabled. Historical result files and reproduction entry points are checked against the preservation manifest. `python scripts/44_verify_historical_research.py --check` runs the original verifiers in an isolated historical source view; current runtime fixes are not substituted into old experiments. Original direct commands remain available on v0.8.0. Previous release verification is archived, including its original MATLAB objective. Corrected time integration changes current MATLAB costs; historical costs are not silently replaced or presented as comparable current results.
 
-Actual prospective study simulations: 513508.
+Local MATLAB uses the recorded installation. Hosted Linux runtime/C99 tests and hosted Windows scientific-evidence checks retain their separate scopes; cross-platform bitwise research replay remains unestablished.
 
-Additional full evaluation replay simulations: 33718; additional numerical diagnosis simulations: 1; total: 547227.
-
-This release runs trajectory training, independent temperature fitting, reached-sample stage calibration and five real closed-loop arms on a new fixed test cohort. Old data is diagnostic and old failure JSON/traces are preserved. Additional full evaluation replay is charged separately in the reproduction JSON below, adds no independent statistical evidence and does not replace acceptance.
-
-Full pytest covers CP boundaries, action selection, cache/diagnostic isolation, evidence mutations and existing runtimes; real MATLAB controller regressions were rerun. Generic Python/C99/MATLAB policies do not automatically enable the research head. Earlier benchmark, ablation and generalization records are historical in release_verification_v070.json, not represented as newly rerun here.
-
-Theoretical coverage requires the frozen noiseless six-family scope and assumptions including exchangeability; this implementation has not established those premises. Accepted-action conditional risk, domain shift, recovery and physical safety are also unproven. Data and SHA256 are attached to v0.8.0; NPZ caches regenerate from committed raw shards and claims do not depend on uncommitted local data.
-
-[TRAJECTORY_RISK](TRAJECTORY_RISK.md) · [ROLLOUT_DIAGNOSIS](ROLLOUT_DIAGNOSIS.md) · [preserved v1](JOINT_RISK_ROLLOUT.md)
-
-[release_verification.json](../research/results/release_verification.json) · [trajectory_risk_reproduction.json](../research/results/trajectory_risk_reproduction.json)
-[trajectory_risk_validity.json](../research/results/trajectory_risk_validity.json) · [batch_inference_diagnosis.json](../research/results/batch_inference_diagnosis.json)
-
-[cohort_portability.json](../research/results/cohort_portability.json)
+[Model adaptation](MODEL_ADAPTATION.md) · [Practical budget](PRACTICAL_BUDGET.md) · [Machine-readable verification](../research/results/release_verification.json) · [Previous verification](../research/results/release_verification_v080.json)
 
 ## 简体中文
 
-280 passed; 0 skipped; coverage 77.8%; 141 automatic document checks.
+361 passed; 0 skipped; coverage 83.14%; 149 automatic claims checks; 0 unverified.
 
-数字来自本次实际JUnit、pytest日志和claims复算。软件检查与研究启用验收是不同结论。
+v0.9.0优先修复模型适配正确性并补充仿真预算证据。已重跑真实MATLAB适配器/控制器回归及完整本地pytest；claims重建已注册证据，也保留并复核旧研究失败，不将旧研究冒充新实验。新的实用预算对照具有独立冻结协议和逐次仿真账本，其合成对象不构成用户真实模型上的效果证据。
 
-严格科学证据重建及规范化JSON记录精确重放已在记录的Windows参考宿主验证。Linux即使固定相同Python/科学包版本，仍在训练对象身份哈希首关失败；初始增益通过原容差，但不替代身份校验，后续v2重建未获验证。该失败保存在cohort_portability.json。Windows托管CI是另一个实际受检环境；Linux Python/C99运行时支持不意味着研究轨迹跨平台逐位复现。
+本次修复Ideal PID转换、Scope测量歧义、可变步长积分、原件路径冲突及跨任务模型/扫描缓存污染；转发CLI选项与写回失败，队列文件原子发布，总仿真计入发现和准备。simplex遵守小预算和增益边界，辨识失败不再静默换成oracle基线。
 
-新研究验收: **FAIL**; `research_only`.
-未通过项: empirical_mean_cost_noninferior, empirical_p90_cost_noninferior.
+实用对照实际仿真7995次。预算20时，head/hill平均J为8.022816/7.047616，p90为38.097492/11.168309，实际平均调用为17.953125/20.000000。少调用没有证明总体更优，各场景收益与失败如实保留，没有按结果调参。
 
-额外实施有效性审计：覆盖前提尚未建立，禁止部署。批大小/行位置会改变浮点推理，校准与测试分数的交换性及轨迹事件独立性未闭合；名义CP/二项统计量不能作为机器实现的精确概率保证。该事后审计没有修改冻结数值验收。
+暂停深化联合风险研究，验收失败与覆盖前提尚未建立的结论保持不变，部署关闭。历史结果与复现入口按保存清单核验；`python scripts/44_verify_historical_research.py --check`在隔离历史源码视图运行原检查器，不将当前运行时修复偷换进旧实验；原直接命令保留在v0.8.0。上一版发布验证及其MATLAB原目标已归档。实际时间积分修正会改变当前MATLAB代价，旧值不被偷偷替换，也不作为可直接比较的当前结果。
 
-前瞻研究实际仿真: 513508.
+本地MATLAB使用记录的安装环境。托管Linux运行时/C99测试与托管Windows科学证据检查的范围不同，研究跨平台逐位重放仍未建立。
 
-完整评估重放额外仿真: 33718; 数值诊断额外仿真: 1; 合计: 547227.
-
-本次完成多轮训练、独立温度拟合、到达样本逐步校准及全新固定测试集五组真实闭环。旧数据仅诊断，旧失败JSON/原始轨迹保持不变。额外完整评估重放在下列reproduction JSON中单独计账，不是新增独立统计证据，不覆盖原验收。
-
-完整pytest覆盖CP边界、动作选择、缓存/诊断隔离、证据变异及既有运行时；MATLAB真实控制器回归重新运行。通用Python/C99/MATLAB策略不自动启用研究头。历史基准、消融和泛化记录见release_verification_v070.json，不冒充本次重跑。
-
-理论覆盖需要冻结的无噪声六族协议及交换性等条件，本次尚未证明实现满足这些条件，也不证明获准动作条件风险、域外、恢复或物理安全。数据及SHA256见v0.8.0附件；NPZ可从提交的原始分片再生，claims不依赖本地未提交数据。
-
-[TRAJECTORY_RISK](TRAJECTORY_RISK.md) · [ROLLOUT_DIAGNOSIS](ROLLOUT_DIAGNOSIS.md) · [preserved v1](JOINT_RISK_ROLLOUT.md)
-
-[release_verification.json](../research/results/release_verification.json) · [trajectory_risk_reproduction.json](../research/results/trajectory_risk_reproduction.json)
-[trajectory_risk_validity.json](../research/results/trajectory_risk_validity.json) · [batch_inference_diagnosis.json](../research/results/batch_inference_diagnosis.json)
-
-[cohort_portability.json](../research/results/cohort_portability.json)
+[模型适配](MODEL_ADAPTATION.md) · [实用预算](PRACTICAL_BUDGET.md) · [机器可读验证](../research/results/release_verification.json) · [上一版验证](../research/results/release_verification_v080.json)

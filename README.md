@@ -1,5 +1,17 @@
 # jev-tune
 
+<!-- practical-mainline:en:start -->
+**Current mainline: real-model adaptation, applicability boundaries and simulation-budget value.**
+Deeper joint-risk research is paused. Its failed acceptance, raw trajectories, frozen protocols and reproduction scripts remain available; the risk head stays in research mode and is not enabled in production. Complete CP sets and their existing coverage boundaries remain unchanged.
+On the current checkout, use `python scripts/44_verify_historical_research.py --check` to verify the frozen research against an isolated historical source view. Original study commands remain available on v0.8.0; they must not silently substitute today's repaired runtime for their recorded sources.
+
+The practical audit prioritizes controller equivalence, unambiguous measurements, time-based costs, truthful failure status and complete simulation accounting. See [MODEL_ADAPTATION](docs/MODEL_ADAPTATION.md) and [PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md). Generated Simulink fixtures validate adapter behavior; they do not establish performance on an unseen external model or physical hardware.
+
+Earlier MATLAB cost figures, traces and animations below are historical: the corrected time-grid integration changes that objective. They are retained as records, not current performance measurements.
+Cross-job model/sweep caching is disabled to preserve each source model and configuration; historical warm-job throughput tables do not describe the current implementation.
+<!-- practical-mainline:en:end -->
+
+
 [![tests](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml/badge.svg)](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)](pyproject.toml)
@@ -34,7 +46,7 @@ with your own model path:
 The agent reads [`AGENTS.md`](AGENTS.md), which tells it to run `jev-tune
 discover` first. Discovery follows the signal graph — not block names — to find
 the gains, the measured signal and the reference, then confirms the guess with
-two extra simulations:
+confirmation simulations whose attempts are included in the discovery ledger:
 
 ```bash
 jev-tune discover --model MyMotor.slx --json      # what the agent runs first
@@ -73,7 +85,7 @@ a cascade and reporting success would be worse than saying so. See
 *What `discover` does on a lab motor, **step by step and from the model
 itself**: the error junction is confirmed by one run (the reference and the
 steady-state output are the same quantity), each gain is classified by what sits
-between it and that junction, and two extra simulations say whether doubling it
+between it and that junction, and perturbation simulations check whether doubling it
 actually moves the response. The block names above are never used to decide
 anything — `Gain_Kp` could be called `alpha` and the result would be identical.
 Regenerate with `scripts/15_make_discovery_gif.py`.*
@@ -144,14 +156,15 @@ Pairing fixes initial plants and observations; it does not require bitwise-ident
 
 | | |
 | :--- | :--- |
-| **What it does** | picks the next PID gain step from the response it just measured, and holds when it is not confident |
+| **What it does** | picks the next PID gain step from the measured response and records probability/set diagnostics |
 | **How fast** | ONNX forward <!-- claim:decision_ms -->0.024<!-- /claim --> ms median; Python default typed/abstention path <!-- claim:typed_decision_ms -->0.313<!-- /claim --> ms median, <!-- claim:typed_decision_p99_ms -->0.709<!-- /claim --> ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |
-| **How few experiments** | **5 experiments** on a real Simulink motor cut the cost from **1.238 to 0.598** (the recorded run; with the corrected gain sweep the same model starts better and the tuner returns the lab's own gains instead — [why](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)); the result is never worse than the better of the start and the gains your model already had |
-| **How it generalises** | Validation median 0.482; frozen thermal median 1.833. Current baselines and prior information are shown below. |
+| **Historical MATLAB run** | **5 experiments** on the lab motor cut the recorded cost from **1.238 to 0.598** in v0.2. These are historical measurements under the old objective, not a current rerun; neither the earlier sweep repair nor the v0.9 time-grid correction updates those numbers. See [STEP4_RESULTS](docs/STEP4_RESULTS.md). |
+| **How it generalises** | Historical validation median 0.482; frozen thermal median 1.833. Their baselines and oracle priors are shown below; the separate v0.9 fixed-start comparison is in [PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md). |
 
 ![before and after](assets/before_after.png)
 
-*Same plant, three gain sets. Grey: the Ziegler-Nichols start. Blue: after five
+*Historical v0.2 illustration under the old cost definition, not a current rerun.
+Same plant, three gain sets. Grey: the Ziegler-Nichols start. Blue: after five
 experiments. Dashed: the lab's hand-tuned solution. That run started from a
 Ziegler-Nichols estimate produced by the Ku sweep as it was in v0.2; the sweep
 was wrong in three ways and has since been fixed — see the correction in
@@ -165,9 +178,10 @@ was wrong in three ways and has since been fixed — see the correction in
 parse the answer") costs seconds per iteration, and the number is buried in
 prose. Here the model emits three Jev primitives — `choice` for the step,
 `score` for "how good is this response", `noul` for "is this step safe" — so the
-decision is a probability vector you can threshold, log and calibrate. That
-threshold is used **before** the plant is touched: `docs/ABSTENTION.md` measures
-the coverage/cost trade-off of holding.
+decision is a probability vector you can log and calibrate. Optional hold
+policies are evaluated in [ABSTENTION](docs/ABSTENTION.md); default CP monitoring
+does not veto a proposal. Calibration targets and limits are defined in
+[CONFORMAL](docs/CONFORMAL.md), not a calibrated probability of safe execution.
 
 **vs. classical autotune.** Ziegler-Nichols and relay autotuning give you one
 shot with no feedback. This keeps iterating, and it learns the *policy* once
@@ -175,14 +189,21 @@ across a whole family of plants, so a new plant needs no re-tuning of the tuner.
 
 **Comparison with ordinary heads and optimizers.** Current matched-split regression/argmax controls are in [ABLATION](docs/ABLATION.md). One training checkpoint and three evaluation draws do not establish a general causal advantage of the type interface. The gate, calibrated thresholds and matched-coverage random hold are reported separately.
 
-**Why not just `pidtune`?** If you have an accurate model, use `pidtune`: two
-experiments reach 0.742 here, and [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md#if-you-already-have-an-accurate-model-use-pidtune)
-says so. This is for the case where you do not.
+The fixed-start comparison in [PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md) reports
+returned cost and actual calls together. Results depend on the plant and prior;
+the head does not outperform the classical baselines across all groups or metrics.
+
+**Why not just `pidtune`?** With a suitable linear model, include `pidtune` as a
+baseline and validate the controller on the full model. The historical
+identify→`pidtune` experiment is a separate workflow, with failure limitations
+documented in [BENCHMARK](docs/BENCHMARK.md). An accurate model does not guarantee
+that its default design minimizes this repository's cost.
 
 **When your plant is outside the training zoo** the head is not magic: it fails
 on dead bands, inverse response and open-loop unstable plants (documented in
-[`docs/GENERALIZATION.md`](docs/GENERALIZATION.md)). The supported answer is a
-**specialist** — one command, ~1.5 min of CPU:
+[`docs/GENERALIZATION.md`](docs/GENERALIZATION.md)). First compare it with bounded
+classical search under the same actual simulation allowance. A **specialist** is
+an optional separate study, not a guaranteed repair:
 
 ```bash
 python scripts/10_specialize.py --scenario valve_dead_zone --name valve
@@ -308,36 +329,39 @@ More detail: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ---
 
-## Where the speed actually pays off — and where it does not
+## Historical throughput measurements
 
-The decision inside the loop is what the agent no longer has to do. But the
-measurement is blunt about the conditions:
+These measurements describe the earlier implementation with cross-job model
+and Ku-sweep caching. That caching is now disabled; these figures and derived
+job totals are historical records, not current throughput promises.
 
-| how you run it | per 20-experiment job |
+| historical setup | recorded 20-iteration job time |
 | :--- | ---: |
 | agent in the loop (LLM 3 s/turn) | 60 s |
 | **one CLI process per job** | **122 s** ← 50 s startup + 24 s setup + 39 s Kp sweep + 8 s loop (without `--auto`) |
-| warm worker (model and sweep cached) | **8.8 s** |
+| earlier warm worker (model and sweep cached) | **8.8 s** |
 | long-lived MATLAB session | **2.7 s** |
 
-So the advantage is **not** "the model is fast"; it is "keep MATLAB warm and
-stop recompiling". The MCP server and `jev-tune batch` do exactly that; the
-first job in a session still pays ~77 s.
+The current worker can keep MATLAB running but repeats model setup and the
+sweep for each job. Its current throughput needs fresh measurement. `iters`
+limits tuning-loop iterations; discovery, probing and verification can add
+simulations. Read `n_total_simulations` for actual attempts.
 
 | jobs | agent in the loop | one process each | warm worker |
 | ---: | ---: | ---: | ---: |
 | 100 | 1.7 h | 3.4 h | **15 min** |
 | 1 000 | 17 h | 34 h | **2.5 h** |
 
-Measured on this machine; the LLM latency is the only assumption. The
-breakdown, the blocking/concurrency trade-off and the version matrix:
+The historical per-job measurements were taken on the reference machine; the
+LLM latency and scaled job totals are assumptions/extrapolations. Historical
+breakdown, current caveats and version matrix:
 [`docs/SCALE.md`](docs/SCALE.md).
 
 ## Benchmarks
 
-**Validation family: two_mass, 120 plants.** Used for design decisions. Iterative methods have a maximum budget of 20; one-shot methods report actual runs. All analytic-start methods share oracle Ku/Tu; sweep failures use a fixed non-oracle fallback.
+**Validation family: two_mass, 120 plants.** Historical benchmark used for design decisions. Iterative methods have a maximum budget of 20; one-shot methods report actual runs. The table's iterative counts are allocated caps, not measured calls after early stopping. All analytic-start methods share oracle Ku/Tu; sweep failures use a fixed non-oracle fallback.
 
-| method | median J | p90 J | actual simulations |
+| method | median J | p90 J | maximum budget / one-shot actual |
 | :--- | ---: | ---: | ---: |
 | `jev_head` | 0.482 | 1.030 | 20 |
 | `bo` | 0.547 | 1.552 | 20 |
@@ -352,7 +376,7 @@ breakdown, the blocking/concurrency trade-off and the version matrix:
 
 **Frozen thermal family: 120 fixed-grid plants.** Frozen after training and re-evaluated during earlier correctness repairs, without selecting a new checkpoint on it. This is not a preregistered prospective test.
 
-| method | median J | p90 J | actual simulations |
+| method | median J | p90 J | maximum budget / one-shot actual |
 | :--- | ---: | ---: | ---: |
 | `vocab_hill` | 1.711 | 2.447 | 20 |
 | `jev_head_swept` | 1.785 | 3.800 | 20 |
@@ -365,9 +389,12 @@ breakdown, the blocking/concurrency trade-off and the version matrix:
 | `shrunk_zn` | 4.854 | 5.158 | 1 |
 | `simplex` | 2.302 | 3.146 | 20 |
 
-A lower baseline cost is reported without qualification. See [BENCHMARK](docs/BENCHMARK.md) for accounting and [raw tables](research/results/benchmark_table_thermal_deadtime.md) for sweep recovery/fallback details.
+These frozen rows are separate from the v0.9 [practical budget study](docs/PRACTICAL_BUDGET.md), which reports actual calls and does not show uniform head superiority. Historical identify→pidtune rows retain their original implementation's failure limitations. See [BENCHMARK](docs/BENCHMARK.md) for accounting and [raw tables](research/results/benchmark_table_thermal_deadtime.md) for sweep recovery/fallback details.
 
-**Real Simulink model (lab DC motor)**
+**Historical Simulink model result (lab DC motor, old objective)**
+
+This table preserves the v0.2 record. It is not a v0.9 rerun and cannot be
+compared numerically with the corrected time-grid objective.
 
 | gain set | Kp | Ki | Kd | cost |
 | :--- | ---: | ---: | ---: | ---: |

@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import math
 import os
 import shutil
 import sys
@@ -290,10 +291,63 @@ def _gain_verdict(result: dict) -> str:
     )
 
 
+def _reference_source(value):
+    """Accept an automatic reference or one supported positive step amplitude."""
+    if isinstance(value, str) and value.strip().lower() == "auto":
+        return "auto"
+    try:
+        if isinstance(value, bool):
+            raise ValueError
+        number = float(value)
+        if not math.isfinite(number) or number <= 0:
+            raise ValueError
+    except (TypeError, ValueError, OverflowError):
+        raise argparse.ArgumentTypeError("ref_source must be 'auto' or a finite positive number") from None
+    return number
+
+
+def _matlab_config(args) -> dict:
+    """Merge the same discovered config and explicit flags for either loop mode."""
+    cfg: dict = {}
+    if getattr(args, "config", None):
+        seed = json.loads(Path(args.config).read_text(encoding="utf-8-sig"))
+        if not isinstance(seed, dict):
+            raise ValueError("--config must contain a JSON object")
+        cfg.update(seed)
+    cfg["model"] = args.model
+    for key, default in (("iters", 20), ("step_gain", 1.0)):
+        value = getattr(args, key, None)
+        if value is not None:
+            cfg[key] = value
+        else:
+            cfg.setdefault(key, default)
+    if getattr(args, "auto", False):
+        cfg["auto_discover"] = True
+    for key in (
+        "stop_time", "work_dir", "kp_block", "ki_block", "kd_block",
+        "measure_scope", "input_scope", "ref_source", "u_max", "controller",
+        "pid_block", "instrument_block", "instrument_port",
+    ):
+        value = getattr(args, key, None)
+        if value is not None:
+            cfg[key] = value
+    if "ref_source" in cfg:
+        cfg["ref_source"] = _reference_source(cfg["ref_source"])
+    return cfg
+
+
 def cmd_matlab(args) -> int:
     """Run one Simulink tuning job (or probe MATLAB) and print JSON."""
     from .matlab_runner import probe, run_job
 
+    cfg: dict = {}
+    if not args.probe and args.model:
+        try:
+            cfg = _matlab_config(args)
+        except (OSError, ValueError, TypeError, argparse.ArgumentTypeError) as exc:
+            result = {"ok": False, "code": "invalid_config", "error": str(exc)}
+            print(json.dumps(result, indent=2, ensure_ascii=False) if args.json else f"error: {exc}")
+            return 2
     if args.probe:
         result = probe()
     elif getattr(args, "all_loops", False):
@@ -302,7 +356,12 @@ def cmd_matlab(args) -> int:
             return 2
         from .matlab_runner import run_all_loops
 
-        result = run_all_loops(args.model, iters=args.iters, timeout=args.timeout)
+        if getattr(args, "plot", None):
+            result = {"ok": False, "code": "unsupported_option",
+                      "error": "--plot is not supported with --all-loops"}
+        else:
+            result = run_all_loops(args.model, iters=cfg["iters"],
+                                   work_dir=cfg.get("work_dir"), config=cfg, timeout=args.timeout)
         if args.json:
             print(json.dumps(result, indent=2, ensure_ascii=False))
         elif not result.get("ok"):
@@ -331,41 +390,6 @@ def cmd_matlab(args) -> int:
         if not args.model:
             print("--model is required (or pass --probe)", file=sys.stderr)
             return 2
-        cfg: dict = {
-            "model": args.model,
-            "iters": args.iters,
-            "step_gain": args.step_gain,
-        }
-        if getattr(args, "auto", False):
-            cfg["auto_discover"] = True
-        # a discovered config file is a starting point: explicit flags still win
-        if getattr(args, "config", None):
-            seed = json.loads(Path(args.config).read_text(encoding="utf-8-sig"))
-            if isinstance(seed, dict):
-                cfg.update(seed)
-            cfg.update(
-                {"model": args.model, "iters": args.iters, "step_gain": args.step_gain}
-            )
-            if getattr(args, "auto", False):
-                cfg["auto_discover"] = True
-        for key in (
-            "stop_time",
-            "work_dir",
-            "kp_block",
-            "ki_block",
-            "kd_block",
-            "measure_scope",
-            "input_scope",
-            "ref_source",
-            "u_max",
-            "controller",
-            "pid_block",
-            "instrument_block",
-            "instrument_port",
-        ):
-            value = getattr(args, key, None)
-            if value is not None:
-                cfg[key] = value
         result = run_job(cfg, timeout=args.timeout)
         if result.get("ok"):
             result["config"] = {k: v for k, v in cfg.items() if k != "model"}
@@ -393,12 +417,20 @@ def cmd_matlab(args) -> int:
                 for key in blocks:
                     if not blocks[key]:
                         blocks[key] = disc.get(key)
-                result["write_back"] = run_writeback(
-                    args.model,
-                    result.get("final_gains", []),
-                    controller=controller,
-                    blocks=blocks,
-                )
+                result["tuning_ok"] = True
+                try:
+                    result["write_back"] = run_writeback(
+                        args.model,
+                        result.get("final_gains", []),
+                        controller=controller,
+                        blocks=blocks,
+                    )
+                except Exception as exc:
+                    result["write_back"] = {"ok": False, "code": "writeback_failed", "error": str(exc)}
+                if not result["write_back"].get("ok"):
+                    result["ok"] = False
+                    result["code"] = result["write_back"].get("code") or "writeback_failed"
+                    result["error"] = result["write_back"].get("error") or "model write-back failed"
 
     if args.json:
         print(json.dumps(result, indent=2, ensure_ascii=False))
@@ -503,6 +535,7 @@ def cmd_loop(args) -> int:
     start_j = float(history[0][0])
     final_j = float(result.best_j[0])
     gains = [float(x) for x in result.gains[0]]
+    n_experiments = int(result.actual_simulations[0])
 
     if args.json:
         print(
@@ -521,7 +554,10 @@ def cmd_loop(args) -> int:
                     "final_gains": gains,
                     "start_J": start_j,
                     "final_J": final_j,
-                    "n_experiments": int(result.budget),
+                    "n_experiments": n_experiments,
+                    "n_total_simulations": n_experiments,
+                    "simulation_budget": int(result.budget),
+                    "prior": {"method": "analytic_ultimate_gain", "simulations": 0},
                     "stopped_proposing_after": int(result.stop_iter[0]),
                     "hist": [float(h) for h in history[0]],
                 },
@@ -536,7 +572,7 @@ def cmd_loop(args) -> int:
         print(
             f"tuned       J={final_j:.3f}  gains {[round(float(x), 4) for x in gains]}"
         )
-        print(f"experiments {history.shape[1]}")
+        print(f"experiments {n_experiments}  budget {int(result.budget)}")
     return 0
 
 
@@ -670,16 +706,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="save the tuned gains to <name>_tuned.slx",
     )
     m.add_argument("--plot", help="write a before/after PNG here")
-    m.add_argument("--iters", type=int, default=20)
+    m.add_argument("--iters", type=int, help="maximum tuning iterations (default: config value or 20)")
     m.add_argument("--stop-time", dest="stop_time", type=float)
-    m.add_argument("--step-gain", dest="step_gain", type=float, default=1.0)
+    m.add_argument("--step-gain", dest="step_gain", type=float,
+                   help="trust-region multiplier (default: config value or 1.0)")
     m.add_argument("--work-dir", dest="work_dir")
     m.add_argument("--kp-block", dest="kp_block")
     m.add_argument("--ki-block", dest="ki_block")
     m.add_argument("--kd-block", dest="kd_block")
     m.add_argument("--measure-scope", dest="measure_scope")
     m.add_argument("--input-scope", dest="input_scope")
-    m.add_argument("--ref-source", dest="ref_source")
+    m.add_argument("--ref-source", dest="ref_source", type=_reference_source,
+                   help="'auto' or a finite positive step reference")
     m.add_argument("--u-max", dest="u_max", type=float)
     m.add_argument("--controller", choices=["gains", "pid_block"])
     m.add_argument("--pid-block", dest="pid_block")

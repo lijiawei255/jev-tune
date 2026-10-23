@@ -185,32 +185,36 @@ def generated_documents() -> list[dict]:
 def trajectory_evidence() -> list[dict]:
     """Recompute retrospective diagnosis and verify prospective raw study."""
     rows=[]
+    historical = None
+    historical_error = None
+    historical_attempted = False
     for name,artifact,function in [('30_rollout_diagnosis','rollout_diagnosis.json','diagnosis'),
                                    ('32_verify_trajectory_risk','trajectory_risk.json','study'),
                                    ('34_reproduce_trajectory_evaluation','trajectory_risk_reproduction.json','reproduction')]:
         source='research/results/'+artifact
         try:
-            spec=importlib.util.spec_from_file_location(name,ROOT/'scripts'/(name+'.py'))
-            module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
-            payload=json.loads((ROOT/source).read_text(encoding='utf-8'))
             if function=='diagnosis':
+                spec=importlib.util.spec_from_file_location(name,ROOT/'scripts'/(name+'.py'))
+                module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+                payload=json.loads((ROOT/source).read_text(encoding='utf-8'))
                 ok=module.same_evidence(payload,module.build_diagnosis(ROOT))
                 detail='retrospective evidence recomputed from original raw' if ok else 'diagnosis differs from original raw'
-            elif function=='study':
-                module.ROOT=ROOT
-                checks=module.verify_payload(payload,require_final=True)
-                ok=bool(checks) and all(value is True for value in checks.values())
-                diagnosis=json.loads((ROOT/module.PAIRING_DIAGNOSIS).read_text(encoding='utf-8'))
-                ok=ok and module.same(diagnosis,module.paired_diagnosis(payload))
-                validity=json.loads((ROOT/module.VALIDITY_ASSESSMENT).read_text(encoding='utf-8'))
-                ok=ok and module.same(validity,module.validity_assessment(payload)) and validity['deployment_allowed'] is False
-                detail='raw/model/stage CP/ledger verified; separate assumption audit preserves disabled deployment' if ok else 'prospective evidence or implementation-validity audit differs'
             else:
-                module.ROOT=ROOT
-                report=module.check(result_path=ROOT/'research/results/trajectory_risk.json',report_path=ROOT/source)
-                ok=(report['schema_version']==1 and report['equal'] is True and
-                    report['additional_independent_evidence'] is False and report['acceptance_recomputed'] is False)
-                detail='five-arm replay hashes and additional simulation ledger match; no additional independent evidence' if ok else 'replay mismatch or invalid evidence status'
+                # Build the historical source view once for both verifiers.
+                # The live runtime retains the separately checked v0.9 fixes.
+                if not historical_attempted:
+                    historical_attempted = True
+                    try:
+                        spec=importlib.util.spec_from_file_location('historical_research',ROOT/'scripts/44_verify_historical_research.py')
+                        module=importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+                        historical=module.check(root=ROOT)
+                    except Exception as exc:
+                        historical_error=exc
+                if historical_error is not None:
+                    raise ValueError(f'Isolated historical audit failed: {historical_error}') from historical_error
+                result=historical['checks'][function]
+                ok=result['ok'] is True
+                detail='isolated v0.8 source view: '+result['detail']
         except Exception as exc:
             ok=False; detail=f'{type(exc).__name__}: {exc}'
         rows.append({'id':'evidence:'+artifact,'text':'Independent evidence reconstruction',
@@ -486,6 +490,30 @@ def rollout_evidence() -> list[dict]:
              'ok':ok,'value':None,'source':source,'detail':detail}]
 
 
+def practical_evidence() -> list[dict]:
+    """Check adapter provenance, actual trial ledgers and retained research."""
+    rows = []
+    for name, artifact, function in (
+        ('43_verify_practical_budget', 'research/results/practical_budget.json', 'check'),
+        ('40_verify_model_adaptation', 'research/results/model_adaptation.json', 'check'),
+        ('41_sync_practical_docs', 'docs/MODEL_ADAPTATION.md', 'check'),
+        ('42_release_practical', 'research/protocols/research_pause_v090.json', 'check_preserved'),
+    ):
+        try:
+            spec = importlib.util.spec_from_file_location(name, ROOT / 'scripts' / (name + '.py'))
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[name] = module
+            spec.loader.exec_module(module)
+            result = getattr(module, function)(root=ROOT)
+            assert result, str(result)
+            ok, detail = True, 'source-bound evidence / generated bilingual text verified'
+        except Exception as exc:
+            ok, detail = False, f'{type(exc).__name__}: {exc}'
+        rows.append({'id': 'practical:' + name, 'text': 'Practical mainline evidence and preservation',
+                     'ok': ok, 'value': None, 'source': artifact, 'detail': detail})
+    return rows
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
@@ -514,7 +542,7 @@ def main() -> int:
                 "source": claim["source"],
             }
         )
-    for checker in (benchmark_tables,generated_documents,decision_evidence,rollout_evidence,performance_diagnosis_evidence,trajectory_evidence,cohort_portability_evidence):
+    for checker in (benchmark_tables,generated_documents,decision_evidence,rollout_evidence,performance_diagnosis_evidence,trajectory_evidence,cohort_portability_evidence,practical_evidence):
         try:
             checked_rows=checker()
         except Exception as exc:

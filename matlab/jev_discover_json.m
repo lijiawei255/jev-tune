@@ -28,6 +28,8 @@ out.ok = D.ok;
 out.confidence = D.confidence;
 out.evidence = D.evidence;
 out.warnings = D.warnings;
+out.measurements = D.measurements;
+out.n_total_simulations = D.n_total_simulations;
 if isfield(D, 'code'), out.code = D.code; else, out.code = ''; end
 if ~D.ok
     out.error = D.error;
@@ -53,12 +55,8 @@ if strcmp(c.kind, 'pid_block')
     out.controller.i = c.i;
     out.controller.d = c.d;
     out.controller.variant = getfield_default(c, 'controller', 'PID');
-    if strcmpi(c.form, 'Parallel')
-        out.controller.parallel_gains = [c.p c.i c.d];
-    elseif all(isfinite([c.p c.i c.d])) && abs(c.p) > 0
-        % Ideal/Standard store I and D as times: Ki = P/I, Kd = P*D
-        ki = c.p / c.i; if ~isfinite(ki), ki = 0; end
-        out.controller.parallel_gains = [c.p ki c.p * c.d];
+    if all(isfinite([c.p c.i c.d]))
+        out.controller.parallel_gains = jev_pid_parallel_gains(c.form, [c.p c.i c.d]);
     end
 else
     out.controller.kp_block = c.kp_block;

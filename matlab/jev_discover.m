@@ -35,7 +35,9 @@ if nargin < 2 || isempty(opts), opts = struct(); end
 opts = with_defaults(opts);
 
 D = struct('ok', false, 'model', mdlPath, 'confidence', 'low', ...
-    'warnings', {{}}, 'evidence', {{}}, 'candidates', {{}});
+    'warnings', {{}}, 'evidence', {{}}, 'candidates', {{}}, ...
+    'measurements', struct('junction', 0, 'controller_baseline', 0, ...
+        'controller_perturbation', 0), 'n_total_simulations', 0);
 if ~isfile(mdlPath)
     D.code = 'model_not_found';
     D.error = sprintf('no such file: %s', mdlPath);
@@ -46,6 +48,7 @@ if ~isfolder(opts.work_dir), mkdir(opts.work_dir); end
 [~, ~, ext] = fileparts(mdlPath);
 dst = fullfile(opts.work_dir, ['jev_disc_model' ext]);
 mdl = 'jev_disc_model';
+jev_assert_distinct_paths(mdlPath, dst);
 if isfile(dst), delete(dst); end
 copyfile(mdlPath, dst);
 srcDir = fileparts(mdlPath);
@@ -108,7 +111,7 @@ end
 % the steady-state output are the same quantity, so their magnitudes agree.
 % Counting the survivors is what tells one loop from two, and a loop from a
 % summing point inside the plant.
-[junctions, D] = evaluate_junctions(mdl, cands, stopTime, D);
+[junctions, D] = evaluate_junctions(mdl, cands, stopTime, D, opts);
 D.n_junction_candidates = numel(junctions);
 D.loops = describe_loops(junctions, mdl);
 
@@ -173,6 +176,11 @@ else
     D.reference_source = 'inferred from the reference branch';
 end
 D.reference = refCmd;
+if isfinite(refCmd) && refCmd <= 0
+    D.code = 'no_reference';
+    D.error = 'negative/zero step references are unsupported; use a positive step reference';
+    return
+end
 
 % ---------------------------------------------------------------- controller
 pidBlocks = {};
@@ -469,7 +477,7 @@ else
 end
 end
 
-function [junctions, D] = evaluate_junctions(mdl, cands, stopTime, D) %#ok<INUSD>
+function [junctions, D] = evaluate_junctions(mdl, cands, stopTime, D, opts) %#ok<INUSD>
 % One run per candidate junction, capped so a model full of sums stays cheap.
 % A candidate is "verified" when the reference and the steady-state output agree
 % in magnitude: that is what separates an error junction from a summing point
@@ -490,6 +498,7 @@ for k = 1:n
     entry.reference = rv;
     ran = false;
     if jev_instrument(mdl, m, 'jev_junction_probe', mp)
+        D = count_attempt(D, 'junction', opts);
         [~, y] = simulate(mdl, stopTime, 'jev_junction_probe');
         if ~isempty(y)
             ran = true;
@@ -663,7 +672,6 @@ elseif numel(stepVal) == 1
     val = stepVal;
     src = sprintf('%s', num2str(stepVal));
 end
-if isfinite(val), val = abs(val); end
 end
 
 % =========================================================================
@@ -692,12 +700,11 @@ if c.limit_output
 end
 D.evidence{end+1} = sprintf('controller: masked PID block %s (form %s, %s)', ...
     c.block, form, c.controller);
-% Ideal/Standard forms store I and D as *times*; a multiplicative step would
-% invert their meaning, so the copy is switched to Parallel before tuning and
-% the equivalent parallel gains are used from then on.
+% Simulink Ideal multiplies its I and D coefficients by P. The working copy
+% is converted to the equivalent Parallel gains before tuning.
 if ~strcmpi(form, 'Parallel') && all(isfinite([c.p c.i c.d]))
     D.warnings{end+1} = sprintf(['the PID block uses the %s form: I and D are ' ...
-        'times there, so the gains were converted to the parallel form on the ' ...
+        'scaled by P there; tuning converts the gains to parallel form on the ' ...
         'working copy (the user model is untouched)'], form);
 end
 end
@@ -923,6 +930,7 @@ D.cfg.measure_scope = scope;
 D.cfg.instrument_block = D.measure_block;
 D.cfg.instrument_port = mport;
 
+D = count_attempt(D, 'controller_baseline', opts);
 [t0, y0] = simulate(mdl, stopTime, scope);
 if isempty(y0)
     D.warnings{end+1} = 'the model did not run; check StopTime and workspace variables';
@@ -946,6 +954,7 @@ for k = 1:numel(picked)
     v = num_of(picked{k}, 'Gain');
     if ~isfinite(v) || abs(v) < 1e-12, effects(k) = 0; continue; end
     set_param(picked{k}, 'Gain', num2str(2 * v));
+    D = count_attempt(D, 'controller_perturbation', opts);
     [t, y] = simulate(mdl, stopTime, scope);
     set_param(picked{k}, 'Gain', num2str(v));
     if isempty(y), effects(k) = inf; continue; end
@@ -978,15 +987,17 @@ function [t, y] = simulate(mdl, stopTime, scope)
 t = []; y = [];
 try
     out = sim(mdl, 'StopTime', num2str(stopTime), 'FastRestart', 'off');
-    if isprop(out, scope) || isfield(out, scope)
-        ds = out.(scope);
-        e = ds.getElement(1);
-        y = e.Values.Data(:);
-        t = e.Values.Time(:);
-    end
+    [t, y] = jev_read_signal(out, scope);
 catch err
     fprintf('[discover] sim failed: %s\n', err.message);
 end
+end
+
+function D = count_attempt(D, phase, opts)
+% Count every sim invocation, including calls that throw or log no response.
+D.measurements.(phase) = D.measurements.(phase) + 1;
+D.n_total_simulations = D.n_total_simulations + 1;
+jev_simulation_counts(opts.simulation_ledger, ['discovery_' phase]);
 end
 
 function tf = block_exists(path)
@@ -1091,7 +1102,7 @@ end
 
 function opts = with_defaults(opts)
 d = struct('probe', true, 'work_dir', fullfile(tempdir, 'jev_discover'), ...
-    'verbose', false, 'all_loops', false, 'loop_junction', '');
+    'verbose', false, 'all_loops', false, 'loop_junction', '', 'simulation_ledger', []);
 f = fieldnames(d);
 for k = 1:numel(f)
     if ~isfield(opts, f{k}), opts.(f{k}) = d.(f{k}); end

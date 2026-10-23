@@ -1,5 +1,17 @@
 # jev-tune
 
+<!-- practical-mainline:zh:start -->
+**当前主线：真实模型适配、适用边界与仿真预算收益。**
+暂停深化联合风险研究，保留未通过验收的结论、原始轨迹、冻结协议及复现脚本；风险头继续保留研究模式，不进入生产默认路径。完整CP集合及既有覆盖边界保持不变。
+当前检出用`python scripts/44_verify_historical_research.py --check`在隔离的历史源码视图中核验冻结研究。原研究命令保留在v0.8.0，不能偷偷用今天修复后的运行时代替原记录源码。
+
+实用审查优先保证控制器转换等价、测量对象明确、代价按真实时间计算、失败状态准确，以及仿真计账完整。见[MODEL_ADAPTATION](docs/MODEL_ADAPTATION.md)和[PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md)。生成的Simulink回归模型用于验证适配器行为，不证明未见外部模型或硬件上的调参效果。
+
+下方旧MATLAB代价、轨迹及动画为历史记录：按实际时间网格积分的修正已改变目标，旧记录不代表当前性能测量。
+为保留各任务原件及配置语义，跨任务模型与扫描缓存已停用；历史热启动吞吐表不代表当前实现。
+<!-- practical-mainline:zh:end -->
+
+
 > **受Jev启发，与TypeSafe AI无隶属、背书或赞助关系。** 本项目使用自己训练的数值头，不含Jev/Laya权重或API。[English](README.md)
 
 [![tests](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml/badge.svg)](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml)
@@ -18,7 +30,7 @@
 > 然后给我看前后对比曲线。”**
 
 Agent 会读 [`AGENTS.md`](AGENTS.md)，里面第一步就是运行 `jev-tune discover`：
-它**沿着信号图找**（不看块名）增益块、被测量信号和参考值，再用两次额外仿真确认
+它**沿着信号图找**（不看块名）增益块、被测量信号和参考值，再用计入发现账本的仿真确认
 自己的猜测：
 
 ```bash
@@ -54,7 +66,7 @@ solver      ...
 
 *这是 `discover` 在一台实验课电机上的全过程，**逐帧都来自模型本身**：误差汇合点由一次
 仿真确认（参考值与稳态输出是同一个物理量），每个增益按"它和汇合点之间有什么"分类，
-再用两次额外仿真确认"把它翻倍是否真的改变响应"。上面这些块名**没有参与任何判断**——
+再用扰动仿真确认"把它翻倍是否真的改变响应"。上面这些块名**没有参与任何判断**——
 `Gain_Kp` 改叫 `alpha` 结果完全一样。重新生成用 `scripts/15_make_discovery_gif.py`。*
 
 ## 从哪读起
@@ -128,12 +140,13 @@ solver      ...
 | :--- | :--- |
 | **做什么** | 看刚测到的响应，决定下一步把 PID 增益乘多少 |
 | **多快** | ONNX前向中位<!-- claim:decision_ms -->0.024<!-- /claim --> ms；Python默认类型化/弃权路径中位<!-- claim:typed_decision_ms -->0.313<!-- /claim --> ms、p99 <!-- claim:typed_decision_p99_ms -->0.709<!-- /claim --> ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |
-| **多省实验** | 真实 Simulink 电机上 **5 次实验**把代价从 **1.238 降到 0.598**（v0.2 的记录运行；修正增益扫描后同一模型起点更好，整定器会直接返回电机自带的增益——[原因](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)）；结果不会比 ZN 起点与模型自带增益中更好的那组更差 |
-| **多能泛化** | 验证族中位0.482；冻结热工族中位1.833，当前基线和先验来源见下表。 |
+| **历史MATLAB运行** | v0.2实验课电机的**5次实验**将记录代价从**1.238降至0.598**。这是旧目标下的历史测量，不是当前重跑；之前的扫描修复和v0.9时间网格积分修正都没有更新这些数字。见[STEP4_RESULTS](docs/STEP4_RESULTS.md)。 |
+| **多能泛化** | 历史验证族中位0.482；冻结热工族中位1.833，对应基线与oracle先验见下表；独立的v0.9固定起点评测见[PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md)。 |
 
 ![前后对比](assets/before_after.png)
 
-*同一个被控对象、三组增益。灰色：Ziegler-Nichols 起点；蓝色：5 次实验后；
+*旧代价定义下的v0.2历史图，不代表当前重跑。同一个被控对象、三组增益。
+灰色：Ziegler-Nichols 起点；蓝色：5 次实验后；
 虚线：实验课人工调参的结果。那次运行的起点来自 v0.2 的 Ku 扫描，而那个扫描有三处缺陷，
 已修复——见 [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) 的更正一节。*
 
@@ -144,17 +157,24 @@ solver      ...
 **对比"接大模型 Agent 调参"**：Agent 在环是"看图 → 写一段话 → 解析那段话"，
 每步要等几秒，而且结果埋在自然语言里。这里模型只输出三个原语——`choice` 决定
 步长、`score` 评价当前响应、`noul` 判断这一步安不安全——所以决策是一个可以直接
-设阈值、可以记录、可以校准的概率向量。温度校准后 ECE 实测 **0.02**。
+记录和校准的概率向量。可选保持策略见[ABSTENTION](docs/ABSTENTION.md)，默认CP监测
+不否决提案；校准目标与适用边界见[CONFORMAL](docs/CONFORMAL.md)，不等于校准后的安全执行概率。
 
 **对比经典自整定**：Ziegler-Nichols、继电自整定都是"一次成型"，给完就走。
 这里是边看边改；而且**策略是一次性学好的**，换一台同族设备不需要重新训。
 
-**对比贝叶斯优化**：BO 每一步都要重新拟合代理模型。这里是摊销的：一次前向即可，
-同预算下比 CMA-ES 好 3 倍——但尾部不如 BO，基准表里如实写了。
+**对比普通预测头和优化器**：一次前向的计算成本不等于更少仿真或更好的控制器。
+[ABLATION](docs/ABLATION.md)报告匹配划分的回归/argmax对照；一个训练权重与三个评测样本
+不能证明类型接口具有普遍因果优势。[PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md)在固定
+起点下同时列返回代价和实际调用。结果取决于对象与先验，head并非在所有组和指标上优于传统基线。
+
+**为什么不用`pidtune`？** 有合适线性模型时，应把`pidtune`作为基线并回到完整模型验证。
+历史的“辨识→`pidtune`”是另一种流程，失败边界见[BENCHMARK](docs/BENCHMARK.md)。
+准确模型不等于默认设计必然最小化本仓库代价。
 
 **当你的对象在训练动物园之外**：它不神，死区、反向响应、开环不稳定都会翻车
-（见 [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md)）。正确做法是训一个
-"专家"——一条命令、约 1.5 分钟 CPU：
+（见 [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md)）。先与同一实际仿真额度下的
+有界传统搜索比较；训练"专家"是可选的另行研究，不保证修复：
 
 ```bash
 python scripts/10_specialize.py --scenario valve_dead_zone --name valve
@@ -266,32 +286,36 @@ jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
 
 ---
 
-## 速度到底省在哪（实测）
+## 历史吞吐测量
 
-| 跑法 | 20 次实验耗时 |
+以下来自曾使用跨任务模型与Ku扫描缓存的旧实现。该缓存现已停用，表内耗时及折算任务总量
+均为历史记录，不是当前吞吐承诺。
+
+| 历史配置 | 记录的20次迭代任务耗时 |
 | :--- | ---: |
 | Agent 在环（LLM 3 s/次） | 60 s |
 | **一个 CLI 进程跑一个任务** | **122 s**（50 s 启动 + 24 s 建模 + 39 s 扫 Ku + 8 s 回路；不带 `--auto`） |
-| 常驻 worker（缓存编译和 Ku） | **8.8 s** |
+| 旧常驻worker（缓存编译和Ku） | **8.8 s** |
 | 长驻 MATLAB 会话 | **2.7 s** |
 
-**优势不来自"模型快"，而来自"MATLAB 别重开、模型别重编译"**。MCP 服务器和
-`jev-tune batch` 就是为此设计的。
+当前worker可保留MATLAB进程，但每个任务会重新设置模型并扫描；当前吞吐需重新测量。
+`iters`只限制调参循环，发现、探测和验证仍会增加仿真；实际尝试次数见`n_total_simulations`。
 
 | 任务数 | Agent 在环 | 一进程一任务 | 常驻 worker |
 | ---: | ---: | ---: | ---: |
 | 100 | 1.7 h | 3.4 h | **15 min** |
 | 1 000 | 17 h | 34 h | **2.5 h** |
 
-完整分解、并发方案与版本矩阵：[`docs/SCALE.md`](docs/SCALE.md)。
+历史单任务耗时来自参考机器；LLM时延及任务总量是条件假设与外推。历史分解、当前限制及
+版本矩阵见[`docs/SCALE.md`](docs/SCALE.md)。
 
 ---
 
 ## 基准
 
-**验证族：120个two_mass对象。** 参与过设计决策。迭代方法最多20次，一次性方法列实际消耗；解析起点方法共享oracle Ku/Tu，扫描失败统一采用固定非oracle先验。
+**验证族：120个two_mass对象。** 参与过设计决策的历史基准。迭代方法最多20次，一次性方法列实际消耗；表内迭代次数是分配上限，不是提前停止后的实测次数。解析起点方法共享oracle Ku/Tu，扫描失败统一采用固定非oracle先验。
 
-| method | median J | p90 J | actual simulations |
+| method | median J | p90 J | maximum budget / one-shot actual |
 | :--- | ---: | ---: | ---: |
 | `jev_head` | 0.482 | 1.030 | 20 |
 | `bo` | 0.547 | 1.552 | 20 |
@@ -306,7 +330,7 @@ jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
 
 **冻结热工族：120个固定网格对象。** 训练后冻结，此前正确性修复后重测，未据此选择新权重；不是预注册前瞻测试。
 
-| method | median J | p90 J | actual simulations |
+| method | median J | p90 J | maximum budget / one-shot actual |
 | :--- | ---: | ---: | ---: |
 | `vocab_hill` | 1.711 | 2.447 | 20 |
 | `jev_head_swept` | 1.785 | 3.800 | 20 |
@@ -319,9 +343,11 @@ jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
 | `shrunk_zn` | 4.854 | 5.158 | 1 |
 | `simplex` | 2.302 | 3.146 | 20 |
 
-基线代价更低也照实报告。计账规则见[BENCHMARK](docs/BENCHMARK.md)，扫描恢复/回退见[原始表](research/results/benchmark_table_thermal_deadtime.md)。
+这些冻结行与v0.9[实用预算评测](docs/PRACTICAL_BUDGET.md)分开；后者列实际调用，也不证明head全面优于基线。历史辨识→pidtune行保留原实现的失败边界。计账规则见[BENCHMARK](docs/BENCHMARK.md)，扫描恢复/回退见[原始表](research/results/benchmark_table_thermal_deadtime.md)。
 
-**真实 Simulink 模型（直流电机）**
+**历史Simulink模型结果（直流电机，旧目标）**
+
+此表保留v0.2记录，不是v0.9重跑，不可与按真实时间网格修正后的目标直接数值比较。
 
 | 增益组 | Kp | Ki | Kd | 代价 |
 | :--- | ---: | ---: | ---: | ---: |

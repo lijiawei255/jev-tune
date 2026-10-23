@@ -46,9 +46,7 @@ while true
         jev_tune_json(jobPath, resPath);
         n = n + 1;
     catch err
-        fid = fopen(resPath, 'w');
-        fwrite(fid, jsonencode(struct('ok', false, 'error', err.message)), 'char');
-        fclose(fid);
+        jev_write_json_atomic(struct('ok', false, 'error', err.message), resPath);
     end
 
     if isfile(jobPath), delete(jobPath); end

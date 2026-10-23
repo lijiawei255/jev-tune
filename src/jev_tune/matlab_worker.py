@@ -1,9 +1,8 @@
-"""A warm MATLAB worker, driven through a queue directory.
+"""A persistent MATLAB process, driven through a queue directory.
 
-Cold start is ~50 s and a model compile ~10 s on the reference machine, while a
-whole tuning run costs ~2 s.  Spawning one MATLAB per job therefore throws away
-the throughput advantage; this keeps a single session alive and feeds it jobs
-through files (no sockets, no toolboxes, survives a client restart).
+Only the process is reused. Each request rebuilds its model and measures its
+own reference and starting gains; compiled models and ultimate-gain sweeps are
+not reused across requests. Fast Restart may still be used within one request.
 """
 
 from __future__ import annotations
@@ -82,14 +81,18 @@ class MatlabWorker:
     def run(self, cfg: dict) -> dict:
         if not self._ready:
             self.start()
-        # keep the compiled model between jobs and share one scratch folder
+        # Reuse the process, not mutable model state or sweep results. MATLAB
+        # also ignores legacy requests that explicitly set keep_loaded=True.
         cfg = dict(cfg)
-        cfg.setdefault("keep_loaded", True)
+        cfg.setdefault("keep_loaded", False)
         cfg.setdefault("work_dir", str(self.queue_dir / "work"))
         job_id = uuid.uuid4().hex[:8]
         job_path = self.queue_dir / f"job_{job_id}.json"
         res_path = self.queue_dir / f"res_{job_id}.json"
-        job_path.write_text(json.dumps(cfg), encoding="utf-8")
+        # MATLAB enumerates job_*.json; publish only a complete request.
+        pending_path = self.queue_dir / f"job_{job_id}.json.tmp"
+        pending_path.write_text(json.dumps(cfg), encoding="utf-8")
+        pending_path.replace(job_path)
 
         deadline = time.time() + self.timeout
         while time.time() < deadline:
@@ -98,6 +101,7 @@ class MatlabWorker:
                     data = json.loads(res_path.read_text(encoding="utf-8"))
                 except json.JSONDecodeError:
                     time.sleep(0.05)
+                    continue
                 try:
                     res_path.unlink()
                 except OSError:

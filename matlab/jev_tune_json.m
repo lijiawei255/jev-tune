@@ -6,7 +6,8 @@ function out = jev_tune_json(cfgPath, outPath)
 %   job.json keys (all optional except model):
 %     model            full path to the .slx / .mdl
 %     work_dir         scratch folder (default: tempdir)
-%     iters            maximum experiments (default 20)
+%     iters            maximum tuning-loop measurements (default 20); discovery,
+%                      sweep, own-gain probe and final verification are additional
 %     stop_time        simulation horizon in seconds (default: model StopTime)
 %     step_gain        trust-region multiplier (default 1.0)
 %     auto_discover    find the blocks, the measured signal and the reference
@@ -15,6 +16,7 @@ function out = jev_tune_json(cfgPath, outPath)
 %     controller       'gains' (three blocks) or 'pid_block'
 %     pid_block        masked PID block name
 %     measure_scope / input_scope             logging scope names
+%     measure_element / input_element         explicit Dataset element index/name
 %     instrument_block tap this block with a Scope on the working copy
 %     ref_source       'auto' or a number
 %     u_max            actuator limit used for the saturation feature
@@ -40,6 +42,8 @@ autoDiscover = logical(getfield_default(cfg, 'auto_discover', false));
 mcfg = cfg;
 mcfg = rmfield_safe(mcfg, {'model', 'work_dir', 'iters', 'stop_time', ...
     'step_gain', 'auto_discover'});
+ledger = containers.Map('KeyType', 'char', 'ValueType', 'double');
+mcfg.simulation_ledger = ledger;
 
 t0 = tic;
 discovery = struct('used', false);
@@ -50,6 +54,7 @@ try
             out = struct('ok', false, 'code', discovery.code, ...
                 'error', discovery.error, 'warnings', {discovery.warnings}, ...
                 'discovery', discovery, 'wall_s', toc(t0));
+            [out.measurements, out.n_total_simulations] = jev_simulation_counts(ledger);
             write_json(out, outPath);
             return
         end
@@ -76,6 +81,7 @@ try
     out.n_rollbacks = R.n_rollbacks;
     out.n_escalations = R.n_escalations;
     out.decision_policy = R.decision_policy;
+    out.cache_policy = R.cache_policy;
     out.n_experiments = R.n_recorded_measurements;
     out.n_history_records = numel(R.hist);
     % Includes loop/final measurement attempts, excluding cached final rows;
@@ -83,8 +89,8 @@ try
     out.n_recorded_measurements = R.n_recorded_measurements;
     out.n_no_action_stops = R.n_no_action_stops;
     out.stop_reason = R.stop_reason;
-    out.measurements = R.measurements;
-    out.n_total_simulations = R.n_total_simulations;
+    [out.measurements, out.n_total_simulations] = jev_simulation_counts(ledger);
+    out.measurement_budget_scope = 'iters limits tuning-loop measurements; total includes discovery and setup';
     out.warnings = {};
     if isfield(R, 'stopTime') && abs(R.stopTime - 10) / 10 > 0.5
         out.warnings{end+1} = sprintf(['stopTime %.2f s is far from the 10 s training horizon; ' ...
@@ -107,6 +113,7 @@ catch err
     out.hint = error_hint(out.code);
     if discovery.used, out.discovery = discovery; end
     out.wall_s = toc(t0);
+    [out.measurements, out.n_total_simulations] = jev_simulation_counts(ledger);
 end
 
 write_json(out, outPath);
@@ -116,10 +123,11 @@ end
 function [discovery, mcfg, stopTime] = discover_first(mdlPath, mcfg, stopTime, workDir)
 %DISCOVER_FIRST  Ask jev_discover what the model looks like, then merge.
 D = jev_discover(mdlPath, struct('probe', true, ...
-    'work_dir', fullfile(workDir, 'discover')));
+    'work_dir', fullfile(workDir, 'discover'), 'simulation_ledger', mcfg.simulation_ledger));
 
 discovery = struct('used', true, 'ok', D.ok, 'confidence', D.confidence, ...
-    'warnings', {D.warnings}, 'evidence', {D.evidence});
+    'warnings', {D.warnings}, 'evidence', {D.evidence}, ...
+    'measurements', D.measurements, 'n_total_simulations', D.n_total_simulations);
 if isfield(D, 'code'), discovery.code = D.code; else, discovery.code = ''; end
 if ~D.ok
     discovery.error = D.error;
@@ -166,6 +174,11 @@ if isempty(identifier), return; end
 switch identifier
     case 'jev:no_signal', code = 'no_signal';
     case 'jev:wide_signal', code = 'wide_signal';
+    case 'jev:signal_element', code = 'invalid_signal';
+    case 'jev:invalid_signal', code = 'invalid_signal';
+    case 'jev:source_overwrite', code = 'source_overwrite';
+    case 'jev:unsupported_pid_configuration', code = 'unsupported_pid_configuration';
+    case 'jev:pid_form', code = 'unsupported_pid_configuration';
     case 'jev:no_gains', code = 'no_gains';
     case 'jev:instrument', code = 'instrument_failed';
     case 'jev:ref', code = 'no_reference';
@@ -199,15 +212,7 @@ end
 end
 
 function write_json(out, outPath)
-% write-then-rename so a client never reads a half-written file
-tmpPath = [outPath '.tmp'];
-fid = fopen(tmpPath, 'w');
-if fid < 0
-    error('jev:io', 'cannot write %s', tmpPath);
-end
-fwrite(fid, jsonencode(out), 'char');
-fclose(fid);
-movefile(tmpPath, outPath, 'f');
+jev_write_json_atomic(out, outPath);
 end
 
 function s = getfield_default(s, name, default)

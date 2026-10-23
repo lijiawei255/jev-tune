@@ -114,6 +114,10 @@ versioned records; see BENCHMARK, ABLATION, ABSTENTION and CALIBRATE_ONLY for cu
 | `trajectory_sims_calibration_total` | Actual simulations: stage calibration / 逐步校准 | <!-- claim:trajectory_sims_calibration_total -->386124.000000<!-- /claim --> | [research/results/trajectory_risk.json](../research/results/trajectory_risk.json) |
 | `trajectory_sims_evaluation_total` | Actual simulations: final evaluation / 最终评估 | <!-- claim:trajectory_sims_evaluation_total -->33718.000000<!-- /claim --> | [research/results/trajectory_risk.json](../research/results/trajectory_risk.json) |
 | `trajectory_sims_total` | Actual simulations: all study simulations / 全研究仿真 | <!-- claim:trajectory_sims_total -->513508.000000<!-- /claim --> | [research/results/trajectory_risk.json](../research/results/trajectory_risk.json) |
+| `adapter_ideal_trajectory_difference` | Ideal/Parallel measured trajectory difference / Ideal与Parallel实测轨迹差 | <!-- claim:adapter_ideal_trajectory_difference -->0.000000<!-- /claim --> | [research/results/model_adaptation.json](../research/results/model_adaptation.json) |
+| `adapter_auto_simulations` | Automatic discovery plus tuning attempts / 自动发现及调参仿真实耗 | <!-- claim:adapter_auto_simulations -->22.000000<!-- /claim --> | [research/results/model_adaptation.json](../research/results/model_adaptation.json) |
+| `adapter_all_loops_simulations` | Independent-loop fixture total attempts / 独立多回路模型总仿真实耗 | <!-- claim:adapter_all_loops_simulations -->52.000000<!-- /claim --> | [research/results/model_adaptation.json](../research/results/model_adaptation.json) |
+| `practical_budget_actual_simulations` | Fixed practical comparison actual simulations / 固定实用对照实际仿真 | <!-- claim:practical_budget_actual_simulations -->7995.000000<!-- /claim --> | [research/results/practical_budget.json](../research/results/practical_budget.json) |
 
 Unmeasured work includes training-seed replication, full data learning curves,
 many-question scaling, broad hosted-model comparisons, mid-run domain shifts,
@@ -229,6 +233,10 @@ and physical robot/medical/MCU/FPGA validation. No success is inferred for them.
 | `trajectory_sims_calibration_total` | Actual simulations: stage calibration / 逐步校准 | <!-- claim:trajectory_sims_calibration_total -->386124.000000<!-- /claim --> | [research/results/trajectory_risk.json](../research/results/trajectory_risk.json) |
 | `trajectory_sims_evaluation_total` | Actual simulations: final evaluation / 最终评估 | <!-- claim:trajectory_sims_evaluation_total -->33718.000000<!-- /claim --> | [research/results/trajectory_risk.json](../research/results/trajectory_risk.json) |
 | `trajectory_sims_total` | Actual simulations: all study simulations / 全研究仿真 | <!-- claim:trajectory_sims_total -->513508.000000<!-- /claim --> | [research/results/trajectory_risk.json](../research/results/trajectory_risk.json) |
+| `adapter_ideal_trajectory_difference` | Ideal/Parallel measured trajectory difference / Ideal与Parallel实测轨迹差 | <!-- claim:adapter_ideal_trajectory_difference -->0.000000<!-- /claim --> | [research/results/model_adaptation.json](../research/results/model_adaptation.json) |
+| `adapter_auto_simulations` | Automatic discovery plus tuning attempts / 自动发现及调参仿真实耗 | <!-- claim:adapter_auto_simulations -->22.000000<!-- /claim --> | [research/results/model_adaptation.json](../research/results/model_adaptation.json) |
+| `adapter_all_loops_simulations` | Independent-loop fixture total attempts / 独立多回路模型总仿真实耗 | <!-- claim:adapter_all_loops_simulations -->52.000000<!-- /claim --> | [research/results/model_adaptation.json](../research/results/model_adaptation.json) |
+| `practical_budget_actual_simulations` | Fixed practical comparison actual simulations / 固定实用对照实际仿真 | <!-- claim:practical_budget_actual_simulations -->7995.000000<!-- /claim --> | [research/results/practical_budget.json](../research/results/practical_budget.json) |
 
 未测项目包括训练种子重复、完整数据学习曲线、多问题扩展、广泛托管模型对比、
 运行中域变化及机器人、医疗、MCU/FPGA实物验证；不推断这些项目已成功。

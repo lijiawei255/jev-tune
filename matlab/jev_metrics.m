@@ -1,5 +1,5 @@
 function M = jev_metrics(t, y, u, ref, horizon, umax)
-%JEV_METRICS  Response metrics, identical definitions to jev_tune.metrics.
+%JEV_METRICS Response metrics integrated on the actual Simulink time grid.
 %
 %   M = jev_metrics(t, y, u, ref, horizon, umax)
 %
@@ -7,13 +7,15 @@ function M = jev_metrics(t, y, u, ref, horizon, umax)
 %   `u` may be empty (then the saturation entries are 0).
 
 t = t(:); y = y(:);
-if isempty(t) || isempty(y)
-    % nothing was logged: report "no answer" rather than crashing on y(end)
-    M = nan(1, 9);
-    return
+if numel(t) < 2 || numel(t) ~= numel(y) || ~isreal(t) || ~isreal(y) || ...
+        any(~isfinite(t)) || any(~isfinite(y)) || any(diff(t) < 0) || t(end) <= t(1)
+    error('jev:invalid_signal', 'response requires matching finite samples on a nondecreasing time grid');
 end
-if isempty(ref) || ~isfinite(ref), ref = 1; end
+if isempty(ref) || ~isscalar(ref) || ~isreal(ref) || ~isfinite(ref) || ref <= 0
+    error('jev:ref', 'only finite positive step references are supported');
+end
 if isempty(horizon), horizon = t(end); end
+validateattributes(horizon, {'numeric'}, {'scalar', 'real', 'positive', 'finite'});
 e = ref - y;
 
 % overshoot (fraction of the reference, 0 when there is none)
@@ -38,16 +40,19 @@ else
 end
 
 ess = (ref - y(end)) / abs(ref);
-dt = median(diff(t));
-iae = sum(abs(e)) * dt;
-itae = sum(t .* abs(e)) * dt;
+iae = trapz(t, abs(e));
+itae = trapz(t, t .* abs(e));
 
 above = y > ref;
 osc = 0.5 * sum(diff(above) ~= 0);
 
 if nargin >= 6 && ~isempty(umax) && ~isempty(u)
     u = u(:);
-    sat = mean(abs(u) > umax);
+    validateattributes(umax, {'numeric'}, {'scalar', 'real', 'positive', 'finite'});
+    if numel(u) ~= numel(t) || ~isreal(u) || any(~isfinite(u))
+        error('jev:invalid_signal', 'actuator samples must be finite and aligned to the response time grid');
+    end
+    sat = trapz(t, double(abs(u) > umax)) / (t(end) - t(1));
     over_u = max(max(abs(u) - umax, 0)) / umax;
 else
     sat = 0;

@@ -41,7 +41,7 @@ from jev_tune.baselines import (
     zn_gains,
 )
 from jev_tune.evaluate import evaluate_head
-from jev_tune.identified import run_identify_pidtune
+from jev_tune.identified import IdentificationUnavailable, run_identify_pidtune
 from jev_tune.matlab_baseline import matlab_available
 from jev_tune.model import JevHead
 from jev_tune.plants import (
@@ -71,6 +71,18 @@ def sweep_prior(ku, tu):
     """Shared documented non-oracle fallback; failed estimates never use truth."""
     ok = np.isfinite(ku) & np.isfinite(tu) & (ku > 0) & (tu > 0)
     return np.where(ok, ku, 1.), np.where(ok, tu, 1.), ok
+
+
+def actual_simulation_counts(result):
+    """Real calls, distinct from a head's padded maximum-budget axis."""
+    if getattr(result, "actual_simulations", None) is not None:
+        return np.asarray(result.actual_simulations, dtype=int)
+    return np.full(len(result.best_j), int(result.eval_axis[-1]), dtype=int)
+
+
+def default_table_path(out, family=""):
+    name = f"benchmark_table_{family}.md" if family else "benchmark_table.md"
+    return Path(out) / name
 
 
 def main():
@@ -111,11 +123,7 @@ def main():
     else:
         fams = HELDOUT_FAMILIES if args.heldout else TRAIN_FAMILIES
         tag = "heldout" if args.heldout else "train"
-    table_path = args.table or (
-        "research/results/benchmark_table.md"
-        if not args.family
-        else f"research/results/benchmark_table_{tag}.md"
-    )
+    table_path = Path(args.table) if args.table else default_table_path(args.out, args.family)
     plants = sample_plants(
         args.plants,
         seed=args.seed,
@@ -132,6 +140,7 @@ def main():
     x0 = zn_gains(plants)
 
     results = []
+    unavailable_methods = []
 
     t = time.perf_counter()
     print("[eval] strong reference (CMA-ES 240)...")
@@ -165,7 +174,14 @@ def main():
             print("[eval] swept_zn skipped: its seven-run prior plus verification exceeds the budget")
             continue
         t = time.perf_counter()
-        r = fn()
+        try:
+            r = fn()
+        except IdentificationUnavailable as exc:
+            unavailable_methods.append({"method": name, "status": exc.status,
+                "reason": str(exc), "actual_simulations_per_plant": exc.simulations_per_plant,
+                "wall_s": time.perf_counter() - t, "oracle_fallback": False})
+            print(f"  {name}: {exc.status}: {exc}")
+            continue
         r.wall_s = time.perf_counter() - t
         results.append(r)
         print(
@@ -236,6 +252,7 @@ def main():
 
     rows = []
     for r in results:
+        actual = actual_simulation_counts(r)
         sims = r.sims_to_target(target)
         finite = sims[np.isfinite(sims)]
         rows.append(
@@ -252,6 +269,11 @@ def main():
                 if len(finite)
                 else float("inf"),
                 "budget": int(r.eval_axis[-1]),
+                "budget_kind": "maximum allocated simulations; not actual calls",
+                "actual_simulations_per_plant": actual.tolist(),
+                "actual_simulations_mean": float(actual.mean()),
+                "actual_simulations_min": int(actual.min()),
+                "actual_simulations_max": int(actual.max()),
                 "wall_s": float(getattr(r, "wall_s", 0.0)),
                 "decision_report": r.decision_report() if hasattr(r, "decision_report") else None,
                 "rollbacks": int(r.rollbacks.sum()) if hasattr(r, "rollbacks") else None,
@@ -288,6 +310,7 @@ def main():
 
     out = Path(args.out) / f"eval_{tag}_{args.plants}.json"
     payload = {
+        "schema_version": 2,
         "n_plants": plants.n,
         "families": sorted(set(plants.family)),
         "evaluation": tag,
@@ -307,6 +330,7 @@ def main():
         "manifest": provenance,
         "calibration_evidence": json.loads((Path(args.models)/"calibration.json").read_text(encoding="utf-8")),
         "rows": rows,
+        "unavailable_methods": unavailable_methods,
     }
 
     fam_arr = np.array(plants.family)
@@ -324,6 +348,7 @@ def main():
         }
 
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    Path(table_path).parent.mkdir(parents=True, exist_ok=True)
     Path(table_path).write_text(_markdown(payload, args), encoding="utf-8")
     print(f"\n[eval] wrote {out} and {table_path}")
 
@@ -352,15 +377,16 @@ def _markdown(payload: dict, args) -> str:
         "simulations/plant",
         "",
         "| method | final J (median) | final J (p90) | x reference | success | "
-        "sims to target (median) | budget |",
-        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: |",
+        "sims to target (median, successful plants only) | maximum budget | actual sims (mean / min–max) |",
+        "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for r in rows:
         lines.append(
             f"| `{r['method']}` | {r['final_cost_median']:.3f} | "
             f"{r['final_cost_p90']:.3f} | {r['ratio_to_ref']:.2f} | "
             f"{100 * r['success_rate']:.0f}% | {r['sims_to_target_median']:.1f} | "
-            f"{r['budget']} |"
+            f"{r['budget']} | {r.get('actual_simulations_mean', r['budget']):.2f} / "
+            f"{r.get('actual_simulations_min', r['budget'])}–{r.get('actual_simulations_max', r['budget'])} |"
         )
     lines += [
         "",
@@ -385,11 +411,18 @@ def _markdown(payload: dict, args) -> str:
             "identification failures rather than demonstrating a reliable identifier.",
             "",
         ]
+    if payload.get("unavailable_methods"):
+        lines += ["Methods omitted from performance ranking (no oracle substitution):", ""]
+        lines.extend(f"* `{r['method']}`: `{r['status']}`; {r['reason']}; "
+            f"{r['actual_simulations_per_plant']} real simulations/plant spent before failure."
+            for r in payload["unavailable_methods"])
+        lines.append("")
     lines += [
         "## 简体中文", "",
         f"由上面的命令生成。对象数{payload['n_plants']}，族{payload['families']}，"
         f"角色为`{payload['evaluation_role']}`。迭代方法最多使用{payload['budget_per_plant']}次实验，"
         "包含实际评估的共同起点；一次性方法按表中实际次数计费，不能说每种方法都恰好20次。",
+        "maximum budget是允许的上限；actual sims按逐株实际调用报告均值及最小–最大值，提前停止时两者不同。",
         "两个head行均使用温度缩放与Split CP monitor（不按集合否决），不叠加旧pmax阈值。CP标签集合覆盖不等于闭环改善或安全保证。",
         "",
         "表中的final J为最终返回增益对应的实测代价；success为达到参考目标的比例，"
@@ -402,6 +435,10 @@ def _markdown(payload: dict, args) -> str:
         "JSON的每个方法行记录oracle信息、初值和回退策略，manifest记录参数、源代码及权重hash。",
         "",
     ]
+    if payload.get("unavailable_methods"):
+        lines += ["以下方法未进入性能排名，不用解析真值补成成功：", ""]
+        lines.extend(f"* `{r['method']}`：状态`{r['status']}`；原因见上方；失败前每株实耗"
+            f"{r['actual_simulations_per_plant']}次。" for r in payload["unavailable_methods"])
     return "\n".join(lines)
 
 

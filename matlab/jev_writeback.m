@@ -7,9 +7,8 @@ function out = jev_writeback(mdlPath, gains, cfg, outPath)
 %   kd_block, pid_block, out_dir, suffix (default '_tuned').
 %
 %   The user's file is never modified: the result is
-%   <out_dir>/<name><suffix>.slx.  A masked PID block whose Form is Ideal or
-%   Standard stores I and D as *times*, so the copy is switched to the Parallel
-%   form with the equivalent gains: same controller, one representation.
+%   <out_dir>/<name><suffix>.slx. Tuned gains are already in Parallel form;
+%   an Ideal block is switched to that form before writing those coefficients.
 %
 %   Call this only after the model is closed; it loads its own copy.
 
@@ -36,6 +35,7 @@ else
     target = fullfile(cfg.out_dir, [stem cfg.suffix ext]);
 end
 out.target = target;
+jev_assert_distinct_paths(mdlPath, target);
 
 tmpDir = tempname;
 mkdir(tmpDir);
@@ -61,10 +61,11 @@ warning('off', 'all');
 try
     if strcmpi(cfg.controller, 'pid_block')
         blk = [mdl '/' cfg.pid_block];
+        jev_validate_pid_conversion(blk);
         form = get_param(blk, 'Form');
         p = gains(1); i = gains(2); d = gains(3);
         if ~strcmpi(form, 'Parallel')
-            % Ideal/Standard: I and D are times; P is still the gain.
+            % The tuner has already converted Ideal coefficients to Parallel.
             set_param(blk, 'Form', 'Parallel');
             out.converted_from = form;
         end

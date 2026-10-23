@@ -90,7 +90,7 @@ def test_stale_renderer_is_structured_failure_in_json_mode(tmp_path, monkeypatch
     assert row['ok'] is False and 'ValueError: stale harm schema' in row['detail']
     assert len(rows)==13 and all(r['ok'] is False for r in rows)
     monkeypatch.setattr(module,'generated_documents',lambda:rows)
-    for name in ('benchmark_tables','decision_evidence','rollout_evidence','performance_diagnosis_evidence','trajectory_evidence','cohort_portability_evidence'):
+    for name in ('benchmark_tables','decision_evidence','rollout_evidence','performance_diagnosis_evidence','trajectory_evidence','cohort_portability_evidence','practical_evidence'):
         monkeypatch.setattr(module,name,lambda:[])
     monkeypatch.setattr(sys,'argv',['check_claims','--json'])
     assert module.main()==1
@@ -141,6 +141,20 @@ def test_performance_diagnosis_recomputes_counts_and_requires_v2_sources(tmp_pat
 
 def test_reproduction_claims_require_equal_nonindependent_report_and_surface_errors(tmp_path, monkeypatch):
     (tmp_path/'scripts').mkdir(); (tmp_path/'research/results').mkdir(parents=True)
+    monkeypatch.setattr(sys, 'path', list(sys.path))
+    # Exercise the real historical worker's report validation through the new
+    # claims entry point. Archive construction/import isolation have their own
+    # subprocess tests; only those expensive setup steps are replaced here.
+    worker_path=Path(__file__).resolve().parents[1]/'scripts/44_verify_historical_research.py'
+    (tmp_path/'scripts/44_verify_historical_research.py').write_text(
+        "import importlib.util\n"
+        f"spec=importlib.util.spec_from_file_location('real_historical_worker',{str(worker_path)!r})\n"
+        "worker=importlib.util.module_from_spec(spec); spec.loader.exec_module(worker)\n"
+        "worker.verify_archives=lambda root: ({'baseline_commit':'fixture'}, {})\n"
+        "worker.imported_sources=lambda root: {}\n"
+        "def check(root):\n"
+        "    return worker.worker(root)\n")
+    (tmp_path/'research/results/trajectory_risk.json').write_text('{}')
     script=tmp_path/'scripts/34_reproduce_trajectory_evaluation.py'
     script.write_text("import json\ndef check(*, result_path, report_path):\n"
                       "    p=json.loads(report_path.read_text())\n"
@@ -153,7 +167,9 @@ def test_reproduction_claims_require_equal_nonindependent_report_and_surface_err
         report_path.write_text(json.dumps(value))
         return next(r for r in module.trajectory_evidence() if r['id']=='evidence:trajectory_risk_reproduction.json')
     assert row(valid)['ok'] is True
+    assert row(dict(valid,schema_version=0))['ok'] is False
     assert row(dict(valid,equal=False))['ok'] is False
     assert row(dict(valid,additional_independent_evidence=True))['ok'] is False
+    assert row(dict(valid,acceptance_recomputed=True))['ok'] is False
     failed=row(dict(valid,stale=True))
     assert failed['ok'] is False and 'ValueError: replay source hash differs' in failed['detail']

@@ -43,7 +43,8 @@ them to rename blocks. Do this:
 4. **Discover, do not assume.**
    `jev-tune discover --model <model> --json --out discover.json`
    Read `confidence`, `controller`, `measure`, `reference`. At `high`, ask
-   nothing: the signal graph and two confirming simulations already agree.
+   nothing: the signal graph and confirming simulations already agree. Read
+   the discovery ledger for the actual number of simulation attempts.
    At `medium`, quote the candidates and let the user pick.
 5. **Tune.**
    `jev-tune matlab --model <model> --config discover.json --plot before_after.png --write-back --json`
@@ -154,6 +155,18 @@ It jitters the plant, runs the expert on a small zoo, fine-tunes for a few
 epochs (~1–3 min CPU) and reports zero-shot vs specialised on held-out jitters.
 
 ## Throughput (read before running many jobs)
+
+**v0.9.0 scope:** the timing figures below are historical. Cross-job compiled
+model and sweep caches are disabled: each job copies its original source again,
+so original-gain comparisons and changed configurations cannot inherit a prior
+job's tuned state. The process stays warm and Fast Restart is retained within
+each job. Report current `timings` and `n_total_simulations`, including discovery
+and setup. `iters` is not an end-to-end hard simulation cap.
+
+**v0.9.0范围：**下列耗时为历史数据。跨任务编译模型与扫描缓存已停用，每次从原件
+重新复制，避免原增益比较或新配置继承上一任务的调参状态。进程仍常驻，单任务内保留
+Fast Restart。报告当前`timings`及包含发现和准备阶段的`n_total_simulations`；
+`iters`不是端到端仿真硬上限。
 
 Measured on the reference machine: MATLAB cold start ≈ 50 s, then ≈ 0.11 s per
 simulation (Fast Restart, 10 s horizon). **Without** `--auto` the model setup is

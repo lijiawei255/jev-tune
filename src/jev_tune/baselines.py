@@ -8,7 +8,8 @@ Budget honesty (see ``docs/BENCHMARK.md``):
 
 * ``eval_axis`` is the number of closed-loop simulations spent *per plant*,
   including the ones a method needs to estimate its own priors;
-* every competitor in ``scripts/03_evaluate.py`` gets the same budget;
+* iterative competitors in ``scripts/03_evaluate.py`` share a maximum budget;
+  one-shot competitors report their smaller actual counts;
 * the head's training cost is paid once, off-line, and is **not** in its
   per-plant budget -- that asymmetry is stated in the README rather than hidden.
 """
@@ -206,17 +207,37 @@ def run_relay(
 def run_simplex(
     plants: PlantSet, x0: np.ndarray, *, budget: int = 60, step: float = 0.15
 ) -> BaselineResult:
+    """Bounded simplex search, measuring the shared start within the budget.
+
+    Budgets below four measure only the available initial vertices. Every
+    measurement, including batch-wide contractions, competes for returned best.
+    """
+    if budget < 1:
+        raise ValueError("budget must be positive")
     n = plants.n
-    sim = np.repeat(np.log10(np.maximum(x0, 1e-9))[None], 4, axis=0)  # (4,n,3)
+    start = np.clip(np.asarray(x0, dtype=float), 1e-4, 1e3)
+    sim = np.repeat(np.log10(start)[None], 4, axis=0)  # (4,n,3)
     for k in range(3):
         sim[k + 1, :, k] += step
+    sim = np.clip(sim, LOG_LO, LOG_HI)
+    fv = np.full((4, n), np.inf)
+    best_j = np.full(n, np.inf)
+    best_gains = start.copy()
+    history = []
+    evals = 0
 
-    plants4 = plants.take(np.tile(np.arange(n), 4))
-    fv = _eval(plants4, (10**sim).reshape(-1, 3)).reshape(4, n)
+    def measure(gains):
+        nonlocal evals, best_j, best_gains
+        values = _eval(plants, gains)
+        improved = values < best_j
+        best_j = np.where(improved, values, best_j)
+        best_gains = np.where(improved[:, None], gains, best_gains)
+        evals += 1
+        history.append(best_j.copy())
+        return values
 
-    history = [fv.min(axis=0).copy()]
-    axis_ = [4.0]
-    evals = 4
+    for k in range(min(4, budget)):
+        fv[k] = measure(start if k == 0 else 10**sim[k])
 
     while evals < budget:
         if evals + 1 > budget:  # not even one reflection left
@@ -226,9 +247,8 @@ def run_simplex(
         fv = np.take_along_axis(fv, order, axis=0)
 
         centroid = sim[:3].mean(axis=0)
-        xr = centroid + (centroid - sim[3])
-        fr = _eval(plants, 10**xr)
-        evals += 1
+        xr = np.clip(centroid + (centroid - sim[3]), LOG_LO, LOG_HI)
+        fr = measure(10**xr)
         better = fr < fv[2]
         sim[3] = np.where(better[:, None], xr, sim[3])
         fv[3] = np.where(better, fr, fv[3])
@@ -238,23 +258,17 @@ def run_simplex(
             for k in range(1, 4):
                 if evals + 1 > budget:  # do not overshoot the budget
                     break
-                cand = base + 0.5 * (sim[k] - base)
-                fk = _eval(plants, 10**cand)
-                evals += 1
+                cand = np.clip(base + 0.5 * (sim[k] - base), LOG_LO, LOG_HI)
+                fk = measure(10**cand)
                 sim[k] = np.where((~better)[:, None], cand, sim[k])
                 fv[k] = np.where(~better, fk, fv[k])
 
-        history.append(np.minimum(history[-1], fv.min(axis=0)))
-        axis_.append(float(evals))
-
-    order = np.argsort(fv, axis=0)
-    best = np.take_along_axis(sim, order[:1, :, None], axis=0)[0]
     return BaselineResult(
         name="simplex",
-        gains=10**best,
-        best_j=history[-1],
+        gains=best_gains,
+        best_j=best_j,
         history=np.column_stack(history),
-        eval_axis=np.asarray(axis_),
+        eval_axis=np.arange(1, evals + 1, dtype=float),
     )
 
 

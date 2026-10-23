@@ -6,8 +6,9 @@ An engineer rarely has the exact transfer function.  The usual workflow is:
 2. `pidtune` on the fitted model (with a Pade approximation of the delay),
 3. one verification run.
 
-That costs two simulations, so it is the strongest competitor a learned tuner
-has to beat on plants where the true model is unknown.
+The implemented linear-probe baseline costs two simulations when it succeeds.
+Unsupported probe physics, missing MATLAB and failed designs are explicit
+failures; they never substitute gains computed from the true plant model.
 """
 
 from __future__ import annotations
@@ -16,6 +17,15 @@ import numpy as np
 
 from .baselines import BaselineResult, _eval
 from .plants import PlantSet
+
+
+class IdentificationUnavailable(RuntimeError):
+    """An unreported controller must not masquerade as identify + pidtune."""
+
+    def __init__(self, reason: str, *, status: str, simulations_per_plant: int = 0):
+        super().__init__(reason)
+        self.status = status
+        self.simulations_per_plant = simulations_per_plant
 
 
 def open_loop_step(
@@ -85,6 +95,22 @@ def fopdt_pade_tf(k, tau, delay):
 def run_identify_pidtune(plants: PlantSet, ctype: str = "PID") -> BaselineResult:
     from .matlab_baseline import matlab_available, pidtune_gains
 
+    if not matlab_available():
+        raise IdentificationUnavailable("MATLAB is unavailable; no identification or verification was run", status="unavailable")
+    # open_loop_step is a linear constant-input probe, not the nonlinear
+    # simulator. Reject cases it cannot represent instead of claiming a real
+    # actuator/sensor experiment or silently consulting the transfer-function
+    # oracle to replace a failed controller.
+    unsupported = (plants.u_max < 1.0) | (plants.u_min > 0.0)
+    if plants.dead_zone is not None:
+        unsupported |= plants.dead_zone != 0
+    if plants.noise_sigma is not None:
+        unsupported |= plants.noise_sigma != 0
+    if unsupported.any():
+        raise IdentificationUnavailable(
+            "linear open-loop probe does not implement the requested saturation, dead zone or sensor noise",
+            status="unsupported_probe_physics",
+        )
     t, y = open_loop_step(plants)
     k, tau, delay = identify_fopdt(t, y)
     num, den = fopdt_pade_tf(k, tau, delay)
@@ -104,18 +130,20 @@ def run_identify_pidtune(plants: PlantSet, ctype: str = "PID") -> BaselineResult
         params=plants.params,
     )
 
-    if matlab_available():
+    try:
         gains, _ = pidtune_gains(proxy, ctype)
-    else:  # pragma: no cover - MATLAB is present on the target machine
-        from .baselines import zn_gains
-
-        gains = zn_gains(plants)
+    except Exception as exc:
+        raise IdentificationUnavailable(
+            f"pidtune design failed after the probe: {exc}", status="failed_design",
+            simulations_per_plant=1,
+        ) from exc
 
     bad = (~np.isfinite(gains)).any(axis=1) | (gains[:, 0] <= 0)
     if bad.any():
-        from .baselines import zn_gains
-
-        gains[bad] = zn_gains(plants.subset(np.where(bad)[0]))
+        raise IdentificationUnavailable(
+            f"pidtune returned invalid gains for {int(bad.sum())}/{plants.n} plants; whole arm omitted, no oracle fallback",
+            status="failed_design", simulations_per_plant=1,
+        )
 
     j = _eval(plants, gains)
     return BaselineResult(

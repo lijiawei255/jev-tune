@@ -31,6 +31,9 @@ out = struct('ok', false, 'model', cfg.model, 'loops', {{}}, 'wall_s', 0);
 % ---- discovery once, on the original file
 D = jev_discover(cfg.model, struct('probe', true, 'all_loops', true, ...
     'work_dir', fullfile(workDir, 'discover')));
+out.measurements = struct('initial_discovery', D.n_total_simulations, ...
+    'loop_discovery', 0, 'tuning_jobs', 0);
+out.n_total_simulations = D.n_total_simulations;
 if ~D.ok
     out.code = D.code;
     out.error = D.error;
@@ -56,6 +59,26 @@ outDir = getfield_default(cfg, 'out_dir', srcDir);
 suffix = getfield_default(cfg, 'suffix', '_tuned');
 if ~isfolder(outDir), mkdir(outDir); end
 target = fullfile(outDir, [stem suffix ext]);
+jev_assert_distinct_paths(cfg.model, target);
+% Once current becomes an intermediate copy, inner helpers can protect only
+% that copy. Check every later scratch model against the original source too.
+try
+    for planned = 1:numel(loops)
+        jev_assert_distinct_paths(cfg.model, ...
+            fullfile(workDir, sprintf('loop_%d_tuned%s', planned, ext)));
+        jev_assert_distinct_paths(cfg.model, ...
+            fullfile(workDir, sprintf('discover_%d', planned), ['jev_disc_model' ext]));
+        jev_assert_distinct_paths(cfg.model, ...
+            fullfile(workDir, sprintf('run_%d', planned), 'jev_lab_model.slx'));
+    end
+catch err
+    if ~strcmp(err.identifier, 'jev:source_overwrite'), rethrow(err); end
+    out.code = 'source_overwrite';
+    out.error = err.message;
+    out.discovery = summarise_discovery(D);
+    out = finish(out, outPath, t0);
+    return
+end
 current = cfg.model;
 records = {};
 
@@ -66,9 +89,12 @@ for k = 1:numel(loops)
         'loop_junction', loops(k).junction, 'work_dir', ...
         fullfile(workDir, sprintf('discover_%d', k))));
     tDisc = toc(tLoop);
+    out.measurements.loop_discovery = out.measurements.loop_discovery + Dl.n_total_simulations;
     rec = struct('junction', loops(k).junction, 'measure', loops(k).measure, ...
         'reference', loops(k).reference, 'ok', false, 'code', '', ...
-        'start_J', NaN, 'final_J', NaN, 'n_experiments', 0, 'gains', []);
+        'start_J', NaN, 'final_J', NaN, 'n_experiments', 0, 'gains', [], ...
+        'discovery_simulations', Dl.n_total_simulations, ...
+        'tuning_simulations', 0, 'n_total_simulations', Dl.n_total_simulations);
     if ~Dl.ok
         rec.code = Dl.code;
         rec.error = Dl.error;
@@ -90,6 +116,10 @@ for k = 1:numel(loops)
     tTune = tic;
     R = jev_tune_json(job, resPath);
     tTune = toc(tTune);
+    rec.tuning_simulations = R.n_total_simulations;
+    rec.n_total_simulations = rec.n_total_simulations + R.n_total_simulations;
+    rec.measurements = R.measurements;
+    out.measurements.tuning_jobs = out.measurements.tuning_jobs + R.n_total_simulations;
     rec.ok = R.ok;
     rec.code = getfield_default(R, 'code', '');
     if R.ok
@@ -97,12 +127,14 @@ for k = 1:numel(loops)
         rec.final_J = R.final_J;
         rec.n_experiments = R.n_experiments;
         rec.gains = R.final_gains;
+        iterationTarget = fullfile(workDir, sprintf('loop_%d_tuned%s', k, ext));
+        jev_assert_distinct_paths(cfg.model, iterationTarget);
         wbCfg = struct('controller', getfield_default(jobCfg, 'controller', 'gains'), ...
             'kp_block', getfield_default(jobCfg, 'kp_block', ''), ...
             'ki_block', getfield_default(jobCfg, 'ki_block', ''), ...
             'kd_block', getfield_default(jobCfg, 'kd_block', ''), ...
             'pid_block', getfield_default(jobCfg, 'pid_block', ''), ...
-            'target', target);
+            'target', iterationTarget);
         W = jev_writeback(current, R.final_gains, wbCfg, ...
             fullfile(workDir, sprintf('wb_%d.json', k)));
         rec.written = W.ok;
@@ -110,7 +142,7 @@ for k = 1:numel(loops)
             rec.ok = false;
             rec.error = W.error;
         else
-            current = target;
+            current = iterationTarget;
         end
         fprintf('[all]   J %.3f -> %.3f in %d experiments (discover %.1fs, tune %.1fs)\n', ...
             rec.start_J, rec.final_J, rec.n_experiments, tDisc, tTune);
@@ -126,8 +158,18 @@ out.n_loops = numel(records);
 out.n_tuned = sum(cellfun(@(r) r.ok, records));
 out.target = target;
 out.total_experiments = sum(cellfun(@(r) r.n_experiments, records));
-out.ok = out.n_tuned > 0 && isfile(target);
+if out.n_tuned > 0
+    % Publish the final chained copy; no intermediate write overwrites its input.
+    jev_assert_distinct_paths(cfg.model, target);
+    copyfile(current, target, 'f');
+end
+out.partial_success = out.n_tuned > 0 && out.n_tuned < out.n_loops;
+out.ok = out.n_tuned == out.n_loops && out.n_loops > 0 && isfile(target);
 out.code = '';
+if ~out.ok
+    out.code = 'partial_failure';
+    out.error = sprintf('only %d of %d requested loops were tuned', out.n_tuned, out.n_loops);
+end
 out.discovery = summarise_discovery(D);
 out = finish(out, outPath, t0);
 end
@@ -149,7 +191,8 @@ function s = summarise_discovery(D)
 s = struct('ok', D.ok, 'confidence', D.confidence, ...
     'error_junction', getfield_default(D, 'error_junction', ''), ...
     'measure_block', getfield_default(D, 'measure_block', ''), ...
-    'warnings', {getfield_default(D, 'warnings', {{}})});
+    'warnings', {getfield_default(D, 'warnings', {{}})}, ...
+    'measurements', D.measurements, 'n_total_simulations', D.n_total_simulations);
 end
 
 function v = getfield_default(s, name, default)
@@ -171,5 +214,8 @@ end
 
 function out = finish(out, outPath, t0)
 out.wall_s = toc(t0);
+if isfield(out, 'measurements')
+    out.n_total_simulations = sum(cell2mat(struct2cell(out.measurements)));
+end
 write_json(out, outPath);
 end

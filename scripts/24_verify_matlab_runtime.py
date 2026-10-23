@@ -22,6 +22,9 @@ SOURCES = (
     "matlab/test_tune_history.m", "matlab/make_demo_model.m",
     "matlab/jev_tune_model.m", "matlab/jev_tune_json.m", "matlab/jev_decode.m",
     "matlab/jev_head_forward.m", "matlab/jev_state.m", "matlab/jev_metrics.m",
+    "matlab/jev_assert_distinct_paths.m", "matlab/jev_read_signal.m",
+    "matlab/jev_pid_parallel_gains.m", "matlab/jev_simulation_counts.m",
+    "matlab/jev_write_json_atomic.m", "matlab/jev_validate_pid_conversion.m",
     "models/jev_head.pt", "models/jev_head_weights.mat", "models/calibration.json",
     "scripts/24_verify_matlab_runtime.py",
 )
@@ -42,6 +45,7 @@ def main():
     matlab = find_matlab()
     if not matlab.ok:
         raise SystemExit(f"MATLAB unavailable: {matlab}")
+    before = {name: file_hash(ROOT / name) for name in SOURCES}
     with tempfile.TemporaryDirectory(prefix="jev-runtime-") as directory:
         code = (f"addpath('{(ROOT / 'matlab').as_posix()}'); "
                 f"R=test_tune_history('{Path(directory).as_posix()}'); "
@@ -58,13 +62,14 @@ def main():
     evidence = json.loads(records[0])
     if not evidence.get("ok"):
         raise SystemExit(f"MATLAB runtime assertions failed; see {log_path}")
+    assert before == {name: file_hash(ROOT / name) for name in SOURCES}, "Sources changed during MATLAB execution"
     report = {
         "schema_version": 1, "ok": True, "generated_by": "scripts/24_verify_matlab_runtime.py",
         "generated_utc": datetime.now(timezone.utc).isoformat(),
         "reproduce": "PYTHONPATH=src python scripts/24_verify_matlab_runtime.py",
         "test_results": evidence,
-        "measurement_scope": "loop and final measurement attempts; excludes Ku/Tu sweep and own-gain probe",
-        "source_hashes": {name: file_hash(ROOT / name) for name in SOURCES},
+        "measurement_scope": "n_experiments counts loop/final attempts; n_total_simulations includes discovery and setup in the job ledger",
+        "source_hashes": before,
         "hash_normalization": "CRLF to LF for source text; binary byte-exact; embedded log UTF-8 with LF",
         "source_log_sha256": hashlib.sha256(log.encode("utf-8")).hexdigest(),
         "source_log": log,

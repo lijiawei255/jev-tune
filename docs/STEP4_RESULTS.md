@@ -2,6 +2,10 @@
 
 > [English](#step-4--real-simulink-model-no-python-at-runtime) · [简体中文](#step-4-结果中文)
 
+> **Historical measurement.** These costs and traces predate the v0.9.0 correction from median-step summation to integration on the actual MATLAB time grid. They are preserved, not rerun with the new objective, and are not directly comparable with current costs. Current adapter regressions and their limits: [MODEL_ADAPTATION](MODEL_ADAPTATION.md).
+>
+> **历史测量。** 本页代价与轨迹早于v0.9.0将“采样间隔中位数求和”改为实际MATLAB时间网格积分的修正。保留原记录，不冒充新目标下的重跑，不能与当前代价直接比较。当前适配回归及边界见[MODEL_ADAPTATION](MODEL_ADAPTATION.md)。
+
 
 > Plant: a DC-motor position-loop benchmark (`motor_valve_model.slx`,
 > Simscape Multibody butterfly valve, variable-step solver, 30° = 0.5236 rad step).

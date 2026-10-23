@@ -54,9 +54,9 @@ TOOLS = [
         "name": "tune_simulink",
         "description": (
             "Tune the PID gains of a Simulink model and return the final gains, "
-            "the cost at every experiment, and the number of rollbacks. Runs "
-            "entirely inside MATLAB (Fast Restart), typically 1-3 s for 20 "
-            "experiments. Block names default to Gain_Kp/Gain_Ki/Gain_Kd and "
+            "the cost at every experiment, rollbacks and an actual simulation "
+            "ledger. Reuses a MATLAB process with a fresh model per request; "
+            "Fast Restart is limited to that request. Block names default to Gain_Kp/Gain_Ki/Gain_Kd and "
             "Scope_Position/Scope_Current."
         ),
         "inputSchema": {
@@ -225,7 +225,7 @@ def _probe() -> dict:
 
 
 def _tune_simulink(args: dict) -> dict:
-    # keep MATLAB warm: a cold start is ~50 s and would dominate the run
+    # Reuse the MATLAB process; each request rebuilds its own model and ledger.
     from .matlab_worker import tune_with_worker
 
     model = args.get("model")

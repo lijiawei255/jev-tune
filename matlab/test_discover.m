@@ -74,7 +74,7 @@ c.detail = sprintf('kp=%s ki=%s kd=%s measure=%s tap=%s', got{1}, got{2}, got{3}
 end
 
 function c = check_pid_block(workRoot)
-% A masked PID Controller block in the Ideal form: I and D are times there, so
+% A masked PID Controller block in the Ideal form: P scales its I and D terms,
 % the discovered gains must be convertible to the parallel form.
 c = struct('name', 'ideal_pid', 'pass', false, 'detail', '');
 make_demo_model(workRoot, 'ideal_pid', struct('name', 'tc_ideal'));
@@ -111,12 +111,17 @@ c.detail = sprintf('J %.3f -> %.3f in %d experiments', start, R.final_J, R.n_exp
 end
 
 function c = check_pid_form_equivalence(workRoot)
-% The same controller written twice: three Gain blocks, and a masked PID block
-% in the Ideal form (where I and D are times).  Tuning both must land in the
-% same place, otherwise the action space means different things per encoding.
+% Equivalent Parallel and Ideal PID blocks must receive equivalent actions.
+% test_model_adaptation separately checks their trajectories before tuning.
 c = struct('name', 'pid_form', 'pass', false, 'detail', '');
 make_demo_model(workRoot, 'second_order', struct('name', 'tc_par'));
 make_demo_model(workRoot, 'ideal_pid', struct('name', 'tc_ideal2'));
+load_system(fullfile(workRoot, 'tc_par.slx'));
+set_param('tc_par/PID Controller', 'P', '2', 'I', '8', 'D', '1');
+save_system('tc_par'); close_system('tc_par', 0);
+load_system(fullfile(workRoot, 'tc_ideal2.slx'));
+set_param('tc_ideal2/PID Controller', 'P', '2', 'I', '4', 'D', '0.5');
+save_system('tc_ideal2'); close_system('tc_ideal2', 0);
 jPar = tune_once(workRoot, 'tc_par', 'wd_par');
 jIdeal = tune_once(workRoot, 'tc_ideal2', 'wd_ideal2');
 if ~isfinite(jPar) || ~isfinite(jIdeal)

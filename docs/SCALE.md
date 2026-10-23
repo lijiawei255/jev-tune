@@ -3,6 +3,10 @@
 
 # Scale, concurrency and MATLAB versions
 
+> **Version scope:** the throughput tables below are historical measurements with cross-job model/sweep caching. Since v0.9.0 each job starts from a fresh source copy and repeats required discovery/sweep measurements; `keep_loaded` no longer reuses an already tuned copy or stale sweep. The MATLAB process stays warm and Fast Restart remains available within one job. The historical warm-job timings are not current promises; use each result's `timings` and `n_total_simulations`. See [MODEL_ADAPTATION](MODEL_ADAPTATION.md).
+>
+> **版本范围：**下方吞吐表来自跨任务复用模型/扫描缓存的历史测量。自v0.9.0起，每个任务从原件新建副本，重新执行必要的发现和扫描；`keep_loaded`不再沿用已调过的副本或旧扫描。MATLAB进程仍常驻，同一任务内仍使用Fast Restart。历史热启动耗时不代表当前承诺，请读取本次`timings`及`n_total_simulations`。见[MODEL_ADAPTATION](MODEL_ADAPTATION.md)。
+
 Three questions that only show up when someone actually deploys this.
 
 > Every number below is measured on the reference machine (lab model, 10 s

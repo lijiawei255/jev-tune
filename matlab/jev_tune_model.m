@@ -17,6 +17,7 @@ if nargin < 3 || isempty(iters), iters = 20; end
 validateattributes(iters, {'numeric'}, {'scalar', 'integer', 'positive', 'finite'});
 if nargin < 4, stopTime = []; end
 if nargin < 5 || isempty(stepGain), stepGain = 1.0; end
+validateattributes(stepGain, {'numeric'}, {'scalar', 'real', 'positive', 'finite'});
 if nargin < 6 || isempty(cfg), cfg = struct(); end
 cfg = with_defaults(cfg);
 if nargin < 2 || isempty(workDir), workDir = tempdir; end
@@ -31,6 +32,7 @@ defaults = struct( ...
     'kd_block', 'Gain_Kd', ...
     'measure_scope', 'Scope_Position', ...
     'input_scope', 'Scope_Current', ...
+    'measure_element', [], 'input_element', [], ... % explicit Dataset element
     'ref_source', 'auto', ...      % 'auto' = Step x Deg2Rad blocks, or a number
     'u_max', [], ...               % actuator limit for the saturation feature
     'step_blocks', {{'Step'}}, ...
@@ -42,21 +44,30 @@ defaults = struct( ...
     'tau_act', [], 'tau_esc', [], 'tau_noul', [], ... % optional policy overrides
     'cp_enabled', [], 'cp_qhat', [], 'cp_alpha', [], 'cp_k_max', [], 'cp_mode', [], ...
     'stop_on_no_action', true, ... % false for noisy/repeated or dynamic observations
-    'keep_loaded', false);         % true => leave the model compiled for reuse
+    'simulation_ledger', [], ... % shared with the JSON wrapper, including failures
+    'keep_loaded', false);         % legacy field; cross-job reuse is disabled
 f = fieldnames(defaults);
 for i = 1:numel(f)
     if ~isfield(cfg, f{i}), cfg.(f{i}) = defaults.(f{i}); end
+end
+if ischar(cfg.ref_source) || (isstring(cfg.ref_source) && isscalar(cfg.ref_source))
+    if ~strcmpi(cfg.ref_source, 'auto'), cfg.ref_source = str2double(cfg.ref_source); end
+end
+if isnumeric(cfg.ref_source)
+    if ~isscalar(cfg.ref_source) || ~isreal(cfg.ref_source) || ...
+            ~isfinite(cfg.ref_source) || cfg.ref_source <= 0
+        error('jev:ref', 'ref_source must be a finite positive scalar or auto');
+    end
+elseif ~((ischar(cfg.ref_source) || isstring(cfg.ref_source)) && strcmpi(cfg.ref_source, 'auto'))
+    error('jev:ref', 'ref_source must be a finite positive scalar or auto');
 end
 validateattributes(cfg.stop_on_no_action, {'logical', 'numeric'}, {'scalar', 'finite'});
 if ~ismember(cfg.stop_on_no_action, [0 1])
     error('jev:stop_on_no_action', 'stop_on_no_action must be true or false');
 end
-% Caching a compiled model is only safe in a non-interactive session: in the
-% desktop, a later close_system raises a modal "exit Fast Restart?" dialog that
-% nobody can click when the session is driven by an agent.
-if usejava('desktop')
-    cfg.keep_loaded = false;
-end
+% Cross-job reuse cannot assume unchanged source files, workspace or config.
+% Keep Fast Restart within a job, but reload the original for every new job.
+cfg.keep_loaded = false;
 end
 
 here = fileparts(mfilename('fullpath'));
@@ -68,48 +79,35 @@ for policyName = {'tau_act', 'tau_esc', 'tau_noul', 'cp_enabled', 'cp_qhat', 'cp
 end
 
 % ---------------------------------------------------------------- model copy
-% A model compile costs ~10 s and a MATLAB cold start ~50 s, both far more
-% than a 0.1 s simulation.  With keep_loaded the compiled model is cached and
-% reused by the next job (that is what makes the warm-worker throughput real).
+% A worker can stay alive, but every job starts from a fresh source-model copy.
 T = struct('setup', 0, 'sweep', 0, 'loop', 0, 'save', 0);
 measurements = struct('reference_probe', 0, 'sweep', 0, 'own_gain_probe', 0, ...
     'tuning', 0, 'final_verification', 0);
 tSetup = tic;
 if ~isfolder(workDir), mkdir(workDir); end
 mdlName = 'jev_lab_model';
-cacheKey = [mdlPath '|' workDir];
-
-if cfg.keep_loaded && is_loaded(mdlName) && strcmp(cache_get(cacheKey), mdlName)
-    reused = true;
-    try, set_param(mdlName, 'FastRestart', 'on'); catch, end
-    if isempty(stopTime)
-        stopTime = str2double(get_param(mdlName, 'StopTime'));
-    end
-    set_param(mdlName, 'StopTime', num2str(stopTime));
-else
-    reused = false;
-    dst = fullfile(workDir, [mdlName '.slx']);
-    if isfile(dst), delete(dst); end
-    copyfile(mdlPath, dst);
-    srcDir = fileparts(mdlPath);
-    if isfolder(fullfile(srcDir, 'images'))
-        copyfile(fullfile(srcDir, 'images'), fullfile(workDir, 'images'));
-    end
-    load_system(dst);
-    try, set_param(mdlName, 'SimMechanicsOpenEditorOnUpdate', 'off'); catch, end
-    if isempty(stopTime)
-        stopTime = str2double(get_param(mdlName, 'StopTime'));
-    end
-    set_param(mdlName, 'StopTime', num2str(stopTime));
-    set_param(mdlName, 'FastRestart', 'on');
-    cache_put(cacheKey, mdlName);
+reused = false;
+dst = fullfile(workDir, [mdlName '.slx']);
+jev_assert_distinct_paths(mdlPath, dst);
+if is_loaded(mdlName)
+    error('jev:model_in_use', 'reserved working model %s is already loaded; close it before tuning', mdlName);
 end
+if isfile(dst), delete(dst); end
+copyfile(mdlPath, dst);
+srcDir = fileparts(mdlPath);
+if isfolder(fullfile(srcDir, 'images'))
+    copyfile(fullfile(srcDir, 'images'), fullfile(workDir, 'images'));
+end
+load_system(dst);
+cleanupModel = onCleanup(@() maybe_close(mdlName, false)); %#ok<NASGU>
+try, set_param(mdlName, 'SimMechanicsOpenEditorOnUpdate', 'off'); catch, end
+if isempty(stopTime), stopTime = str2double(get_param(mdlName, 'StopTime')); end
+validateattributes(stopTime, {'numeric'}, {'scalar', 'real', 'positive', 'finite'});
+set_param(mdlName, 'StopTime', num2str(stopTime));
+set_param(mdlName, 'FastRestart', 'on');
 
 oldDir = pwd; cd(workDir);
 restoreDir = onCleanup(@() cd(oldDir));
-if ~(cfg.keep_loaded && reused)
-    cleanupModel = onCleanup(@() maybe_close(mdlName, cfg.keep_loaded)); %#ok<NASGU>
-end
 warning('off', 'all');
 
 scopes = get_param(find_system(mdlName, 'SearchDepth', 1, 'BlockType', 'Scope'), 'Name');
@@ -144,18 +142,18 @@ if ~reused && isfield(cfg, 'instrument_block') && ~isempty(cfg.instrument_block)
 end
 
 % ------------------------------------------------------------- PID block form
-% Ideal and Standard forms store I and D as *times*; a multiplicative step on
-% the I parameter then means the opposite of what the head intends.  Switching
+% Ideal form multiplies its I and D coefficients by P. Switching
 % the copy to the Parallel form with equivalent gains keeps the controller the
 % same and makes the action space mean one thing everywhere.  The user's file is
 % untouched, and jev_writeback does the same conversion when it saves.
 if ~reused && strcmpi(cfg.controller, 'pid_block')
     blk = [mdlName '/' cfg.pid_block];
+    jev_validate_pid_conversion(blk);
     form = get_param(blk, 'Form');
     if ~strcmpi(form, 'Parallel')
         [p0, i0, d0] = parallel_gains(blk);
-        set_param(blk, 'Form', 'Parallel', 'P', num2str(p0), ...
-            'I', num2str(i0), 'D', num2str(d0));
+        set_param(blk, 'Form', 'Parallel', 'P', num2str(p0, 17), ...
+            'I', num2str(i0, 17), 'D', num2str(d0, 17));
         fprintf('[jev] PID form %s -> Parallel: P=%g I=%g D=%g\n', form, p0, i0, d0);
     end
 end
@@ -174,7 +172,7 @@ refCmd = 1.0;
 [refCmd, refSrc, refOK] = infer_reference(mdlName, cfg);
 if ~refOK
     try
-        measurements.reference_probe = measurements.reference_probe + 1;
+        measurements = count_attempt(measurements, 'reference_probe', cfg);
         [t0, y0, ~] = runOnce();
         tail = y0(max(1, round(0.8 * numel(y0))):end);
         guess = abs(median(tail));
@@ -187,7 +185,8 @@ if ~refOK
                  'steady state (%.4g). Pass ref_source if the loop has an offset'], ...
                 guess);
         end
-    catch
+    catch err
+        rethrow_measurement_error(err);
     end
 end
 if ~refOK
@@ -215,18 +214,10 @@ if ~isempty(missing)
 end
 
 % ---------------------------------------------------------------- Ku / Tu
-% The ultimate gain depends on the plant, not on the gains we start from, so a
-% warm worker caches it: the Kp sweep is 7 deliberately unstable runs and costs
-% more than the whole tuning loop.
+% The scan belongs to this source/configuration/horizon and is never reused
+% across jobs. All seven (or fourteen) simulation attempts are in the ledger.
 T.setup = toc(tSetup);
 tSweep = tic;
-sweepKey = ['sweep|' cacheKey];
-cache = cache_all();
-if isKey(cache, sweepKey) && ~(isfield(cfg, 'force_sweep') && cfg.force_sweep)
-    c = cache(sweepKey);
-    ku = c.ku; tu = c.tu;
-    fprintf('[jev] Ku~%.3g Tu~%.3g s (cached)\n', ku, tu);
-else
     % The range is a starting point, not an assumption: a plant whose ultimate
     % gain sits outside it gets a grid that is re-centred, because otherwise the
     % nominal gain handed to Ziegler-Nichols is a guess with no relation to the
@@ -240,10 +231,11 @@ else
         for i = 1:numel(kpGrid)
             apply([kpGrid(i), 0, 0]);
             try
-                measurements.sweep = measurements.sweep + 1;
+                measurements = count_attempt(measurements, 'sweep', cfg);
                 [t, y, ~] = sweepOnce();
                 [oscScore(i), tuGuess(i)] = oscillation_score(t, y);
             catch err
+                rethrow_measurement_error(err);
                 % A gain at which the model will not integrate is past the
                 % boundary, not "inconclusive": scoring it as zero made the sweep
                 % widen into territory nothing can simulate.
@@ -288,8 +280,6 @@ else
             break
         end
     end
-    cache(sweepKey) = struct('ku', ku, 'tu', tu);
-end
 
 if ~isfinite(ku) || ~isfinite(tu) || tu <= 0
     % Ziegler-Nichols has no answer for this plant (a first-order loop, or one
@@ -322,13 +312,14 @@ ownJ = inf; ownT = []; ownY = []; ownU = [];
 if any(abs(gOwn - gzn) > 1e-9 * max(1, abs(gOwn)))
     apply(gOwn);
     try
-        measurements.own_gain_probe = measurements.own_gain_probe + 1;
+        measurements = count_attempt(measurements, 'own_gain_probe', cfg);
         [ownT, ownY, ownU] = runOnce();
         ownJ = jev_cost(jev_metrics(ownT, ownY, ownU, refCmd, stopTime, cfg.u_max), ...
             stopTime, refCmd);
         fprintf('[jev] the model own gains [%.4g %.4g %.4g] give J=%.3f\n', ...
             gOwn(1), gOwn(2), gOwn(3), ownJ);
     catch err
+        rethrow_measurement_error(err);
         fprintf('[jev] the model own gains do not simulate (%s); ignoring them\n', ...
             short_msg(err.message));
         ownJ = inf; ownT = []; ownY = []; ownU = [];
@@ -359,11 +350,12 @@ for it = 0:iters-1
     % as an infinitely bad candidate and handed to the safety gate.
     simOK = true;
     try
-        measurements.tuning = measurements.tuning + 1;
+        measurements = count_attempt(measurements, 'tuning', cfg);
         [t, y, u] = runOnce();
         M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
         J = jev_cost(M, stopTime, refCmd);
     catch err
+        rethrow_measurement_error(err);
         simOK = false;
         t = []; y = []; u = []; M = nan(1, 9); J = inf;
         fprintf('[jev] iter %2d  simulation failed (%s)\n', it, short_msg(err.message));
@@ -451,7 +443,8 @@ for it = 0:iters-1
 
     prevAction = step;
     prevCost = J;
-    gains = min(max(gains .* (10 .^ step), 1e-4), 1e3);
+    changed = (step ~= 0);
+    gains(changed) = min(max(max(gains(changed), 1e-4) .* (10 .^ step(changed)), 1e-4), 1e3);
     hist(end).next_gains = gains;
     if cfg.stop_on_no_action && isequal(gains, hist(end).gains)
         % This offline simulation path can stop when no gain changes. It does
@@ -474,12 +467,13 @@ try
     if finalReused
         t = bestT; y = bestY; u = bestU;
     else
-        measurements.final_verification = measurements.final_verification + 1;
+        measurements = count_attempt(measurements, 'final_verification', cfg);
         [t, y, u] = runOnce();
     end
     M = jev_metrics(t, y, u, refCmd, stopTime, cfg.u_max);
     J = jev_cost(M, stopTime, refCmd);
 catch err
+    rethrow_measurement_error(err);
     % the best set is the one that ran before; keep its numbers rather than
     % failing at the very last step
     fprintf('[jev] re-running the best gains failed (%s); keeping the recorded result\n', ...
@@ -521,6 +515,7 @@ R = struct('model', mdlName, 'stopTime', stopTime, 'iters', iters, ...
     'n_recorded_measurements', measurements.tuning + measurements.final_verification, ...
     'hist', hist, 'scopes', {scopes}, 'best_t', bestT, 'best_y', bestY, 'best_u', bestU);
 R.decision_policy = struct('step_gain', stepGain, 'stop_on_no_action', logical(cfg.stop_on_no_action));
+R.cache_policy = 'fresh_model_per_job';
 for policyName = {'temperature', 'tau_act', 'tau_esc', 'tau_noul', ...
         'cp_enabled', 'cp_qhat', 'cp_alpha', 'cp_k_max', 'cp_mode', 'cp_n_calibration', ...
         'cp_quantile_rank', 'cp_method', 'model_sha256', 'calibration_sha256'}
@@ -569,39 +564,9 @@ catch
 end
 end
 
-function v = cache_get(key)
-v = cache('get', key, '');
-end
-
-function m = cache_all()
-m = cache('map', '', []);
-end
-
-function cache_put(key, value)
-cache('put', key, value); %#ok<NASGU>
-end
-
-function value = cache(action, key, payload)
-% one persistent store shared by every caller (two separate `persistent`
-% variables in two functions would be two different maps)
-persistent STORE
-if isempty(STORE), STORE = containers.Map(); end
-switch action
-    case 'get'
-        if isKey(STORE, key), value = STORE(key); else, value = payload; end
-    case 'put'
-        STORE(key) = payload;
-        value = payload;
-    case 'map'
-        value = STORE;
-    otherwise
-        value = [];
-end
-end
-
 function [t, y, u] = run_and_extract(mdlName, stopTime, cfg)
 out = sim(mdlName, 'StopTime', num2str(stopTime));
-[t, y] = pick_signal(out, cfg.measure_scope);
+[t, y] = jev_read_signal(out, cfg.measure_scope, cfg.measure_element);
 if isempty(t)
     error('jev:no_signal', ...
         ['nothing was logged as "%s"; run jev-tune discover to find the right ' ...
@@ -613,27 +578,16 @@ if size(y, 2) > 1
          'feedback signal itself, or name a single-signal Scope'], ...
         cfg.measure_scope, size(y, 2));
 end
-[~, u] = pick_signal(out, cfg.input_scope);
-if isempty(u), u = zeros(size(t)); end
-end
-
-function [t, y] = pick_signal(out, name)
-% Return the logged signal as a matrix: the caller decides what to do with more
-% than one column.  Silently taking column 1 is how a two-input Scope (reference
-% *and* response) hands the tuner the reference as the measurement.
-t = []; y = [];
-var = matlab.lang.makeValidName(strrep(name, '-', '_'));
-if isprop(out, var) || isfield(out, var)
-    ds = out.(var);
-    if isa(ds, 'Simulink.SimulationData.Dataset')
-        e = ds.getElement(1); y = e.Values.Data; t = e.Values.Time;
-    elseif isstruct(ds)
-        y = ds.signals.values; t = ds.time;
+[ut, u] = jev_read_signal(out, cfg.input_scope, cfg.input_element);
+if isempty(u)
+    u = zeros(size(t));
+elseif ~isequal(ut, t)
+    if ut(1) > t(1) || ut(end) < t(end)
+        error('jev:invalid_signal', 'actuator logging does not cover the response time interval');
     end
+    [ut, last] = unique(ut, 'last');
+    u = interp1(ut, u(last), t, 'linear');
 end
-if isempty(t), return; end
-t = t(:);
-y = reshape(y, numel(t), []);
 end
 
 function [score, tu] = oscillation_score(t, y)
@@ -676,8 +630,12 @@ end
 function [ref, src, ok] = infer_reference(mdlName, cfg)
 % Reference by block *type*, with the configured name only as a preference.
 ref = NaN; src = 'none'; ok = false;
-if isnumeric(cfg.ref_source) && isscalar(cfg.ref_source) && isfinite(cfg.ref_source)
-    ref = abs(cfg.ref_source); src = 'given by the caller'; ok = true;
+if isnumeric(cfg.ref_source)
+    if ~isscalar(cfg.ref_source) || ~isreal(cfg.ref_source) || ...
+            ~isfinite(cfg.ref_source) || cfg.ref_source <= 0
+        error('jev:ref', 'ref_source must be a finite positive scalar; negative/zero steps are unsupported');
+    end
+    ref = cfg.ref_source; src = 'given by the caller'; ok = true;
     return
 end
 steps = {};
@@ -702,8 +660,11 @@ if ~isempty(cfg.scale_block) && block_exists([mdlName '/' cfg.scale_block])
     g = num_of([mdlName '/' cfg.scale_block], 'Gain');
     if isfinite(g), gsc = g; end
 end
-if isfinite(amp) && abs(amp * gsc) > 1e-12
-    ref = abs(amp * gsc);
+if isfinite(amp) && isfinite(gsc)
+    if amp * gsc <= 0
+        error('jev:ref', 'negative/zero step references are unsupported');
+    end
+    ref = amp * gsc;
     src = sprintf('%s%s', strrep(steps{1}, [mdlName '/'], ''), ...
         ternary(abs(gsc - 1) > 1e-12, sprintf(' x %g', gsc), ''));
     ok = true;
@@ -728,14 +689,16 @@ if strcmpi(cfg.controller, 'pid_block')
     blk = [mdlName '/' cfg.pid_block];
     g = [num_of(blk, 'P'), num_of(blk, 'I'), num_of(blk, 'D')];
     if strcmpi(safe_get(blk, 'Form', 'Parallel'), 'Parallel') == false
-        g = parallel_gains(blk);
+        g = jev_pid_parallel_gains(get_param(blk, 'Form'), g);
     end
 else
     g = [num_of([mdlName '/' cfg.kp_block], 'Gain'), ...
          num_of([mdlName '/' cfg.ki_block], 'Gain'), ...
          num_of([mdlName '/' cfg.kd_block], 'Gain')];
 end
-g(~isfinite(g) | g < 1e-6) = 1e-3;
+if any(~isfinite(g)) || ~isreal(g) || any(g < 0)
+    error('jev:invalid_gains', 'the original PID gains must resolve to finite nonnegative scalars');
+end
 end
 
 function v = safe_get(blk, param, fallback)
@@ -749,15 +712,9 @@ end
 
 function [p, i, d] = parallel_gains(blk)
 % Convert the mask parameters of a PID block to parallel-form gains.
-p = num_of(blk, 'P');
-it = num_of(blk, 'I');
-dt = num_of(blk, 'D');
-if ~isfinite(p), p = 0; end
-if ~isfinite(it), it = 0; end
-if ~isfinite(dt), dt = 0; end
-% Ideal/Standard: P(1 + 1/(I s) + D s/(...))  =>  Kp = P, Ki = P/I, Kd = P*D
-if abs(it) > 1e-12, i = p / it; else, i = 0; end
-d = p * dt;
+g = jev_pid_parallel_gains(get_param(blk, 'Form'), ...
+    [num_of(blk, 'P'), num_of(blk, 'I'), num_of(blk, 'D')]);
+p = g(1); i = g(2); d = g(3);
 end
 
 function v = num_of(blk, param)
@@ -772,6 +729,19 @@ function s = short_msg(msg)
 s = regexprep(msg, '<a href="[^"]*">', '');
 s = regexprep(s, '</a>', '');
 if numel(s) > 160, s = [s(1:157) '...']; end
+end
+
+function counts = count_attempt(counts, phase, cfg)
+counts.(phase) = counts.(phase) + 1;
+jev_simulation_counts(cfg.simulation_ledger, phase);
+end
+
+function rethrow_measurement_error(err)
+% Invalid signal selection is an adapter failure, not an unstable candidate.
+if any(strcmp(err.identifier, {'jev:wide_signal', 'jev:signal_element', ...
+        'jev:invalid_signal', 'jev:no_signal', 'jev:ref'}))
+    rethrow(err);
+end
 end
 
 function close_model(mdlName)

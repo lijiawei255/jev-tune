@@ -242,7 +242,7 @@ def evidence_documents():
         return next(r for r in blob["rows"] if r["method"] == name)
     vm, tm = method(validation, "jev_head"), method(thermal, "jev_head")
     def table(blob):
-        text = "| method | median J | p90 J | actual simulations |\n| :--- | ---: | ---: | ---: |\n"
+        text = "| method | median J | p90 J | maximum budget / one-shot actual |\n| :--- | ---: | ---: | ---: |\n"
         for r in blob["rows"]:
             text += f"| `{r['method']}` | {r['final_cost_median']:.3f} | {r['final_cost_p90']:.3f} | {r['budget']:g} |\n"
         return text
@@ -256,27 +256,27 @@ def evidence_documents():
                      "Hard Hold is an explicit comparison policy; unchanged deterministic trials stop without repeated simulation.\n\n")
             s = re.sub(r"\*\*PID autotuning (?:where|with).*?(?=> \*\*Jev-inspired)", intro, s, flags=re.S)
             s = re.sub(r"\| \*\*How fast\*\*.*", f"| **How fast** | ONNX forward {marked('decision_ms',latency['onnx_forward_ms'])} ms median; Python default typed/abstention path {marked('typed_decision_ms',latency['typed_decision_ms'])} ms median, {marked('typed_decision_p99_ms',latency['typed_decision_p99_ms'])} ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |", s)
-            s = re.sub(r"\| \*\*How it generalises\*\*.*", f"| **How it generalises** | Validation median {vm['final_cost_median']:.3f}; frozen thermal median {tm['final_cost_median']:.3f}. Current baselines and prior information are shown below. |", s)
+            s = re.sub(r"\| \*\*How it generalises\*\*.*", f"| **How it generalises** | Historical validation median {vm['final_cost_median']:.3f}; frozen thermal median {tm['final_cost_median']:.3f}. Their baselines and oracle priors are shown below; the separate v0.9 fixed-start comparison is in [PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md). |", s)
             s = re.sub(r"\*\*vs\. Bayesian optimisation.*?(?=\*\*Why not just)", "**Comparison with ordinary heads and optimizers.** Current matched-split regression/argmax controls are in [ABLATION](docs/ABLATION.md). One training checkpoint and three evaluation draws do not establish a general causal advantage of the type interface. The gate, calibrated thresholds and matched-coverage random hold are reported separately.\n\n", s, flags=re.S)
             s = re.sub(r"Measured on a family.*?(?=\n---)", "Specialization uses offline simulation and can also degrade held-out performance. Current measured artifacts and the withdrawn historical provenance explanation are documented in [SPECIALIZE](docs/SPECIALIZE.md).\n", s, flags=re.S)
             start = "**Validation family (" if "**Validation family (" in s else "**Validation family:"
-            end = "**Real Simulink model (lab DC motor)**"
-            body = "**Validation family: two_mass, 120 plants.** Used for design decisions. Iterative methods have a maximum budget of 20; one-shot methods report actual runs. All analytic-start methods share oracle Ku/Tu; sweep failures use a fixed non-oracle fallback.\n\n" + table(validation)
+            end = "**Historical Simulink model result (lab DC motor, old objective)**"
+            body = "**Validation family: two_mass, 120 plants.** Historical benchmark used for design decisions. Iterative methods have a maximum budget of 20; one-shot methods report actual runs. The table's iterative counts are allocated caps, not measured calls after early stopping. All analytic-start methods share oracle Ku/Tu; sweep failures use a fixed non-oracle fallback.\n\n" + table(validation)
             body += "\n**Frozen thermal family: 120 fixed-grid plants.** Frozen after training and re-evaluated during earlier correctness repairs, without selecting a new checkpoint on it. This is not a preregistered prospective test.\n\n" + table(thermal)
-            body += "\nA lower baseline cost is reported without qualification. See [BENCHMARK](docs/BENCHMARK.md) for accounting and [raw tables](research/results/benchmark_table_thermal_deadtime.md) for sweep recovery/fallback details.\n\n"
+            body += "\nThese frozen rows are separate from the v0.9 [practical budget study](docs/PRACTICAL_BUDGET.md), which reports actual calls and does not show uniform head superiority. Historical identify→pidtune rows retain their original implementation's failure limitations. See [BENCHMARK](docs/BENCHMARK.md) for accounting and [raw tables](research/results/benchmark_table_thermal_deadtime.md) for sweep recovery/fallback details.\n\n"
             s = s[:s.index(start)] + body + s[s.index(end):]
             s = s.replace("Two comparisons this project does not make.", "The following are two of the project's unmeasured comparisons.")
         else:
             intro = ("**PID调参：温度缩放、完整CP集合与独立执行策略。**\n数值头在CPU上一次前向；默认monitor保留集合而不否决动作，hard_hold作为显式对照，确定性参数不变时停止重复仿真。\n\n")
             s = re.sub(r'\*\*PID(?: 调参，每一次|调参：).*?(?=> \*\*受 Jev)', intro, s, flags=re.S)
             s = re.sub(r"\| \*\*多快\*\*.*", f"| **多快** | ONNX前向中位{marked('decision_ms',latency['onnx_forward_ms'])} ms；Python默认类型化/弃权路径中位{marked('typed_decision_ms',latency['typed_decision_ms'])} ms、p99 {marked('typed_decision_p99_ms',latency['typed_decision_p99_ms'])} ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |", s)
-            s = re.sub(r"\| \*\*多能泛化\*\*.*", f"| **多能泛化** | 验证族中位{vm['final_cost_median']:.3f}；冻结热工族中位{tm['final_cost_median']:.3f}，当前基线和先验来源见下表。 |", s)
+            s = re.sub(r"\| \*\*多能泛化\*\*.*", f"| **多能泛化** | 历史验证族中位{vm['final_cost_median']:.3f}；冻结热工族中位{tm['final_cost_median']:.3f}，对应基线与oracle先验见下表；独立的v0.9固定起点评测见[PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md)。 |", s)
             s = re.sub(r"在没见过的对象族上实测.*?(?=\n---)", "专门化依赖离线仿真，也可能让留出性能变差。当前实测及撤回的历史归因见[SPECIALIZE](docs/SPECIALIZE.md)。\n", s, flags=re.S)
             start = "**验证族（120 个" if "**验证族（120 个" in s else "**验证族："
-            end = "**真实 Simulink 模型（直流电机）**"
-            body = "**验证族：120个two_mass对象。** 参与过设计决策。迭代方法最多20次，一次性方法列实际消耗；解析起点方法共享oracle Ku/Tu，扫描失败统一采用固定非oracle先验。\n\n" + table(validation)
+            end = "**历史Simulink模型结果（直流电机，旧目标）**"
+            body = "**验证族：120个two_mass对象。** 参与过设计决策的历史基准。迭代方法最多20次，一次性方法列实际消耗；表内迭代次数是分配上限，不是提前停止后的实测次数。解析起点方法共享oracle Ku/Tu，扫描失败统一采用固定非oracle先验。\n\n" + table(validation)
             body += "\n**冻结热工族：120个固定网格对象。** 训练后冻结，此前正确性修复后重测，未据此选择新权重；不是预注册前瞻测试。\n\n" + table(thermal)
-            body += "\n基线代价更低也照实报告。计账规则见[BENCHMARK](docs/BENCHMARK.md)，扫描恢复/回退见[原始表](research/results/benchmark_table_thermal_deadtime.md)。\n\n"
+            body += "\n这些冻结行与v0.9[实用预算评测](docs/PRACTICAL_BUDGET.md)分开；后者列实际调用，也不证明head全面优于基线。历史辨识→pidtune行保留原实现的失败边界。计账规则见[BENCHMARK](docs/BENCHMARK.md)，扫描恢复/回退见[原始表](research/results/benchmark_table_thermal_deadtime.md)。\n\n"
             s = s[:s.index(start)] + body + s[s.index(end):]
             notice = "\n> **受Jev启发，与TypeSafe AI无隶属、背书或赞助关系。** 本项目使用自己训练的数值头，不含Jev/Laya权重或API。[English](README.md)\n"
             if notice.strip() not in s:

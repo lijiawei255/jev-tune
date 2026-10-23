@@ -4,6 +4,18 @@
 
 ## English
 
+<!-- practical-mainline:en:start -->
+**Current mainline: real-model adaptation, applicability boundaries and simulation-budget value.**
+Deeper joint-risk research is paused. Its failed acceptance, raw trajectories, frozen protocols and reproduction scripts remain available; the risk head stays in research mode and is not enabled in production. Complete CP sets and their existing coverage boundaries remain unchanged.
+On the current checkout, use `python scripts/44_verify_historical_research.py --check` to verify the frozen research against an isolated historical source view. Original study commands remain available on v0.8.0; they must not silently substitute today's repaired runtime for their recorded sources.
+
+The practical audit prioritizes controller equivalence, unambiguous measurements, time-based costs, truthful failure status and complete simulation accounting. See [MODEL_ADAPTATION](MODEL_ADAPTATION.md) and [PRACTICAL_BUDGET](PRACTICAL_BUDGET.md). Generated Simulink fixtures validate adapter behavior; they do not establish performance on an unseen external model or physical hardware.
+
+Earlier MATLAB cost figures, traces and animations below are historical: the corrected time-grid integration changes that objective. They are retained as records, not current performance measurements.
+Cross-job model/sweep caching is disabled to preserve each source model and configuration; historical warm-job throughput tables do not describe the current implementation.
+<!-- practical-mainline:en:end -->
+
+
 <!-- trajectory-risk-v2:en:start -->
 ### Multistep joint risk: new preregistered study FAIL
 
@@ -112,6 +124,18 @@ repairs. It is not a prospective or untouched-after-publication study. See
 [COMPUTE](COMPUTE.md), [CLAIMS](CLAIMS.md) for current generated evidence.
 
 ## 简体中文
+
+<!-- practical-mainline:zh:start -->
+**当前主线：真实模型适配、适用边界与仿真预算收益。**
+暂停深化联合风险研究，保留未通过验收的结论、原始轨迹、冻结协议及复现脚本；风险头继续保留研究模式，不进入生产默认路径。完整CP集合及既有覆盖边界保持不变。
+当前检出用`python scripts/44_verify_historical_research.py --check`在隔离的历史源码视图中核验冻结研究。原研究命令保留在v0.8.0，不能偷偷用今天修复后的运行时代替原记录源码。
+
+实用审查优先保证控制器转换等价、测量对象明确、代价按真实时间计算、失败状态准确，以及仿真计账完整。见[MODEL_ADAPTATION](MODEL_ADAPTATION.md)和[PRACTICAL_BUDGET](PRACTICAL_BUDGET.md)。生成的Simulink回归模型用于验证适配器行为，不证明未见外部模型或硬件上的调参效果。
+
+下方旧MATLAB代价、轨迹及动画为历史记录：按实际时间网格积分的修正已改变目标，旧记录不代表当前性能测量。
+为保留各任务原件及配置语义，跨任务模型与扫描缓存已停用；历史热启动吞吐表不代表当前实现。
+<!-- practical-mainline:zh:end -->
+
 
 <!-- trajectory-risk-v2:zh:start -->
 ### 多步联合风险：预注册新实验 FAIL

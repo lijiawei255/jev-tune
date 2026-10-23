@@ -1718,6 +1718,70 @@
           "format": ".6f"
         }
       ]
+    },
+    {
+      "id": "adapter_ideal_trajectory_difference",
+      "label": "Ideal/Parallel measured trajectory difference / Ideal与Parallel实测轨迹差",
+      "text": "Ideal/Parallel measured trajectory difference / Ideal与Parallel实测轨迹差",
+      "source": "research/results/model_adaptation.json",
+      "path": "test_results.ideal.max_trajectory_difference",
+      "value": 0.0,
+      "tol": 1e-09,
+      "reproduce": "python scripts/40_verify_model_adaptation.py",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "adapter_auto_simulations",
+      "label": "Automatic discovery plus tuning attempts / 自动发现及调参仿真实耗",
+      "text": "Automatic discovery plus tuning attempts / 自动发现及调参仿真实耗",
+      "source": "research/results/model_adaptation.json",
+      "path": "test_results.auto_ledger.reported_total",
+      "value": 22.0,
+      "tol": 1e-09,
+      "reproduce": "python scripts/40_verify_model_adaptation.py",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "adapter_all_loops_simulations",
+      "label": "Independent-loop fixture total attempts / 独立多回路模型总仿真实耗",
+      "text": "Independent-loop fixture total attempts / 独立多回路模型总仿真实耗",
+      "source": "research/results/model_adaptation.json",
+      "path": "test_results.all_loops_ledger.reported_total",
+      "value": 52.0,
+      "tol": 1e-09,
+      "reproduce": "python scripts/40_verify_model_adaptation.py",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "practical_budget_actual_simulations",
+      "label": "Fixed practical comparison actual simulations / 固定实用对照实际仿真",
+      "text": "Fixed practical comparison actual simulations / 固定实用对照实际仿真",
+      "source": "research/results/practical_budget.json",
+      "path": "summary.actual_simulations",
+      "value": 7995.0,
+      "tol": 1e-09,
+      "reproduce": "python scripts/39_practical_budget.py --run",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     }
   ]
 }
