@@ -43,7 +43,11 @@ jobs:
           python -m jev_tune.cli demo --plants 4 --json
 
   evidence:
-    runs-on: ubuntu-latest
+    name: Reference Windows scientific evidence
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -58,7 +62,7 @@ jobs:
           import subprocess
           import sys
           from pathlib import Path
-          result = json.loads(Path('research/results/trajectory_risk.json').read_text())
+          result = json.loads(Path('research/results/trajectory_risk.json').read_text(encoding='utf-8'))
           packages = result['manifest']['packages']
           subprocess.check_call([sys.executable, '-m', 'pip', 'install',
                                  'torch==' + packages['torch'],
@@ -72,6 +76,7 @@ jobs:
       - name: Refit and independently verify published evidence and claims
         env:
           PYTHONPATH: src
+          PYTHONUTF8: "1"
           OMP_NUM_THREADS: "1"
           MKL_NUM_THREADS: "1"
           OPENBLAS_NUM_THREADS: "1"
