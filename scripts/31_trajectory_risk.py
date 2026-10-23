@@ -109,11 +109,287 @@ def register():
     print(f'Frozen {PROTOCOL}; no new study data collected')
 
 
-if __name__ == '__main__':
+def _load_script(name):
+    spec = importlib.util.spec_from_file_location(name, ROOT/'scripts'/f'{name}.py')
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def load_model(d):
+    from jev_tune.risk import JointRiskModel
+    return JointRiskModel(np.array(d['mean']), np.array(d['scale']), np.array(d['coefficient']),
+                          d['intercept'], d['temperature'])
+
+
+def write_json(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix+'.tmp')
+    temporary.write_text(json.dumps(value, indent=2, allow_nan=False)+'\n', encoding='utf-8')
+    temporary.replace(path)
+
+
+def probability_diagnostics(model, data):
+    from sklearn.metrics import roc_auc_score
+    x = np.asarray(data['features'], float).reshape(-1, 44)
+    y = np.asarray(data['labels'], int)
+    if not len(y):
+        return {'n_rows': 0, 'harmful': 0, 'auroc': None, 'brier': None, 'nll': None}
+    p = model.probabilities(x)
+    return {'n_rows': len(y), 'harmful': int(y.sum()),
+            'auroc': float(roc_auc_score(y, p[:,1])) if len(np.unique(y)) == 2 else None,
+            'brier': float(np.mean((p[:,1]-y)**2)),
+            'nll': float(-np.log(np.maximum(p[np.arange(len(y)),y], 1e-300)).mean())}
+
+
+def _doc(p):
+    spec = p['protocol']['specification']
+    lines = ['# Trajectory risk and alternative joint actions / 轨迹风险与替代联合动作', '',
+             '[English](#english) · [简体中文](#简体中文)', '']
+    for zh in (False, True):
+        lines += ['## 简体中文' if zh else '## English', '',
+            ('协议先于新数据冻结；旧测试仅作诊断，旧失败结果原样保留。新模型、动作尺度、样本量及风险预算均未按评估结果选参。唯一主要候选为trajectory_selected，其余组仅用于解释，不能测试后换组上线。'
+             if zh else 'The protocol was frozen before new data. Old tests are retrospective diagnosis only and the old failure is preserved. No model, action scale, sample size or risk budget was selected from evaluation outcomes. The sole primary candidate is trajectory_selected; the other arms cannot be selected for deployment after testing.'), '',
+            ('每步先在完整联合动作的固定尺度1、0.5、0.25中，用冻结风险模型选择最小预测有害概率的候选；平局按尺度顺序。然后仅对选中动作构造CP集合，只有{非劣}执行。拒绝即停止，不根据CP集合再挑候选。风险输入的初态prev_dJ置零，提案模型输入不改。'
+             if zh else 'At each stage, the frozen risk model first selects the smallest predicted harmful probability among complete joint actions scaled by 1, 0.5 and 0.25, with stable scale-order ties. CP is then applied only to that selected action; only {noninferior} executes. Rejection stops, without choosing another candidate from its CP set. Initial prev_dJ is zeroed only for new risk inputs; proposal inputs are unchanged.'), '',
+            ('新旧风险头比较同时改变训练轨迹、数据量、标准化和风险初态特征语义，因此不是单一特征修正的因果实验。固定行为尺度训练分布也不等于在线逐步选尺度分布。'
+             if zh else 'The new-versus-old risk comparison changes trajectories, data volume, scaling and initial risk-feature semantics together; it is not a causal isolation of one feature repair. Fixed behavior-scale training is also different from online per-stage scale selection.'), '',
+            '| 数据划分 | 独立对象 | 候选标签行 | 有害标签 |' if zh else '| split | independent plants | candidate label rows | harmful labels |',
+            '| :--- | ---: | ---: | ---: |']
+        for name, d in p['training']['datasets'].items():
+            lines.append(f"| {name} | {d['n_plants']} | {d['n_rows']} | {d['harmful']} |")
+        lines += ['', ('同一对象的多步/多候选行相关，只用于训练或描述统计，不能当独立校准对象。训练、温度、开发诊断、逐步校准及最终测试对象分离。开发组不参与任何搜索。'
+            if zh else 'Rows from multiple stages/candidates of one plant are dependent and used for fitting or descriptive diagnostics, not counted as independent calibration plants. Training, temperature, development audit, stage calibration and final test cohorts are separated. The development audit performs no search.'), '',
+            f"{'固定风险温度' if zh else 'Frozen risk temperature'}: {p['risk_model']['temperature']:.6f}.", '',
+            '| 组 | 有害轨迹 / 测试数 | 风险95%上界 | 首步执行95%下界 | mean J | p90 J | 实际运行仿真 | 诊断仿真 |' if zh else '| arm | harmed trajectories / test plants | risk 95% upper | first execution 95% lower | mean J | p90 J | actual operating simulations | diagnostic simulations |',
+            '| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
+        for name, r in p['evaluation'].items():
+            c = r['simulation_counts']
+            lines.append(f"| {name} | {r['trajectory_harm']['events']}/{r['n_plants']} | {r['trajectory_harm']['upper']:.6f} | {r['first_stage_execution']['lower']:.6f} | {r['final_cost']['mean']:.6f} | {r['final_cost']['p90']:.6f} | {c['operating']} | {c['total']-c['operating']} |")
+        lines += ['', f"{'主要候选验收' if zh else 'Primary acceptance'}: **{'PASS' if p['acceptance']['passed'] else 'FAIL'}**; `{p['deployment']['status']}`.",
+            f"{'未通过项' if zh else 'Failed criteria'}: {', '.join(p['acceptance']['failed']) or 'none'}.", '',
+            ('有害仍指一次即时J严格上升，不是最终参数恶化率或失稳率。两组返回各自真实执行历史最优。替代动作改变路径后，旧固定路径冲突的证明不直接适用于新策略；它也不意味着新策略必然通过。'
+             if zh else 'Harm remains any strict immediate increase in J, not final-parameter degradation or instability. Each arm returns its actually executed historical best. Alternative actions change the path, so the old fixed-path conflict proof does not directly apply to the new policy; this does not imply that the new policy must pass.'), '',
+            '| 组 | 步 | 初始对象 | 到达 / 用于拟合 | 秩 | qhat | 回退原因 |' if zh else '| arm | stage | initial plants | reached / fitted | rank | qhat | fallback reason |',
+            '| :--- | ---: | ---: | ---: | ---: | ---: | :--- |']
+        for name, arm in p['arms'].items():
+            for s in arm['stages']:
+                lines.append(f"| {name} | {s['stage']+1} | {s['n_initial']} | {s['n_observed_reached']}/{s['n_reached']} | {s['quantile_rank']} | {s['qhat']:.6f} | {s['fallback_reason'] or '-'} |")
+        lines += ['', ('目标到达数为2000，每步最多20000个初始对象。按生成顺序收集，批次超额观测全部计账，仅按预先次序截取。配额不足返回完整集合是额外工程保守规则，与数学秩超过n不同。冻结前缀已有完整集合时后续结构不可达，直接记录零样本；不把一次零到达批次当作不可达证明。'
+            if zh else 'The reached target is 2000, with at most 20000 initial plants per stage. Collection follows generation order; excess batch observations are fully charged and truncated only by predetermined order. Quota shortfall returns the full set as an additional engineering rule, distinct from mathematical rank exceeding n. A full set in the frozen prefix makes later stages structurally unreachable, recorded without wasteful simulation; one empty batch alone is not such proof.'), '',
+            ('20步总预算0.10、每步alpha=0.005保持不变。保证依赖每步新校准对象与冻结前缀下未来到达对象的交换性，包含校准随机性，不是每个已固定校准文件的条件保证，也不是获准动作中的风险比例保证。单侧95%二项界独立审计最终固定策略，两项界不是联合95%。硬件、噪声变化、恢复及域外未覆盖。'
+             if zh else 'The 20-stage budget remains 0.10, with alpha=0.005 per stage. Validity requires exchangeability of fresh calibration plants and future reached plants under each frozen prefix and averages over calibration randomness; it is neither a conditional guarantee for every fixed calibration file nor a bound on risk among accepted actions. Separate one-sided 95% binomial bounds audit the final fixed policy, not joint 95% confidence. Hardware, noise changes, recovery and domain shift are not covered.'), '',
+            f"{'真实总仿真' if zh else 'Actual total simulations'}: {p['simulation_counts']['total']}; "
+            f"{'训练/温度/开发' if zh else 'training/temperature/development'}: {p['simulation_counts']['training_total']}; "
+            f"{'逐步校准' if zh else 'stage calibration'}: {p['simulation_counts']['calibration_total']}; "
+            f"{'最终评估' if zh else 'final evaluation'}: {p['simulation_counts']['evaluation_total']}.", '',
+            ('原始分片、SHA256、实际仿真与缓存命中见research/results/trajectory_risk.json及trajectory_risk_raw/。诊断观测不得自行更新运行历史；仅在同一动作后来实际采用时可复用确定性缓存。'
+             if zh else 'Raw shards, SHA256, actual simulations and cache hits are recorded in research/results/trajectory_risk.json and trajectory_risk_raw/. Diagnostic observations cannot update operating history by themselves; an exact deterministic cached action may be reused only if subsequently actually adopted.'), '',
+            '`python scripts/31_trajectory_risk.py --register-only` → `python scripts/31_trajectory_risk.py`', '',
+            '`python scripts/32_verify_trajectory_risk.py`', '']
+    return '\n'.join(lines)
+
+
+def run_study(args):
+    from jev_tune.decision import load_backend
+    from jev_tune.primitives import calibrate_temperature
+    from jev_tune.risk import JointRiskModel
+    from jev_tune.sequential_risk import stage_calibration, summarize_rollout, acceptance_checks
+    from jev_tune.trajectory_risk import run_trajectory_risk
+    if not PROTOCOL.exists():
+        raise SystemExit('Freeze and commit protocol before collection')
+    protocol = json.loads(PROTOCOL.read_text(encoding='utf-8'))
+    spec = protocol['specification']
+    if spec != fixed_specification():
+        raise SystemExit('Frozen protocol/configuration differs')
+    if RESULT.exists():
+        raise SystemExit('Published result already exists; use verifier/render, never overwrite evaluation')
+    progress_path = ROOT/'data/trajectory_risk/progress.json'
+    if progress_path.exists():
+        p = json.loads(progress_path.read_text(encoding='utf-8'))
+        if p['protocol'] != protocol:
+            raise SystemExit('Checkpoint belongs to a different protocol')
+    else:
+        p = {'protocol': protocol, 'protocol_sha256': sha256(PROTOCOL),
+             'protocol_canonical_sha256': canonical_hash(protocol), 'training': {'datasets': {}},
+             'raw_files': [], 'arms': {}, 'evaluation': {}, 'evaluation_raw': {},
+             'started_utc': datetime.now(timezone.utc).isoformat(),
+             'manifest': manifest(args, files=[PROTOCOL, ROOT/'models/jev_head.pt', ROOT/'models/calibration.json'])}
+    backend = load_backend(ROOT/'models')
+    sampler = _load_script('25_joint_risk').independent_plants
+    old = load_model(json.loads((ROOT/'research/results/joint_risk.json').read_text(encoding='utf-8'))['risk_model'])
+    raw_by_path = {r['path']: r for r in p['raw_files']}
+
+    def checkpoint():
+        write_json(progress_path, p)
+
+    def shard(name, seed, n, kind, model, **kw):
+        path = RAW_DIR/(name+'.json.gz')
+        relative = str(path.relative_to(ROOT)).replace('\\', '/')
+        metadata = {'protocol_canonical_sha256': p['protocol_canonical_sha256'], 'seed': seed,
+                    'n_plants': n, 'kind': kind, 'arguments': kw,
+                    'engine_sha256': sha256(ROOT/'src/jev_tune/trajectory_risk.py'),
+                    'risk_model_sha256': None if model is None else canonical_hash(model.as_dict())}
+        if path.exists():
+            if relative in raw_by_path and sha256(path) != raw_by_path[relative]['sha256']:
+                raise RuntimeError('Existing raw shard hash mismatch: '+relative)
+            run = json.loads(gzip.decompress(path.read_bytes()))
+            if run.get('study_metadata') != metadata:
+                raise RuntimeError('Existing raw shard differs from frozen inputs: '+relative)
+        else:
+            plants = sampler(n, seed)
+            run = run_trajectory_risk(backend, model, plants, **kw)
+            run['study_metadata'] = metadata
+            path.parent.mkdir(parents=True, exist_ok=True)
+            temporary = path.with_suffix('.tmp')
+            temporary.write_bytes(gzip.compress(json.dumps(run, separators=(',', ':'), allow_nan=False).encode(), mtime=0))
+            temporary.replace(path)
+        if relative not in raw_by_path:
+            entry = {'path': relative, 'sha256': sha256(path), 'kind': kind,
+                     'n_plants': n, 'seed': seed, 'simulation_counts': run['simulation_counts'],
+                     **{key: run[key] for key in ('mode', 'horizon', 'selector', 'feature_mode')}}
+            p['raw_files'].append(entry)
+            raw_by_path[relative] = entry
+        return run, relative
+
+    train_settings = spec['training']
+    datasets = {}
+    for split, settings in [('train', train_settings), ('temperature', train_settings['temperature']),
+                            ('development', train_settings['development_audit'])]:
+        run, path = shard(split, settings['seed'], settings['n_plants'], 'training', None,
+                          mode='training', horizon=20, feature_mode='history_zero')
+        data = run['collected']
+        datasets[split] = data
+        x = np.asarray(data['features'], float).reshape(-1, 44)
+        y = np.asarray(data['labels'], int)
+        npz_path = ROOT/'data/trajectory_risk'/f'{split}.npz'
+        npz_path.parent.mkdir(parents=True, exist_ok=True)
+        np.savez_compressed(npz_path, features=x, labels=y, plant_identity=np.asarray(data['plant_identity'], dtype=np.uint64),
+                            stage=np.asarray(data['stage'], int))
+        p['training']['datasets'][split] = {'n_plants': settings['n_plants'], 'n_rows': len(y),
+            'harmful': int(y.sum()), 'seed': settings['seed'], 'raw_file': path,
+            'npz_file': str(npz_path.relative_to(ROOT)).replace('\\', '/'), 'npz_sha256': sha256(npz_path),
+            'simulation_counts': run['simulation_counts']}
+        checkpoint()
+        print(f"{split}: plants={settings['n_plants']} rows={len(y)} harmful={y.sum()} simulations={run['simulation_counts']['total']}", flush=True)
+        del run
+    if 'risk_model' not in p:
+        model = JointRiskModel.fit(datasets['train']['features'], datasets['train']['labels'])
+        td = datasets['temperature']
+        model.temperature = calibrate_temperature(model.logits(td['features']), np.asarray(td['labels'], int))
+        p['risk_model'] = model.as_dict()
+        p['training']['model_frozen_utc'] = datetime.now(timezone.utc).isoformat()
+        p['training']['model_canonical_sha256'] = canonical_hash(p['risk_model'])
+        p['training']['diagnostics'] = {name: probability_diagnostics(model, d) for name, d in datasets.items()}
+        checkpoint()
+    model = load_model(p['risk_model'])
+    del datasets
+    if args.stop_after == 'train':
+        return
+    for arm_index, config in enumerate(spec['arms']):
+        name = config['name']
+        arm = p['arms'].setdefault(name, {'configuration': config, 'stages': [], 'qhats': []})
+        risk = old if config['model'] == 'old' else model
+        for stage in range(len(arm['stages']), 20):
+            prefix = list(arm['qhats'])
+            fit_refs, fit_x, fit_y, paths = [], [], [], []
+            n_initial, n_observed = 0, 0
+            unreachable = any(q >= 1 for q in prefix)
+            cap = 512 if config['calibration'] == 'initial512' else spec['calibration']['initial_cap_per_stage']
+            target = None if config['calibration'] == 'initial512' else spec['calibration']['target_reached']
+            batch = 0
+            while not unreachable and n_initial < cap and (target is None or len(fit_y) < target):
+                n = min(512, cap-n_initial)
+                seed = 900000000 + arm_index*1000000 + stage*1000 + batch
+                run, path = shard(f'{name}_s{stage+1:02}_b{batch:03}', seed, n, 'calibration', risk,
+                    mode='collect', horizon=20, selector=config['selector'], feature_mode=config['feature_mode'],
+                    qhats=prefix, collect_step=stage, diagnostic=False)
+                data = run['collected']
+                # Explicit order, independent of target labels/scores.
+                order = sorted(range(len(data['labels'])), key=lambda i: data['plant_index'][i])
+                room = len(order) if target is None else target-len(fit_y)
+                for index in order[:room]:
+                    fit_x.append(data['features'][index]); fit_y.append(data['labels'][index])
+                    fit_refs.append({'path': path, 'collected_index': index})
+                n_initial += n; n_observed += len(order); paths.append(path); batch += 1
+                checkpoint()
+                print(f"cal {name} stage={stage+1:02} initial={n_initial} reached={len(fit_y)} observed={n_observed}", flush=True)
+                del run
+            x = np.asarray(fit_x, float).reshape(-1, 44)
+            probabilities = risk.probabilities(x) if len(x) else np.empty((0, 2))
+            q = stage_calibration(probabilities, np.asarray(fit_y, int), .005)
+            quota_fallback = target is not None and len(fit_y) < target
+            rank_fallback = q['all_labels_fallback']
+            if quota_fallback:
+                q['qhat'] = 1.
+            reason = ('unreachable_frozen_prefix' if unreachable else 'quota_shortfall' if quota_fallback
+                      else 'finite_sample_rank' if rank_fallback else None)
+            q.update(stage=stage, n_initial=n_initial, n_observed_reached=n_observed,
+                prefix_qhats=prefix, rank_fallback=rank_fallback, quota_fallback=quota_fallback,
+                fallback_reason=reason, fit_refs=fit_refs, raw_files=paths)
+            arm['stages'].append(q); arm['qhats'].append(q['qhat']); checkpoint()
+            print(f"FROZEN {name} stage={stage+1:02} q={q['qhat']:.12f} n={q['n_reached']} reason={reason}", flush=True)
+    if args.stop_after == 'calibrate':
+        return
+    eval_spec = spec['evaluation']
+    for name in eval_spec['arms']:
+        if name in p['evaluation']:
+            continue
+        if name == 'monitor':
+            risk, kwargs = old, {'mode': 'monitor', 'selector': 'full_only', 'feature_mode': 'legacy', 'qhats': [1.]*20}
+        else:
+            a = p['arms'][name]; c = a['configuration']
+            risk = old if c['model'] == 'old' else model
+            kwargs = {'mode': 'gated', 'selector': c['selector'], 'feature_mode': c['feature_mode'], 'qhats': a['qhats']}
+        run, path = shard('evaluation_'+name, eval_spec['seed'], eval_spec['n_plants'], 'evaluation', risk,
+                          horizon=20, diagnostic=True, **kwargs)
+        p['evaluation'][name] = summarize_rollout(run)
+        p['evaluation_raw'][name] = path
+        checkpoint()
+        print('EVALUATION '+name+' '+json.dumps(p['evaluation'][name], separators=(',', ':')), flush=True)
+        del run
+    p['simulation_counts'] = {
+        key+'_total': sum(r['simulation_counts']['total'] for r in p['raw_files'] if r['kind'] == key)
+        for key in ('training', 'calibration', 'evaluation')}
+    p['simulation_counts']['total'] = sum(p['simulation_counts'].values())
+    # The independently implemented verifier must accept the evidence before publication.
+    verifier = _load_script('32_verify_trajectory_risk')
+    p['integrity'] = verifier.verify_payload(p)
+    if not all(p['integrity'].values()):
+        checkpoint()
+        raise RuntimeError('Independent evidence verification failed: '+str(p['integrity']))
+    primary = spec['primary_candidate']
+    p['acceptance'] = acceptance_checks(p['evaluation']['monitor'], p['evaluation'][primary], True)
+    p['deployment'] = {'enabled': p['acceptance']['passed'],
+        'status': 'validated_research_scope_only' if p['acceptance']['passed'] else 'research_only',
+        'primary_candidate': primary, 'generic_python_c_matlab_enabled': False,
+        'failed_criteria': p['acceptance']['failed'], 'scope': spec['scope']}
+    p['completed_utc'] = datetime.now(timezone.utc).isoformat()
+    write_json(RESULT, p)
+    DOC.write_text(_doc(p), encoding='utf-8')
+    checkpoint()
+    print(json.dumps({'acceptance': p['acceptance'], 'deployment': p['deployment'], 'simulation_counts': p['simulation_counts']}, indent=2), flush=True)
+
+
+def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--register-only', action='store_true')
+    parser.add_argument('--render-only', action='store_true')
+    parser.add_argument('--check', action='store_true')
+    parser.add_argument('--stop-after', choices=['train', 'calibrate', 'evaluate'], default='evaluate')
     args = parser.parse_args()
     if args.register_only:
         register()
+    elif args.render_only:
+        rendered = _doc(json.loads(RESULT.read_text(encoding='utf-8')))
+        if args.check:
+            if DOC.read_text(encoding='utf-8') != rendered:
+                raise SystemExit('TRAJECTORY_RISK.md differs from generated evidence')
+        else:
+            DOC.write_text(rendered, encoding='utf-8')
     else:
-        raise SystemExit('Study runner is being implemented; no data collected.')
+        run_study(args)
+
+
+if __name__ == '__main__':
+    main()
