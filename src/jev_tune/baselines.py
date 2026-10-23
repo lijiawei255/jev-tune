@@ -219,6 +219,8 @@ def run_simplex(
     evals = 4
 
     while evals < budget:
+        if evals + 1 > budget:  # not even one reflection left
+            break
         order = np.argsort(fv, axis=0)
         sim = np.take_along_axis(sim, order[:, :, None], axis=0)
         fv = np.take_along_axis(fv, order, axis=0)
@@ -234,6 +236,8 @@ def run_simplex(
         if (~better).any():
             base = sim[0]
             for k in range(1, 4):
+                if evals + 1 > budget:  # do not overshoot the budget
+                    break
                 cand = base + 0.5 * (sim[k] - base)
                 fk = _eval(plants, 10**cand)
                 evals += 1
@@ -339,6 +343,9 @@ def run_bo(
 
     rng = np.random.default_rng(seed)
     n = plants.n
+    # a budget below the default initial design would otherwise spend more
+    # experiments than the budget it was given
+    n_init = max(2, min(n_init, budget))
     kernel = ConstantKernel(1.0) * Matern(length_scale=0.4, nu=2.5)
 
     X = np.clip(

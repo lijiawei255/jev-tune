@@ -162,26 +162,35 @@ def main():
     ku_s = np.where(ok, ku_s, ku)
     tu_s = np.where(ok, tu_s, tu)
     gzn_s = np.column_stack([0.6 * ku_s, 1.2 * ku_s / tu_s, 0.075 * ku_s * tu_s])
-    t = time.perf_counter()
-    hr_s = evaluate_head(
-        head,
-        plants,
-        gzn_s,
-        ku_s,
-        tu_s,
-        budget=args.budget - sweep_sims,
-        value=None,
-        use_value_filter=False,
-        seed=args.seed,
-        sims_already_spent=sweep_sims,
-    )
-    hr_s.name = "jev_head_swept"
-    hr_s.wall_s = time.perf_counter() - t
-    results.append(hr_s)
-    print(
-        f"  {'jev_head_swept':16s} {hr_s.wall_s:6.1f}s  "
-        f"J median={np.median(hr_s.best_j):.3f}  ({hr_s.sims_per_plant:.0f} sims)"
-    )
+    if args.budget - sweep_sims < 2:
+        print(
+            f"[eval] budget {args.budget} is too small to pay for the "
+            f"{sweep_sims}-run Ku/Tu sweep and still tune; jev_head_swept skipped"
+        )
+        hr_s = None
+    else:
+        t = time.perf_counter()
+        hr_s = evaluate_head(
+            head,
+            plants,
+            gzn_s,
+            ku_s,
+            tu_s,
+            budget=args.budget - sweep_sims,
+            value=None,
+            use_value_filter=False,
+            seed=args.seed,
+            sims_already_spent=sweep_sims,
+        )
+        hr_s.name = "jev_head_swept"
+        hr_s.wall_s = time.perf_counter() - t
+        results.append(hr_s)
+        print(
+            f"  {'jev_head_swept':16s} {hr_s.wall_s:6.1f}s  "
+            f"J median={np.median(hr_s.best_j):.3f}  ({hr_s.sims_per_plant:.0f} sims)"
+        )
+    if hr_s is not None:
+        hr_s.name = "jev_head_swept"
     print(
         f"[eval] Kp sweep recovered Ku on {int(ok.sum())}/{plants.n} plants "
         f"({sweep_sims} sims/plant)"

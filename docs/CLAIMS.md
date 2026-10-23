@@ -44,7 +44,7 @@ $ python scripts/16_check_claims.py
 | int8 per-channel: same argmax | 97.3 % | same | same |
 | experiment cost, Fast Restart | 111 ms | `research/bench/bench_log_15s.txt` | `research/bench/bench_run.m` |
 | MATLAB forward vs exported reference | 3.8e-06 (logits), 2.6e-08 (step) | `models/jev_head_weights.mat` | `scripts/06_export_weights_mat.py` + MATLAB |
-| valve dead band, zero-shot → specialised | 2.242 → 1.884 | `models/specialized/*.pt` (manual) | `scripts/10_specialize.py --scenario valve_dead_zone --plants 120` |
+| valve dead band, zero-shot → specialised | 2.242 → 2.207 (essentially no change) | `docs/SPECIALIZE.md` (manual) | `scripts/10_specialize.py --scenario valve_dead_zone --plants 120` |
 | calibration-only adaptation, valve dead band | 2.193 → 2.318 (**worse**) | `research/results/calibrate_only.json` | `scripts/22_calibrate_only.py` |
 | motor-valve benchmark tuning | 1.238 → 0.598 (v0.2 sweep) | `docs/STEP4_RESULTS.md` | that run is history; the corrected sweep is documented there |
 
@@ -113,7 +113,7 @@ changes later.
 | int8 逐通道：argmax 一致 | 97.3% | 同上 | 同上 |
 | 单次实验耗时（开 Fast Restart） | 111 ms | `research/bench/bench_log_15s.txt` | `research/bench/bench_run.m` |
 | MATLAB 前向 vs 导出参考 | 3.8e-06（logits）、2.6e-08（步长） | `models/jev_head_weights.mat` | `scripts/06_export_weights_mat.py` + MATLAB |
-| 阀死区，零点 → 专门化 | 2.242 → 1.884 | `models/specialized/*.pt`（需手工核对） | `scripts/10_specialize.py --scenario valve_dead_zone --plants 120` |
+| 阀死区，零点 → 专门化 | 2.242 → 2.207（基本没有改善） | `docs/SPECIALIZE.md`（需手工核对） | `scripts/10_specialize.py --scenario valve_dead_zone --plants 120` |
 | 仅校准适配（阀死区） | 2.193 → 2.318（**更差**） | `research/results/calibrate_only.json` | `scripts/22_calibrate_only.py` |
 | motor-valve benchmark 整定 | 1.238 → 0.598（v0.2 的扫描） | `docs/STEP4_RESULTS.md` | 那次是历史；修正后的扫描写在同文件里 |
 

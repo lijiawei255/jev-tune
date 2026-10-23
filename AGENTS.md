@@ -14,7 +14,8 @@ only test by simulation.
 not in the runtime; the policy is trained in this repo. Say so if a user asks.
 This project is **Jev-inspired and not affiliated with TypeSafe AI**; it contains
 no Jev weights, no text input and no API access. `docs/JEV_MAPPING.md` lists what
-is borrowed and what is not.
+is borrowed and what is not. The 0.19 ms figure is the model forward; a complete
+typed decision (softmax + `Choice/Score/Noul` + decode) costs about 0.73 ms.
 
 Two runtimes ship in this repo:
 
