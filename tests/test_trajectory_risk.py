@@ -179,15 +179,29 @@ def test_exact_cache_deduplicates_bounded_candidates_and_adopts_only_when_select
     assert r["simulation_counts"]["requests"] == r["simulation_counts"]["total"] + r["simulation_counts"]["cache_hits"]
 
 
-def test_cache_does_not_merge_nearby_but_bitwise_different_gains(simulation):
-    simulation()
+def test_cache_does_not_merge_nearby_but_bitwise_different_gains(simulation, monkeypatch):
+    calls = simulation()
+    neighbour = float(np.nextafter(np.float64(2.), np.float64(np.inf)))
+    # This test exercises exact cache identity, not exp/log rounding. Supply
+    # bounded candidates directly: stage 0 diagnoses 2, while plant 1 later
+    # adopts its next representable neighbour through its fixed half-scale arm.
+    kp_candidates = iter((2., 1.5, 1.25, 3., neighbour, 1.75))
+
+    def fixed_bounded_candidates(gains, step):
+        candidate = np.asarray(gains, dtype=np.float64).copy()
+        candidate[:, 0] = next(kp_candidates)
+        return candidate
+
+    monkeypatch.setattr(engine, "apply_step", fixed_bounded_candidates)
     r = run(ids=(0, 1), proposal=Proposal(only_kp=True), mode="training")
     first = next(t for t in r["transitions"] if t["plant_index"] == 1 and t["stage"] == 0)
     second = next(t for t in r["transitions"] if t["plant_index"] == 1 and t["stage"] == 1)
     assert first["candidates"][0]["gains"][0] == 2.
-    assert second["gains_proposed"][0] != 2.
+    assert second["gains_proposed"][0] == neighbour != 2.
     assert second["gains_proposed"][0] == pytest.approx(2.)
     assert not second["cache_hit"] and second["simulation_performed"]
+    assert second["measurement_id"] != first["candidates"][0]["measurement_id"]
+    assert any(gain[0] == neighbour for ids, gains in calls for i, gain in zip(ids, gains) if i == 1)
 
 
 def test_prior_diagnostic_enters_history_only_when_selected_at_a_later_stage(simulation):
