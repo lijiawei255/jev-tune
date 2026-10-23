@@ -36,10 +36,12 @@ def main():
     claims_log.parent.mkdir(parents=True, exist_ok=True)
     claims_log.write_text(claims_text, encoding='utf-8')
     command('34_reproduce_trajectory_evaluation.py', '--check')
+    command('38_cohort_portability.py', '--check')
     study = json.loads((ROOT/'research/results/trajectory_risk.json').read_text())
     replay = json.loads((ROOT/'research/results/trajectory_risk_reproduction.json').read_text())
     validity = json.loads((ROOT/'research/results/trajectory_risk_validity.json').read_text())
     numerical = json.loads((ROOT/'research/results/batch_inference_diagnosis.json').read_text())
+    portability = json.loads((ROOT/'research/results/cohort_portability.json').read_text(encoding='utf-8'))
     if study['deployment']['enabled'] and not validity['deployment_allowed']:
         raise SystemExit('Unestablished validity cannot authorize deployment')
     coverage = re.search(r'Total coverage: ([\d.]+)%', Path(args.pytest_log).read_text(encoding='utf-8'))
@@ -55,13 +57,15 @@ def main():
         'matlab_runtime':json.loads((ROOT/'research/results/matlab_runtime.json').read_text())['test_results'],
         'trajectory_risk':{k:study[k] for k in ('acceptance','deployment','evaluation','simulation_counts','protocol_sha256')},
         'trajectory_risk_reproduction':replay, 'scientific_validity':validity,
+        'cohort_portability':portability,
         'additional_numerical_diagnosis_simulations':numerical['additional_simulation_counts'],
         'all_current_study_and_reproduction_simulations':study['simulation_counts']['total']
             + replay['additional_simulation_counts']['total'] + numerical['additional_simulation_counts']['total'],
         'preserved_v1':study['protocol']['specification']['old_results'],
         'manifest':manifest(args, files=[args.junit,args.pytest_log,str(claims_log),'research/results/trajectory_risk.json',
             'research/results/trajectory_risk_reproduction.json','research/results/matlab_runtime.json',
-            'research/results/trajectory_risk_validity.json','research/results/batch_inference_diagnosis.json'])}
+            'research/results/trajectory_risk_validity.json','research/results/batch_inference_diagnosis.json',
+            'research/results/cohort_portability.json'])}
     dest.write_text(json.dumps(payload,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
     stats = f"{totals['tests']-totals['skipped']} passed; {totals['skipped']} skipped; coverage {float(coverage[1])}%; {len(claims)} automatic document checks."
     lines = ['# Release verification / 发布验证','','[English](#english) · [简体中文](#简体中文)','']
@@ -69,6 +73,8 @@ def main():
         lines += ['## 简体中文' if zh else '## English','',stats,'',
             ('数字来自本次实际JUnit、pytest日志和claims复算。软件检查与研究启用验收是不同结论。'
              if zh else 'Counts come from actual JUnit, pytest logs and claims recomputation. Software verification and research enablement are separate conclusions.'),'',
+            ('严格科学证据重建及规范化JSON记录精确重放已在记录的Windows参考宿主验证。Linux即使固定相同Python/科学包版本，仍在训练对象身份哈希首关失败；初始增益通过原容差，但不替代身份校验，后续v2重建未获验证。该失败保存在cohort_portability.json。Windows托管CI是另一个实际受检环境；Linux Python/C99运行时支持不意味着研究轨迹跨平台逐位复现。'
+             if zh else 'Strict scientific evidence reconstruction and exact canonical-JSON replay were verified on the recorded Windows reference host. Linux with matching Python/scientific package versions failed the first training-cohort identity-hash check; initial gains passed the original tolerance but cannot replace identity validation, and later v2 reconstruction was not established there. This failure is preserved in cohort_portability.json. Hosted Windows CI is a separate environment that must actually pass; Linux Python/C99 runtime support does not imply cross-platform bitwise scientific replay.'),'',
             f"{'新研究验收' if zh else 'New study acceptance'}: **{'PASS' if study['acceptance']['passed'] else 'FAIL'}**; `{study['deployment']['status']}`.",
             f"{'未通过项' if zh else 'Failed criteria'}: {', '.join(study['acceptance']['failed']) or 'none'}.",'',
             ('额外实施有效性审计：覆盖前提尚未建立，禁止部署。批大小/行位置会改变浮点推理，校准与测试分数的交换性及轨迹事件独立性未闭合；名义CP/二项统计量不能作为机器实现的精确概率保证。该事后审计没有修改冻结数值验收。'
@@ -84,6 +90,7 @@ def main():
             '[TRAJECTORY_RISK](TRAJECTORY_RISK.md) · [ROLLOUT_DIAGNOSIS](ROLLOUT_DIAGNOSIS.md) · [preserved v1](JOINT_RISK_ROLLOUT.md)','',
             '[release_verification.json](../research/results/release_verification.json) · [trajectory_risk_reproduction.json](../research/results/trajectory_risk_reproduction.json)',
             '[trajectory_risk_validity.json](../research/results/trajectory_risk_validity.json) · [batch_inference_diagnosis.json](../research/results/batch_inference_diagnosis.json)','']
+        lines += ['[cohort_portability.json](../research/results/cohort_portability.json)', '']
     (ROOT/'docs/RELEASE_VERIFICATION.md').write_text('\n'.join(lines),encoding='utf-8')
     print(stats)
 

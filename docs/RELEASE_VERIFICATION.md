@@ -4,9 +4,11 @@
 
 ## English
 
-278 passed; 0 skipped; coverage 77.8%; 140 automatic document checks.
+280 passed; 0 skipped; coverage 77.8%; 141 automatic document checks.
 
 Counts come from actual JUnit, pytest logs and claims recomputation. Software verification and research enablement are separate conclusions.
+
+Strict scientific evidence reconstruction and exact canonical-JSON replay were verified on the recorded Windows reference host. Linux with matching Python/scientific package versions failed the first training-cohort identity-hash check; initial gains passed the original tolerance but cannot replace identity validation, and later v2 reconstruction was not established there. This failure is preserved in cohort_portability.json. Hosted Windows CI is a separate environment that must actually pass; Linux Python/C99 runtime support does not imply cross-platform bitwise scientific replay.
 
 New study acceptance: **FAIL**; `research_only`.
 Failed criteria: empirical_mean_cost_noninferior, empirical_p90_cost_noninferior.
@@ -28,11 +30,15 @@ Theoretical coverage requires the frozen noiseless six-family scope and assumpti
 [release_verification.json](../research/results/release_verification.json) · [trajectory_risk_reproduction.json](../research/results/trajectory_risk_reproduction.json)
 [trajectory_risk_validity.json](../research/results/trajectory_risk_validity.json) · [batch_inference_diagnosis.json](../research/results/batch_inference_diagnosis.json)
 
+[cohort_portability.json](../research/results/cohort_portability.json)
+
 ## 简体中文
 
-278 passed; 0 skipped; coverage 77.8%; 140 automatic document checks.
+280 passed; 0 skipped; coverage 77.8%; 141 automatic document checks.
 
 数字来自本次实际JUnit、pytest日志和claims复算。软件检查与研究启用验收是不同结论。
+
+严格科学证据重建及规范化JSON记录精确重放已在记录的Windows参考宿主验证。Linux即使固定相同Python/科学包版本，仍在训练对象身份哈希首关失败；初始增益通过原容差，但不替代身份校验，后续v2重建未获验证。该失败保存在cohort_portability.json。Windows托管CI是另一个实际受检环境；Linux Python/C99运行时支持不意味着研究轨迹跨平台逐位复现。
 
 新研究验收: **FAIL**; `research_only`.
 未通过项: empirical_mean_cost_noninferior, empirical_p90_cost_noninferior.
@@ -53,3 +59,5 @@ Theoretical coverage requires the frozen noiseless six-family scope and assumpti
 
 [release_verification.json](../research/results/release_verification.json) · [trajectory_risk_reproduction.json](../research/results/trajectory_risk_reproduction.json)
 [trajectory_risk_validity.json](../research/results/trajectory_risk_validity.json) · [batch_inference_diagnosis.json](../research/results/batch_inference_diagnosis.json)
+
+[cohort_portability.json](../research/results/cohort_portability.json)

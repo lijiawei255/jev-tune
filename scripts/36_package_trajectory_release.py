@@ -79,6 +79,7 @@ def main():
         'v080_final_pytest.xml', 'v080_final_pytest.log', 'v080_final_claims.json',
         'v080_c99.log', 'v080_matlab_verification.log', 'v080_independent_evidence.log',
         'v080_reproduction.log', 'v080_batch_inference_diagnosis.log')]
+    logs += sorted((ROOT/'research/results/cohort_portability_sources').glob('*'))
     archive(logs_zip, logs)
     assets = [data_zip, raw_zip, logs_zip]
     source_paths = [
@@ -90,6 +91,7 @@ def main():
         'research/results/trajectory_risk_pairing_diagnosis.json',
         'research/results/trajectory_risk_validity.json',
         'research/results/batch_inference_diagnosis.json',
+        'research/results/cohort_portability.json',
         'research/results/release_verification.json',
     ]
     for source in source_paths:
@@ -114,7 +116,9 @@ The v2 protocol was committed and pushed before new sampling. It fixes multi-rou
 
 Full prediction sets and the preallocated 0.10 finite-horizon risk budget are retained. The selected complete action is calibrated after the frozen selector; rejection never triggers a candidate retry. Missing reached-sample quotas conservatively return both labels. **An additional implementation audit found coverage premises unestablished:** batch/row-dependent floating-point inference prevents inferring a common per-object numerical map, exchangeable calibration/test scores or independent trajectory events from frozen weights alone. The nominal CP/binomial quantities therefore do not establish an exact implementation-level guarantee. This finding adds a deployment prohibition without changing preregistered numerical criteria. Accepted-action conditional risk, recovery, domain shift and physical safety remain unproven.
 
-The diagnosis explains the fixed-path truncation conflict in the previous acceptance test. Actual simulations: {study['simulation_counts']['total']} in the prospective study; {replay_total} additional simulations in the exact deterministic evaluation replay; {numerical_total} in the fixed-input numerical diagnosis. Replay and post-hoc diagnosis are charged separately and are not independent acceptance evidence. Raw trajectories, source snapshots and an independent verifier reconstruct selection, calibration, histories, labels, accounting and the failed acceptance decision.
+The diagnosis explains the fixed-path truncation conflict in the previous acceptance test. Actual simulations: {study['simulation_counts']['total']} in the prospective study; {replay_total} additional simulations in the deterministic evaluation replay with exact canonical-JSON records on the recorded Windows reference host; {numerical_total} in the fixed-input numerical diagnosis. Replay and post-hoc diagnosis are charged separately and are not independent acceptance evidence. Raw trajectories, source snapshots and an independent verifier reconstruct selection, calibration, histories, labels, accounting and the failed acceptance decision.
+
+Cross-platform bitwise scientific replay is not established. Linux with matching scientific package versions failed the strict cohort identity-hash check although initial gains passed the unchanged tolerance; later v2 reconstruction checks did not run past that failure. The original failure and scope are retained in `cohort_portability.json`. Hosted Windows scientific audit and Linux runtime/C99 tests have distinct scopes; package version pinning alone does not reproduce the reference host.
 
 Verification: {passed} pytest tests passed, {tests['skipped']} skipped; coverage {verification['coverage_percent']}%; {verification['automatic_document_checks']} automatic claims checks passed. Real MATLAB controller regressions and C99 parity were rerun. Earlier benchmark/ablation/generalization results are explicitly historical, preserved in the previous release verification record.
 
@@ -128,7 +132,9 @@ v2协议在新采样前已提交并推送，冻结多轮轨迹训练、独立温
 
 完整预测集和预先分配的0.10整段风险预算保持不变。校准针对冻结选择器实际选出的完整动作；拒绝后不重试其他候选。到达样本不足时保守返回两个标签。**额外实施审计发现覆盖前提尚未建立：**批大小和行位置影响浮点推理，不能仅凭权重冻结推定每对象映射一致、校准与测试分数交换性或轨迹事件独立性。因此名义CP/二项统计量不构成机器实现的精确概率保证。该发现额外禁止部署，但不修改预注册数值标准；获准动作条件风险、恢复、域外和物理安全也未证明。
 
-诊断文档说明原验收中固定路径截断的冲突。前瞻研究实际仿真{study['simulation_counts']['total']}次；逐字节一致的确定性评估重放另用{replay_total}次，固定输入数值诊断另用{numerical_total}次，均单独计账，不作为新增独立验收证据。原始轨迹、源码快照和独立验证器复核选择、校准、历史、标签、仿真账目和失败验收结论。
+诊断文档说明原验收中固定路径截断的冲突。前瞻研究实际仿真{study['simulation_counts']['total']}次；在记录的Windows参考宿主上，规范化JSON记录完全一致的确定性评估重放另用{replay_total}次，固定输入数值诊断另用{numerical_total}次，均单独计账，不作为新增独立验收证据。原始轨迹、源码快照和独立验证器复核选择、校准、历史、标签、仿真账目和失败验收结论。
+
+研究轨迹跨平台逐位复现尚未建立。Linux固定相同科学包版本后仍在严格对象身份哈希检查失败，初始增益虽通过原容差，也不替代身份校验；后续v2重建检查因此未执行。原失败及验证范围保存在`cohort_portability.json`。Windows托管科学审计与Linux运行时/C99测试的范围不同，固定包版本本身不等于复现参考宿主。
 
 验证：pytest通过{passed}项、跳过{tests['skipped']}项，覆盖率{verification['coverage_percent']}%；自动claims检查{verification['automatic_document_checks']}项通过。MATLAB真实控制器回归及C99一致性重新运行。旧基准、消融和泛化结果明确保留为历史记录，见上一版本发布验证记录。
 

@@ -119,7 +119,7 @@ solver      ...
 
 **额外的实现有效性审计：未建立；deployment_allowed=false。** 冻结数值判据与这一审计分开报告。本轮批次形状/行位置引起的输出依赖，使逐对象固定映射、校准/测试CP分数交换性及轨迹事件独立性均未建立。因此表内CP及单侧95%二项量只作名义计算，不能宣称本机器实现已获得精确CP/PAC保证；仅写一般交换性假设不足以弥补这一缺口。这是原数值验收之外的额外失败，继续禁止部署；需固定推理映射、重新校准和新的前瞻验证。 见[实现有效性审计](research/results/trajectory_risk_validity.json)。
 
-配对指相同初始对象与观测，不要求活跃批次不同的跨组提案/轨迹逐位相同。每组仍按自身真实动作、严格零容差标签、CP集合与历史计账；不从测试差异拟合新的验收容差。 [配对数值诊断](research/results/trajectory_risk_pairing_diagnosis.json)。 [固定输入批次诊断](research/results/batch_inference_diagnosis.json)另计1次诊断仿真；相同输入复制到不同批次/行位置时，base_step最大差为1.24583552e-07。这是事后数值机制检查，未重建原完整批次，不是新的独立验收，未改动原始动作或边界。
+配对指相同初始对象与观测，不要求活跃批次不同的跨组提案/轨迹逐位相同。每组仍按自身真实动作、严格零容差标签、CP集合与历史计账；不从测试差异拟合新的验收容差。严格科学证据重建及规范化记录的精确重放，验证范围限于记录的参考环境；Python/C99运行时的跨平台支持不意味着研究轨迹可跨平台逐位复现。见[发布验证范围](docs/RELEASE_VERIFICATION.md)。 [配对数值诊断](research/results/trajectory_risk_pairing_diagnosis.json)。 [固定输入批次诊断](research/results/batch_inference_diagnosis.json)另计1次诊断仿真；相同输入复制到不同批次/行位置时，base_step最大差为1.24583552e-07。这是事后数值机制检查，未重建原完整批次，不是新的独立验收，未改动原始动作或边界。
 <!-- trajectory-risk-v2:zh:end -->
 
 ## 15 秒看懂

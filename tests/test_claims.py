@@ -90,7 +90,7 @@ def test_stale_renderer_is_structured_failure_in_json_mode(tmp_path, monkeypatch
     assert row['ok'] is False and 'ValueError: stale harm schema' in row['detail']
     assert len(rows)==13 and all(r['ok'] is False for r in rows)
     monkeypatch.setattr(module,'generated_documents',lambda:rows)
-    for name in ('benchmark_tables','decision_evidence','rollout_evidence','performance_diagnosis_evidence','trajectory_evidence'):
+    for name in ('benchmark_tables','decision_evidence','rollout_evidence','performance_diagnosis_evidence','trajectory_evidence','cohort_portability_evidence'):
         monkeypatch.setattr(module,name,lambda:[])
     monkeypatch.setattr(sys,'argv',['check_claims','--json'])
     assert module.main()==1

@@ -131,10 +131,14 @@ def _numerical_note(pairing, batch, *, chinese, detailed, relative):
     prefix = '' if relative == 'docs/' else '../'
     if chinese:
         note = ('配对指相同初始对象与观测，不要求活跃批次不同的跨组提案/轨迹逐位相同。'
-                '每组仍按自身真实动作、严格零容差标签、CP集合与历史计账；不从测试差异拟合新的验收容差。')
+                '每组仍按自身真实动作、严格零容差标签、CP集合与历史计账；不从测试差异拟合新的验收容差。'
+                '严格科学证据重建及规范化记录的精确重放，验证范围限于记录的参考环境；Python/C99运行时的跨平台支持不意味着研究轨迹可跨平台逐位复现。'
+                f'见[发布验证范围]({relative}RELEASE_VERIFICATION.md)。')
     else:
         note = ('Pairing fixes initial plants and observations; it does not require bitwise-identical cross-arm proposals or histories under different active batch layouts. '
-                'Each arm retains its own actual actions, strict zero-tolerance labels, CP sets and history accounting; no new acceptance tolerance is fitted to test differences.')
+                'Each arm retains its own actual actions, strict zero-tolerance labels, CP sets and history accounting; no new acceptance tolerance is fitted to test differences. '
+                'Strict scientific-evidence reconstruction and exact canonical-record replay are verified within the recorded reference environment; Python/C99 runtime portability does not imply bitwise reproduction of study trajectories across platforms. '
+                f'See the [release verification scope]({relative}RELEASE_VERIFICATION.md).')
     if pairing is not None:
         if (pairing['status'] != 'post_hoc_numerical_diagnostic_only'
                 or pairing['changes_acceptance_or_thresholds'] is not False):

@@ -218,6 +218,22 @@ def trajectory_evidence() -> list[dict]:
     return rows
 
 
+def cohort_portability_evidence() -> list[dict]:
+    """Keep the observed Linux failure auditable without local regeneration."""
+    source = 'research/results/cohort_portability.json'
+    try:
+        spec = importlib.util.spec_from_file_location('cohort_portability', ROOT/'scripts/38_cohort_portability.py')
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        report = module.check(root=ROOT)
+        ok = (report['additional_simulations'] == 0 and report['thresholds_changed'] is False
+              and report['linux_exact_cohort_regeneration_established'] is False)
+        detail = 'observed Linux cohort failure preserved from source logs; reference export matches raw' if ok else 'invalid portability evidence status'
+    except Exception as exc:
+        ok = False; detail = f'{type(exc).__name__}: {exc}'
+    return [{'id': 'evidence:cohort_portability.json', 'text': 'Preserved cross-platform reproducibility limitation',
+             'ok': ok, 'value': None, 'source': source, 'detail': detail}]
+
+
 def decision_evidence() -> list[dict]:
     """Check raw paired actions and monitor equivalence, not only prose."""
     import numpy as np
@@ -498,7 +514,7 @@ def main() -> int:
                 "source": claim["source"],
             }
         )
-    for checker in (benchmark_tables,generated_documents,decision_evidence,rollout_evidence,performance_diagnosis_evidence,trajectory_evidence):
+    for checker in (benchmark_tables,generated_documents,decision_evidence,rollout_evidence,performance_diagnosis_evidence,trajectory_evidence,cohort_portability_evidence):
         try:
             checked_rows=checker()
         except Exception as exc:
