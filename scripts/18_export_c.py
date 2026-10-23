@@ -157,12 +157,17 @@ def _state_cases() -> list[dict]:
 
 
 def _resample_cases() -> list[dict]:
-    """Raw traces -> 64 samples, the same index rule as np.linspace().round()."""
+    """Raw traces -> 64 samples, the same index rule as np.linspace().round().
+
+    The trace is built from exact IEEE operations (+, -, *, /) rather than
+    sin/cos/exp: transcendental functions differ in the last ULP between libm
+    implementations, which made the generated vectors platform-dependent.
+    """
     cases = []
     for n in (2001, 501, 137):
         t = np.linspace(0.0, 10.0, n)
-        y = np.exp(-0.3 * t) * np.sin(6.0 * t) + 0.1 * t
-        u = np.cos(3.0 * t) + 0.2
+        y = (t * 0.7 - 0.3) * (t - 10.0) / 25.0
+        u = 0.2 + t / 3.0
         idx = np.linspace(0, n - 1, 64).round().astype(int)
         cases.append(
             {

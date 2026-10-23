@@ -69,10 +69,12 @@ jobs:
           PYTHONPATH: src
         run: python scripts/18_export_c.py --verify
 
-      # the exporter rewrites the committed headers and vectors; if they differ,
-      # the repository ships stale generated artifacts
-      - name: Generated C artifacts are up to date
-        run: git diff --exit-code -- c/
+      # the weights are the part that must match the checkpoint byte for byte;
+      # the vectors are checked numerically by the harness (a stale vector file
+      # makes test_forward fail). Byte-comparing the vectors across platforms is
+      # not meaningful: libm/numpy ULP differences reach the JSON.
+      - name: Generated weights are up to date
+        run: git diff --exit-code -- c/jev_head_weights.h
 
       # the Makefile is a deliverable too: make sure it still builds and checks
       - name: Makefile builds and passes
