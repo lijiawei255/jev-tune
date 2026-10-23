@@ -2,8 +2,7 @@
 
 Two numbers matter and they are not the same:
 
-* ``session.run`` -- the model forward pass, the number the "0.19 ms" badge
-  quotes;
+* ``session.run`` -- the model-only forward pass;
 * ``answer + decode`` -- one complete typed decision, including the softmax,
   the ``Choice``/``Score``/``Noul`` objects and the gain step.  This is what the
   loop actually pays per iteration.
@@ -16,14 +15,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import hashlib
+import platform
 import time
 from pathlib import Path
 
 import numpy as np
 import torch
 
-from jev_tune.decision import OnnxBackend
-from jev_tune.decode import decode_answer
+from jev_tune.decision import OnnxBackend, read_conformal, read_temperature
+from jev_tune.decode import decide
 from jev_tune.model import JevHead
 
 
@@ -51,6 +52,9 @@ def main():
     ap.add_argument("--reps", type=int, default=2000)
     ap.add_argument("--json-out", default="research/results/latency.json")
     args = ap.parse_args()
+    if args.reps < 1:
+        ap.error("--reps must be positive")
+    torch.set_num_threads(1)
 
     meta = json.loads((Path(args.models) / "meta.json").read_text(encoding="utf-8-sig"))
     model = JevHead(n_actions=meta.get("n_actions", 5))
@@ -113,13 +117,14 @@ def main():
     print(f"[onnx] max |onnx - torch| = {max_diff:.2e}")
 
     # the number the loop pays: typed answer + decode
-    backend = OnnxBackend(args.out)
+    backend = OnnxBackend(args.out, temperature=read_temperature(args.models),
+                          conformal=read_conformal(args.models))
     for _ in range(200):
-        decode_answer(backend.answer(f, c))
+        decide(backend.answer(f, c), conformal=backend.conformal)
     typed = np.empty(args.reps)
     for i in range(args.reps):
         t = time.perf_counter()
-        decode_answer(backend.answer(f, c))
+        decide(backend.answer(f, c), conformal=backend.conformal)
         typed[i] = (time.perf_counter() - t) * 1e3
     print(
         f"[onnx] typed decision p50 {_p50(typed):.3f} ms "
@@ -135,7 +140,12 @@ def main():
     print(f"[torch] forward p50 {_p50(torch_lat):.3f} ms")
 
     params = sum(p.numel() for p in model.parameters())
+    from _experiment_protocol import manifest
+
     payload = {
+        "manifest": manifest(args, files=[Path(args.models) / args.weights,
+                                         Path(args.models) / "calibration.json", Path(args.out)],
+                             extra={"input_seed": 0, "measurement_scope": "model forward and default typed decision"}),
         "onnx_forward_ms": _p50(raw),
         "onnx_forward_p95_ms": float(np.percentile(raw, 95)),
         "onnx_forward_p99_ms": float(np.percentile(raw, 99)),
@@ -146,11 +156,23 @@ def main():
         "reps": args.reps,
         "threads": 1,
         "batch": 1,
+        "input_workload": "one NumPy seed-0 normal state repeated for all samples; excludes feature assembly and simulation",
+        "warmup_reps": {"onnx_forward": 50, "typed_decision": 200},
+        "decision_path": "OnnxBackend.answer + decide(conformal=backend.conformal, abstain=None)",
+        "abstention_policy": {"tau_act": 0., "tau_esc": 0., "tau_noul": 0.},
+        "conformal_policy": None if backend.conformal is None else {
+            "qhat_per_axis": list(backend.conformal.q_hat), "alpha": backend.conformal.alpha,
+            "k_max": backend.conformal.k_max},
+        "environment": {"platform": platform.platform(), "processor": platform.processor(),
+                        "python": platform.python_version(), "torch": torch.__version__, "onnxruntime": ort.__version__},
+        "model_sha256": hashlib.sha256((Path(args.models) / args.weights).read_bytes()).hexdigest(),
+        "onnx_sha256": hashlib.sha256(Path(args.out).read_bytes()).hexdigest(),
+        "samples_ms": {"onnx_forward": raw.tolist(), "typed_decision": typed.tolist()},
         "params_total": int(params),
         "params_backbone": int(sum(p.numel() for p in model.enc.parameters())),
         "onnx_max_abs_diff_vs_torch": max_diff,
         "onnx_file_bytes": Path(args.out).stat().st_size,
-        "note": "one CPU thread, batch 1, laptop CPU; median of the reps",
+        "note": "one CPU thread, batch 1, host CPU; median of the reps; feature assembly and simulation excluded",
     }
     Path(args.json_out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.json_out).write_text(json.dumps(payload, indent=2), encoding="utf-8")

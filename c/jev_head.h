@@ -2,7 +2,7 @@
  * jev_head.h -- C99 reference implementation of the jev-tune decision step.
  *
  * Scope: inference only.  No training, no plant simulation, no dynamic memory,
- * no libm beyond expf/log10f/isfinitef (C99 math).  Fixed-size arrays only.
+ * only standard C99/libm calls. Fixed-size arrays only.
  *
  * The Python package (`src/jev_tune`) remains the authority; this file exists so
  * that a port to C, C++, Rust or MicroPython can be checked against the same
@@ -14,6 +14,11 @@
  */
 #ifndef JEV_HEAD_H
 #define JEV_HEAD_H
+
+#include <float.h>
+#if FLT_RADIX != 2 || FLT_MANT_DIG != 24 || DBL_MANT_DIG < 53
+#error "jev_head requires binary32 float and at least binary64 double precision"
+#endif
 
 #define JEV_N_FEATS 20
 #define JEV_N_CURVE 64
@@ -46,8 +51,16 @@ typedef struct {
 
 typedef struct {
     float step[3];       /* log10 gain steps, already clipped to +/-MAX_STEP */
-    int held;            /* 1 when the decode chose "hold" on every axis */
+    float proposed[3];   /* full-distribution proposal, before either veto */
+    int held;            /* 1 only when policy vetoed all axes */
     float confidence[3]; /* max probability per axis */
+    int axis_held[3];     /* policy veto, distinct from a confident zero step */
+    int escalate[3];      /* held and below tau_esc */
+    int reason[3];        /* 0 act, 1 low confidence, 2 escalate, 3 noul,
+                            4 empty CP set, 5 oversized CP set, 6 mixed signs */
+    int set_size[3];      /* conformal set size; zero when disabled */
+    int conformal_set[3][JEV_K];
+    int conformal_applied;
 } jev_action;
 
 /* forward pass: conv1d(2->16, k5, s2) -> conv1d(16->32, k5, s2) -> avgpool
@@ -79,6 +92,18 @@ typedef struct {
 
 void jev_abstain(jev_action *act, const jev_probs *p, const jev_policy *pol,
                  int *escalations);
+
+/* Split-conformal label sets; these quantify teacher-label coverage, not
+ * closed-loop stability. Apply after the optional legacy p_max/Noul policy.
+ * Every CP rejection also flags escalation; Noul has reason precedence. */
+typedef struct {
+    int enabled;
+    double qhat[3];      /* retain near-one calibration quantiles exactly */
+    int k_max;
+} jev_conformal;
+
+void jev_apply_conformal(jev_action *act, const jev_probs *p,
+                         const jev_conformal *cp, int *escalations);
 
 /* gains <- clip(gains * 10^step) */
 void jev_apply_step(float gains[3], const float step[3]);

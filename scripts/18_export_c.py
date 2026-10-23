@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import hashlib
 import shutil
 import subprocess
 from pathlib import Path
@@ -25,8 +26,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from jev_tune.decision import read_temperature
-from jev_tune.decode import DEFAULT_ABSTAIN, ActionSpace, decide, decode_answer
+from jev_tune.decision import read_conformal, read_temperature
+from jev_tune.decode import AbstainPolicy, ActionSpace, ConformalPolicy, apply_step, decide
 from jev_tune.model import JevHead
 from jev_tune.primitives import softmax
 
@@ -63,6 +64,24 @@ def _c_array(name: str, values: np.ndarray) -> str:
     flat = np.asarray(values, dtype=np.float32).reshape(-1)
     body = ", ".join(float(x).hex() + "f" for x in flat)
     return f"static const float {name}[{flat.size}] = {{{body}}};\n"
+
+
+def _c_double(name: str, values, *, rows=False) -> str:
+    """CP quantiles must retain binary64 precision, particularly near one."""
+    a = np.asarray(values, dtype=float)
+    if not rows:
+        return f"static const double {name}[{a.size}] = {{" + ", ".join(float(x).hex() for x in a.flat) + "};\n"
+    a = a.reshape(a.shape[0], -1)
+    body = ",\n    ".join("{" + ", ".join(float(x).hex() for x in row) + "}" for row in a)
+    return f"static const double {name}[{a.shape[0]}][{a.shape[1]}] = {{\n    {body}\n}};\n"
+
+
+def _conformal_config(cp):
+    return {"enabled": cp is not None, "qhat_per_axis": list(cp.q_hat) if cp else [0.] * 3,
+            "alpha": cp.alpha if cp else .1, "k_max": cp.k_max if cp else 3,
+            "inclusion": "(1 - p) <= qhat; equivalent to p >= 1-qhat",
+            "hold": "empty or size > k_max or both positive and negative payloads",
+            "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"}
 
 
 def _c_2d(name: str, arr: np.ndarray) -> str:
@@ -181,6 +200,79 @@ def _resample_cases() -> list[dict]:
     return cases
 
 
+def _policy_cases() -> list[dict]:
+    """Synthetic edge cases, independent of what the checkpoint happens to emit."""
+    from jev_tune.primitives import Answer, Choice, Noul, Option, Score
+
+    space = ActionSpace()
+    unit = np.eye(space.k)
+    uniform = np.full(space.k, 1 / space.k)
+    half = np.array([0, 0, 0, 0, 0, .5, .5])
+    quarter = np.array([0, 0, 0, .25, .25, .25, .25])
+    legacy_specs = [
+        ("confident_no_change", [unit[3]] * 3, 1., (.35, .25, 0.)),
+        ("all_low", [uniform] * 3, 1., (.35, .25, 0.)),
+        ("partial_and_act_boundary", [unit[6], uniform, half], 1., (.5, .25, 0.)),
+        ("escalation_boundary", [quarter, uniform, half], 1., (.5, .25, 0.)),
+        ("noul_boundary", [unit[6]] * 3, .5, (.35, .25, .5)),
+        ("noul_veto", [unit[6], uniform, unit[3]], .49, (.35, .25, .5)),
+        ("stop_boundary", [unit[6]] * 3, .9, (.35, .25, 0.)),
+    ]
+    mixed = np.array([.5, 0, 0, 0, 0, 0, .5])
+    tails = np.array([0, 0, 0, 0, .125, .125, .75])
+    tiny_tail = np.array([0, 0, 0, 0, 0, 2.**-41, 1 - 2.**-41])
+    cp = lambda q: ConformalPolicy(q_hat=(q,) * 3, alpha=.1, k_max=3)
+    specs = [(*s, None) for s in legacy_specs] + [
+        ("cp_empty", [uniform] * 3, 1., (0., 0., 0.), cp(.5)),
+        ("cp_oversized", [quarter] * 3, 1., (0., 0., 0.), cp(.75)),
+        ("cp_mixed_signs", [mixed] * 3, 1., (0., 0., 0.), cp(.5)),
+        ("cp_inclusive_boundary", [half] * 3, 1., (0., 0., 0.), cp(.5)),
+        ("cp_exact_kmax", [tails] * 3, 1., (0., 0., 0.), cp(.875)),
+        ("cp_full_distribution_proposal", [tails] * 3, 1., (0., 0., 0.), cp(.5)),
+        ("cp_confident_no_change", [unit[3]] * 3, 1., (0., 0., 0.), cp(0.)),
+        ("cp_near_one_quantile", [tiny_tail] * 3, 1., (0., 0., 0.), cp(1 - 2.**-40)),
+        ("cp_noul_precedence", [mixed, half, uniform], .49, (0., 0., .5), cp(.5)),
+        ("cp_legacy_precedence", [uniform, half, unit[3]], 1., (.35, .25, 0.), cp(.5)),
+    ]
+    cases = []
+    for name, probs, noul, thresholds, conformal in specs:
+        policy = AbstainPolicy(*thresholds)
+        score = np.array([1., 0, 0, 0, 0])
+        ans = Answer(
+            choice=[Choice(str(a), [Option(str(j), float(d)) for j, d in enumerate(space.deltas)],
+                           np.asarray(p)) for a, p in enumerate(probs)],
+            score=Score("quality", list("abcde"), score), noul=Noul("healthy", noul),
+        )
+        dec = decide(ans, space, abstain=policy, conformal=conformal)
+        argmax_dec = decide(ans, space, abstain=policy, conformal=conformal, use_expectation=False)
+        cases.append({"name": name, "probs": np.asarray(probs).tolist(),
+                      "score_probs": score.tolist(), "noul": noul,
+                      "policy": dict(zip(("tau_act", "tau_esc", "tau_noul"), thresholds)),
+                      "conformal": _conformal_config(conformal),
+                      "step": dec.step.tolist(), "held": dec.held.tolist(),
+                      "proposed": dec.proposed.tolist(), "set_size": dec.set_size.tolist(),
+                      "conformal_set": np.stack(dec.conformal_set).tolist(),
+                      "argmax_step": argmax_dec.step.tolist(),
+                      "escalate": dec.escalate.tolist(), "reason": dec.reason.tolist(),
+                      "should_stop": noul > .9})
+    return cases
+
+
+def _gate_cases() -> list[dict]:
+    return [{"cost": j, "best_cost": best, "rollbacks": n, "max_rollbacks": cap,
+             "rollback": j > max(3 * best + 1, 8) and n < cap}
+            for j, best, n, cap in [(8., 1., 0, 4), (8.01, 1., 0, 4),
+                                   (10., 3., 0, 4), (10.01, 3., 0, 4),
+                                   (100., 1., 4, 4), (100., 1., 0, 0)]]
+
+
+def _apply_cases() -> list[dict]:
+    return [{"gains": g, "step": d, "expected": apply_step(g, d).tolist()}
+            for g, d in [([1., 2., 3.], [0., 0., 0.]),
+                         ([1e-4, 1e3, 1.], [-.32, .32, .1]),
+                         ([1., 2., 3.], [-.2, .2, -.3])]]
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--models", default="models")
@@ -203,6 +295,20 @@ def main():
     model.eval()
     sd = model.state_dict()
     temperature = read_temperature(models) or [1.0, 1.0, 1.0]
+    conformal = read_conformal(models)
+    space = ActionSpace()
+    config = {"multipliers": list(space.multipliers), "deltas": space.deltas.tolist(),
+              "max_step": space.max_step, "var_ref": space.var_ref, "shrinkage": 1.,
+              "temperature": list(temperature),
+              "policy": {"tau_act": 0., "tau_esc": 0., "tau_noul": 0.},
+              "conformal": _conformal_config(conformal),
+              "gain_bounds": [1e-4, 1e3], "rollback": {"factor": .6, "max_count": 4,
+                                                       "cost_floor": 8., "best_factor": 3., "offset": 1.}}
+    if conformal is not None:
+        calibration_cp = json.loads((models / "calibration.json").read_text(encoding="utf-8-sig"))["split_conformal"]
+        config["conformal"].update({key: calibration_cp.get(key) for key in
+                                    ("method", "n_calibration", "quantile_rank", "fit_split")})
+    model_hash = hashlib.sha256((models / "jev_head.pt").read_bytes()).hexdigest()
 
     out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -217,6 +323,18 @@ def main():
         header.append(_c_array(name, sd[key].numpy()))
     header.append("#endif")
     (out / "jev_head_weights.h").write_text("\n".join(header), encoding="utf-8")
+    (out / "jev_config.h").write_text("\n".join([
+        "/* generated by scripts/18_export_c.py -- do not edit */",
+        "#ifndef JEV_CONFIG_H", "#define JEV_CONFIG_H",
+        f'#define JEV_MODEL_SHA256 "{model_hash}"',
+        _c_array("JEV_DEFAULT_TEMPERATURE", temperature),
+        _c_array("JEV_DEFAULT_POLICY", list(config["policy"].values())),
+        f'#define JEV_DEFAULT_CP_ENABLED {int(conformal is not None)}',
+        f'#define JEV_DEFAULT_CP_K_MAX {config["conformal"]["k_max"]}',
+        f'#define JEV_DEFAULT_CP_ALPHA {config["conformal"]["alpha"]}',
+        _c_double("JEV_DEFAULT_CP_QHAT", config["conformal"]["qhat_per_axis"]),
+        "#endif",
+    ]), encoding="utf-8")
 
     # ---- test vectors: real states, spread over the dataset
     data_path = Path(args.data)
@@ -275,7 +393,7 @@ def main():
             score=Score("quality", list("abcde"), softmax(logits["score"][i].numpy())),
             noul=Noul("healthy", 1.0 / (1.0 + np.exp(-logits["noul"][i].numpy()))),
         )
-        decision = decide(answer, space, abstain=DEFAULT_ABSTAIN)
+        decision = decide(answer, space, conformal=conformal)
         step = decision.step
         cases.append(
             {
@@ -288,24 +406,42 @@ def main():
                 "score_logits": [float(x) for x in logits["score"][i].numpy()],
                 "noul_logit": float(logits["noul"][i].numpy()),
                 "probs": [[float(x) for x in row] for row in probs],
+                "score_probs": answer.score.dist.tolist(),
+                "noul": float(answer.noul.p_true),
                 "step": [float(x) for x in step],
+                "proposed": decision.proposed.tolist(),
+                "set_size": decision.set_size.tolist(),
+                "conformal_set": np.stack(decision.conformal_set).tolist(),
                 "held": [bool(x) for x in decision.held],
+                "escalate": decision.escalate.tolist(),
+                "reason": decision.reason.tolist(),
             }
         )
 
     payload = {
         "generated_by": "scripts/18_export_c.py",
+        "schema_version": 3,
+        "model_sha256": model_hash,
+        "configuration_sha256": hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest(),
+        "calibration_sha256": hashlib.sha256((models / "calibration.json").read_bytes().replace(b"\r\n", b"\n")).hexdigest() if (models / "calibration.json").is_file() else None,
+        "hash_normalization": "CRLF to LF for text files; binary files byte-exact; configuration sorted JSON",
+        "numeric_format": {"weights_and_C_arrays": "IEEE754 binary32", "conformal_quantiles": "IEEE754 binary64", "JSON_reference": "Python floats; compare with supplied tolerances"},
+        "configuration": config,
         "model": str(models / "jev_head.pt"),
         "source_rows": source_rows,
         "temperature": [float(t) for t in temperature],
         "tolerance": {"logits": 5e-4, "probs": 1e-5, "step": 1e-5, "feats": 1e-5},
         "note": (
             "logits are the raw head outputs; probs apply the fitted temperature; "
-            "step is expectation + variance shrink + clip (jev_decode)"
+            "step is full-distribution expectation + variance shrink + clip then CP mask; "
+            "held records policy vetoes, never merely a zero-valued action"
         ),
         "cases": cases,
         "state_cases": _state_cases(),
         "resample_cases": _resample_cases(),
+        "policy_cases": _policy_cases(),
+        "gate_cases": _gate_cases(),
+        "apply_cases": _apply_cases(),
     }
     (out / "test_vectors.json").write_text(
         json.dumps(payload, indent=1), encoding="utf-8"
@@ -337,14 +473,56 @@ def main():
             np.array([c["probs"] for c in cases]).reshape(len(cases), 21),
         ),
         _c_2d("JEV_TV_STEP", np.array([c["step"] for c in cases])),
+        _c_2d("JEV_TV_PROPOSED", np.array([c["proposed"] for c in cases])),
+        _c_2d("JEV_TV_SET_SIZE", np.array([c["set_size"] for c in cases])),
+        _c_2d("JEV_TV_CONFORMAL_SET", np.array([c["conformal_set"] for c in cases])),
+        _c_2d("JEV_TV_SCORE_LOGITS", np.array([c["score_logits"] for c in cases])),
+        _c_2d("JEV_TV_SCORE_PROBS", np.array([c["score_probs"] for c in cases])),
+        _c_2d("JEV_TV_NOUL_LOGITS", np.array([[c["noul_logit"]] for c in cases])),
+        _c_2d("JEV_TV_NOUL", np.array([[c["noul"]] for c in cases])),
+        _c_2d("JEV_TV_HELD", np.array([c["held"] for c in cases])),
+        _c_2d("JEV_TV_ESCALATE", np.array([c["escalate"] for c in cases])),
+        _c_2d("JEV_TV_REASON", np.array([c["reason"] for c in cases])),
         "",
-        "static const float JEV_TV_TAU_ACT = %.9ff;" % DEFAULT_ABSTAIN.tau_act,
-        "static const float JEV_TV_TAU_ESC = %.9ff;" % DEFAULT_ABSTAIN.tau_esc,
-        "static const float JEV_TV_TAU_NOUL = %.9ff;" % DEFAULT_ABSTAIN.tau_noul,
+        "static const float JEV_TV_TAU_ACT = 0.0f;",
+        "static const float JEV_TV_TAU_ESC = 0.0f;",
+        "static const float JEV_TV_TAU_NOUL = 0.0f;",
+        f'#define JEV_TV_CP_ENABLED {int(conformal is not None)}',
+        f'#define JEV_TV_CP_K_MAX {config["conformal"]["k_max"]}',
+        _c_double("JEV_TV_CP_QHAT", config["conformal"]["qhat_per_axis"]),
         "",
         "#endif",
     ]
     (out / "test_vectors.h").write_text("\n".join(vec), encoding="utf-8")
+
+    pc, gc, ac = payload["policy_cases"], payload["gate_cases"], payload["apply_cases"]
+    policy_header = ["/* generated by scripts/18_export_c.py -- do not edit */",
+                     f"#define JEV_PC_N {len(pc)}", f"#define JEV_GC_N {len(gc)}",
+                     f"#define JEV_AC_N {len(ac)}"]
+    for name, values in {
+        "JEV_PC_PROBS": [c["probs"] for c in pc],
+        "JEV_PC_SCORE": [c["score_probs"] for c in pc],
+        "JEV_PC_NOUL": [[c["noul"]] for c in pc],
+        "JEV_PC_POLICY": [list(c["policy"].values()) for c in pc],
+        "JEV_PC_STEP": [c["step"] for c in pc],
+        "JEV_PC_PROPOSED": [c["proposed"] for c in pc],
+        "JEV_PC_SET_SIZE": [c["set_size"] for c in pc],
+        "JEV_PC_CONFORMAL_SET": [c["conformal_set"] for c in pc],
+        "JEV_PC_CP_ENABLED": [[c["conformal"]["enabled"]] for c in pc],
+        "JEV_PC_CP_K_MAX": [[c["conformal"]["k_max"]] for c in pc],
+        "JEV_PC_ARGMAX_STEP": [c["argmax_step"] for c in pc],
+        "JEV_PC_HELD": [c["held"] for c in pc],
+        "JEV_PC_ESCALATE": [c["escalate"] for c in pc],
+        "JEV_PC_REASON": [c["reason"] for c in pc],
+        "JEV_PC_STOP": [[c["should_stop"]] for c in pc],
+        "JEV_GC": [[c[k] for k in ("cost", "best_cost", "rollbacks", "max_rollbacks", "rollback")] for c in gc],
+        "JEV_AC_GAINS": [c["gains"] for c in ac],
+        "JEV_AC_STEP": [c["step"] for c in ac],
+        "JEV_AC_EXPECTED": [c["expected"] for c in ac],
+    }.items():
+        policy_header.append(_c_2d(name, np.asarray(values)))
+    policy_header.append(_c_double("JEV_PC_CP_QHAT", [c["conformal"]["qhat_per_axis"] for c in pc], rows=True))
+    (out / "test_policy.h").write_text("\n".join(policy_header), encoding="utf-8")
 
     # ---- feature-assembly and resampling vectors (separate harness)
     sc = payload["state_cases"]
@@ -418,6 +596,7 @@ def _verify(out: Path) -> int:
     for src, exe in (
         ("test_forward.c", "test_forward.exe"),
         ("test_features.c", "test_features.exe"),
+        ("test_policy.c", "test_policy.exe"),
     ):
         cmd = common + [
             "-o",

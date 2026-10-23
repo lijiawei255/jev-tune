@@ -11,46 +11,17 @@ Both are answered with measurements, not adjectives.
 
 ---
 
-## 1. Will it blow up my loop?
+## 1. Returned cost versus search risk
 
-Measured over **200 plants**, all zero-shot (no per-plant training):
-120 from the training zoo, 40 from an unseen family, and 40 out-of-distribution
-scenarios (dead band, unstable pole, inverse response, resonance, noise…).
+| group | n | start J | returned J | improved % | worse % | rollbacks | final diverged | search diverged |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| zoo | 120 | 2.341 | 1.874 | 90.0 | 0.0 | 0 | 0 | 0 |
+| heldout | 40 | 2.367 | 0.732 | 97.5 | 0.0 | 0 | 0 | 0 |
+| outofzoo | 40 | 3.983 | 3.378 | 75.0 | 0.0 | 0 | 5 | 5 |
 
-| population | n | cost at Z-N start | cost reached | improved | same | **worse** | worst final/start | rollbacks | diverged |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| zoo (in-distribution) | 120 | 2.341 | 1.556 | 97 % | 3 % | **0 %** | 1.00 | 0 | 0 |
-| held-out family | 40 | 2.367 | 0.381 | 100 % | 0 % | **0 %** | 0.92 | 0 | 0 |
-| out-of-distribution | 40 | 3.378 | 2.809 | 80 % | 20 % | **0 %** | 1.00 | 1 | 4 |
+Across 200 plants, returned measured-best costs have worse_pct as listed above. This is bookkeeping, not a bound on trial costs or stability. OOD search divergence: 5; final divergence: 5. Total rollbacks: 0. Gate-on/off unchanged pairs: 40/40 at absolute tolerance 1e-06.
 
-**200/200 plants end at or better than the starting point.** The four
-"diverged" cases are the inverted-pendulum plants, where the *start* is already
-diverged (Z-N is meaningless for an open-loop unstable plant) — the tuner
-returns that same start rather than something worse.
-
-### Why it cannot make things worse (two independent layers)
-
-| layer | what it does | where |
-| :--- | :--- | :--- |
-| **structural** | every returned gain set is the best one *measured*, so the answer can never be worse than the start | `evaluate_head` / `jev_tune_model.m` (`bestGains`) |
-| **safety gate** | if a step makes the cost explode (`J > max(3·best + 1, 8)`), retreat to `best × 0.6` instead of trusting the model | same files, `safety_gate` |
-
-The gate fired **once in 200 plants** — it is a second layer, not the reason the
-guarantee holds. The guarantee is that the number you get back was *measured* on
-your plant before being returned.
-
-Additional bounds that make a runaway impossible in the first place:
-
-* one step can never change a gain by more than **×2.1** (trust region, ±0.32 in
-  log10);
-* gains are clamped to `[1e-4, 1e3]`;
-* the model file is **copied** before loading — your `.slx` is never modified;
-* Fast Restart is disabled before any close, so an unattended session cannot be
-  blocked by the "exit Fast Restart?" dialog.
-
-Reproduce: `python scripts/11_robustness.py`
-
----
+Parameter bounds do not prove stability. A 0.6×best rollback proposal must be measured. Per-plant budget is 20; original model files are copied. Source: `research/results/robustness.json`, reproduced by `python scripts/11_robustness.py`.
 
 ## 2. Which control tasks fit
 
@@ -66,8 +37,8 @@ Reproduce: `python scripts/11_robustness.py`
 | **Step-response objective** | ✅ default | — |
 | **Tracking / ramp / sinusoid** | 🔶 metrics + retrain | new features + specialist run (~2 min) |
 | **Disturbance rejection** | 🔶 metrics + retrain | inject the disturbance, change the cost, specialist run |
-| Dead-time dominant (L/T ≈ 2) | ✅ measured at parity | — |
-| Noisy measurement (σ ≈ 1 %) | ✅ measured at parity | — |
+| Dead-time dominant (L/T ≈ 2) | evaluated; see GENERALIZATION | — |
+| Noisy measurement (σ ≈ 1 %) | evaluated; see GENERALIZATION | — |
 | **Dead band / backlash** | 🔶 specialist | `--scenario valve_dead_zone`, ~2 min |
 | **Inverse response (RHP zero)** | 🔶 specialist | `--scenario inverse_response`, ~2 min |
 | **Open-loop unstable plant** | ❌ not solved | needs a stabilising start; the specialist cannot fix a meaningless Z-N |
@@ -128,38 +99,17 @@ four ideas transfer to any "take a bounded action, measure, repeat" problem.
 
 下面两个都用测量回答，不用形容词。
 
-## 1. 会不会调炸？
+## 1. 返回代价与搜索风险
 
-**200 个对象**、全部零样本（不做逐对象训练）：120 个来自训练动物园、40 个来自
-未见过的族、40 个来自分布外场景（死区、不稳定极点、反向响应、谐振、噪声……）。
+| group | n | start J | returned J | improved % | worse % | rollbacks | final diverged | search diverged |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| zoo | 120 | 2.341 | 1.874 | 90.0 | 0.0 | 0 | 0 | 0 |
+| heldout | 40 | 2.367 | 0.732 | 97.5 | 0.0 | 0 | 0 | 0 |
+| outofzoo | 40 | 3.983 | 3.378 | 75.0 | 0.0 | 0 | 5 | 5 |
 
-| 群体 | 数量 | Z-N 起点代价 | 达到的代价 | 变好 | 持平 | **变差** | 最差终值/起点 | 回滚 | 发散 |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 动物园（同分布） | 120 | 2.341 | 1.556 | 97% | 3% | **0%** | 1.00 | 0 | 0 |
-| 留出族 | 40 | 2.367 | 0.381 | 100% | 0% | **0%** | 0.92 | 0 | 0 |
-| 分布外 | 40 | 3.378 | 2.809 | 80% | 20% | **0%** | 1.00 | 1 | 4 |
+200株返回实测最优值，其worse_pct如上表；这是记账性质，不约束试验过程代价或证明稳定性。分布外搜索发散5株，最终发散5株，总回滚0次。门开关有40/40对在绝对容差1e-06下无实质差异。
 
-**200/200 个对象的最终结果都不差于起点。** 那 4 个"发散"是倒立摆——它们的**起点
-本来就已经发散**（Z-N 对开环不稳定对象没有意义），调参器原样返回起点，而不是更差。
-
-### 为什么它不可能把对象调坏（两层独立保障）
-
-| 层 | 作用 | 位置 |
-| :--- | :--- | :--- |
-| **结构性** | 返回的永远是**实测过最好**的那组增益，所以答案不可能比起点差 | `evaluate_head` / `jev_tune_model.m`（`bestGains`） |
-| **安全闸** | 某一步让代价爆炸（`J > max(3·best+1, 8)`）时回退到 `best × 0.6`，而不是信模型 | 同上，`safety_gate` |
-
-安全闸在 200 个对象里**只触发过 1 次**——它是第二层，不是保证成立的原因。保证成立的
-原因是：**返回给你的那个数字，是在你的对象上真的测过的。**
-
-此外还有几道一开始就不允许失控的约束：
-
-* 单步最多把增益改 **×2.1**（信赖域，log10 上 ±0.32）；
-* 增益被夹在 `[1e-4, 1e3]`；
-* 加载前**复制**模型文件，你的 `.slx` 永远不会被改写；
-* 关闭前一定先退出 Fast Restart，无人值守的会话不会被弹窗卡住。
-
-复现：`python scripts/11_robustness.py`
+参数限幅不证明稳定性，0.6×best回滚提案仍需测量。逐株预算20，原模型先复制再整定。证据见`research/results/robustness.json`，复现用`python scripts/11_robustness.py`。
 
 ## 2. 哪些任务适合
 
@@ -175,8 +125,8 @@ four ideas transfer to any "take a bounded action, measure, repeat" problem.
 | **阶跃响应目标** | ✅ 默认 | — |
 | **跟踪 / 斜坡 / 正弦** | 🔶 换指标 + 重训 | 新特征 + 专家化（约 2 分钟） |
 | **扰动抑制** | 🔶 换指标 + 重训 | 注入扰动、改代价、专家化 |
-| 大延迟（L/T ≈ 2） | ✅ 实测持平 | — |
-| 测量噪声（σ ≈ 1%） | ✅ 实测持平 | — |
+| 大延迟（L/T ≈ 2） | 已评测，见GENERALIZATION | — |
+| 测量噪声（σ ≈ 1%） | 已评测，见GENERALIZATION | — |
 | **死区 / 回差** | 🔶 专家化 | `--scenario valve_dead_zone`，约 2 分钟 |
 | **反向响应（右半平面零点）** | 🔶 专家化 | `--scenario inverse_response`，约 2 分钟 |
 | **开环不稳定对象** | ❌ 未解决 | 需要稳定的起点；专家化救不了荒谬的 Z-N |

@@ -1,9 +1,8 @@
 """The typed decision layer: questions in, ``Choice`` / ``Score`` / ``Noul`` out.
 
-**Domain-agnostic decision shell.** The registry, the backend protocol and the
-answer objects have no PID content: a port replaces `tuner_questions()` and the
-action vocabulary, and keeps everything else. `docs/TRANSFER.md` maps what is
-reusable and what is not.
+The protocol and answer objects are reusable. The concrete numeric backends,
+question registry and checkpoints below implement the PID testbed's three
+axes and feature tensor schema. A port must supply its own backend and adapter.
 
 This is the contract ``docs/ARCHITECTURE.md`` describes, and it is on the
 execution path: ``evaluate.evaluate_head`` (and therefore the CLI, the demo and
@@ -21,8 +20,9 @@ weight in this repository.  See ``docs/JEV_MAPPING.md``.
 Temperature
 -----------
 ``models/calibration.json`` holds one fitted temperature per gain axis.  They
-are ~1.0, so applying them changes little; the switch exists so the ablation in
-``scripts/17_ablation.py`` can turn calibration off instead of arguing about it.
+are fitted on a fresh plant-level split independent of CP fitting/evaluation.
+They change probabilities and expectation-decoded actions; the ablation measures
+this effect. Split-CP metadata is loaded alongside them for set-based abstention.
 """
 
 from __future__ import annotations
@@ -34,10 +34,26 @@ from typing import Protocol, Sequence, runtime_checkable
 
 import numpy as np
 
-from .decode import ActionSpace
+from .decode import ActionSpace, ConformalPolicy
 from .primitives import Answer, Choice, Noul, Option, Score, softmax
 
 AXES = ("Kp", "Ki", "Kd")
+
+
+def _temperature(value):
+    t = np.ones(len(AXES)) if value is None else np.asarray(value, dtype=float)
+    if t.shape != (len(AXES),) or not np.isfinite(t).all() or (t <= 0).any():
+        raise ValueError("need three finite positive temperatures")
+    return t
+
+
+def _inputs(feats, curves):
+    f, c = np.asarray(feats, dtype=np.float32), np.asarray(curves, dtype=np.float32)
+    if f.ndim != 2 or c.ndim != 3 or f.shape[0] != c.shape[0]:
+        raise ValueError("expected features (N,F) and curves (N,C,L)")
+    if not np.isfinite(f).all() or not np.isfinite(c).all():
+        raise ValueError("features and curves must be finite")
+    return f, c
 
 SCORE_LEVELS = ("J<0.8", "0.8<=J<1.5", "1.5<=J<3", "3<=J<6", "J>=6")
 """The five cost bands the expert labels, cheapest first (0 is the best band)."""
@@ -55,6 +71,11 @@ def read_temperature(models_dir: str | Path) -> list[float] | None:
     blob = json.loads(cal.read_text(encoding="utf-8-sig"))
     t = blob.get("choice_temperature")
     return None if t is None else [float(x) for x in t]
+
+
+def read_conformal(models_dir: str | Path) -> ConformalPolicy | None:
+    path = Path(models_dir) / "calibration.json"
+    return None if not path.is_file() else ConformalPolicy.from_calibration(json.loads(path.read_text(encoding="utf-8-sig")))
 
 
 @dataclass(frozen=True)
@@ -119,6 +140,7 @@ class NumericBackend:
         space: ActionSpace | None = None,
         temperature: Sequence[float] | None = None,
         calibrate: bool = True,
+        conformal: ConformalPolicy | None = None,
     ):
         import torch  # local import keeps `numpy`-only users out of the torch path
 
@@ -127,11 +149,8 @@ class NumericBackend:
         self.space = space or ActionSpace()
         self.questions = {q.id: q for q in tuner_questions(self.space)}
         self.calibrate = calibrate
-        self.temperature = (
-            np.ones(len(AXES), dtype=float)
-            if temperature is None
-            else np.asarray(temperature, dtype=float)
-        )
+        self.conformal = conformal if calibrate else None
+        self.temperature = _temperature(temperature)
         if self.temperature.shape != (len(AXES),):
             raise ValueError(
                 f"expected {len(AXES)} temperatures, got {self.temperature.shape}"
@@ -148,9 +167,7 @@ class NumericBackend:
     def _choice_probs(self, logits: np.ndarray) -> np.ndarray:
         """(N, 3, K) logits -> (N, 3, K) probabilities in one softmax call."""
         z = np.asarray(logits, dtype=np.float64)
-        if self.calibrate:
-            z = z / self.temperature[None, :, None]
-        return softmax(z, axis=-1)
+        return softmax(z, axis=-1, temperature=self.temperature[None, :, None] if self.calibrate else 1.0)
 
     @classmethod
     def from_checkpoint(cls, models_dir: str | Path, **kwargs) -> NumericBackend:
@@ -168,11 +185,13 @@ class NumericBackend:
         model.load_state_dict(torch.load(d / "jev_head.pt", map_location="cpu"))
         model.eval()
         temperature = read_temperature(d)
+        model.conformal = read_conformal(d)
         if temperature is not None:
             # carry provenance with the model so `as_backend()` can apply the
             # same temperatures when a script passes a bare `JevHead`
             model.temperature = tuple(temperature)
         kwargs.setdefault("calibrate", True)
+        kwargs.setdefault("conformal", model.conformal)
         return cls(model, temperature=temperature, **kwargs)
 
     def _check(self, questions: Sequence[Question] | None) -> list[Question]:
@@ -193,10 +212,13 @@ class NumericBackend:
         questions: Sequence[Question] | None = None,
     ) -> Answer:
         qs = self._check(questions)
-        f = self._torch.as_tensor(np.asarray(feats), dtype=self._torch.float32)
-        c = self._torch.as_tensor(np.asarray(curves), dtype=self._torch.float32)
+        feats, curves = _inputs(feats, curves)
+        f = self._torch.as_tensor(feats, dtype=self._torch.float32)
+        c = self._torch.as_tensor(curves, dtype=self._torch.float32)
         with self._torch.no_grad():
             out = self.model(f, c)
+        if any(not self._torch.isfinite(out[key]).all() for key in ("choice", "score", "noul")):
+            raise ValueError("backend logits must be finite")
         self._h = out["h"]
 
         steps, dist, p_true = {}, None, None
@@ -253,6 +275,7 @@ class OnnxBackend:
         temperature: Sequence[float] | None = None,
         calibrate: bool = True,
         threads: int = 1,
+        conformal: ConformalPolicy | None = None,
     ):
         import onnxruntime as ort
 
@@ -265,11 +288,8 @@ class OnnxBackend:
         self.space = space or ActionSpace()
         self.questions = {q.id: q for q in tuner_questions(self.space)}
         self.calibrate = calibrate
-        self.temperature = (
-            np.ones(len(AXES))
-            if temperature is None
-            else np.asarray(temperature, float)
-        )
+        self.conformal = conformal if calibrate else None
+        self.temperature = _temperature(temperature)
         self._options = [
             [
                 Option(label=f"x{m:g}", delta=float(np.log10(m)))
@@ -280,9 +300,7 @@ class OnnxBackend:
 
     def _choice_probs(self, logits: np.ndarray) -> np.ndarray:
         z = np.asarray(logits, dtype=np.float64)
-        if self.calibrate:
-            z = z / self.temperature[None, :, None]
-        return softmax(z, axis=-1)
+        return softmax(z, axis=-1, temperature=self.temperature[None, :, None] if self.calibrate else 1.0)
 
     def _check(self, questions):
         if questions is None:
@@ -294,6 +312,7 @@ class OnnxBackend:
 
     def answer(self, feats, curves, questions=None) -> Answer:
         qs = self._check(questions)
+        feats, curves = _inputs(feats, curves)
         out = self.sess.run(
             None,
             {
@@ -302,6 +321,8 @@ class OnnxBackend:
             },
         )
         logits = {"choice": out[0], "score": out[1], "noul": out[2]}
+        if any(not np.isfinite(z).all() for z in logits.values()):
+            raise ValueError("backend logits must be finite")
         steps, dist, p_true = {}, None, None
         noul_prompt = "healthy"
         choice_p = self._choice_probs(logits["choice"])
@@ -358,6 +379,7 @@ def as_backend(obj, *, space: ActionSpace | None = None) -> DecisionBackend:
         space=space,
         temperature=None if temperature is None else list(temperature),
         calibrate=temperature is not None,
+        conformal=getattr(obj, "conformal", None),
     )
 
 
@@ -381,6 +403,7 @@ def load_backend(
             space=space,
             temperature=read_temperature(d),
             calibrate=calibrate,
+            conformal=read_conformal(d),
         )
     if kind != "torch":
         raise ValueError("kind must be 'torch' or 'onnx'")
@@ -402,5 +425,6 @@ __all__ = [
     "as_backend",
     "load_backend",
     "read_temperature",
+    "read_conformal",
     "tuner_questions",
 ]

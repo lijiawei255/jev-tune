@@ -1,20 +1,21 @@
-"""E1: does the typed interface actually help? A controlled ablation ladder.
+"""E1: matched-gate MLP / uncalibrated / temperature / temperature+CP controls.
 
 Every variant shares the same encoder, the same training data and the same
 closed-loop evaluator. Only the decision path changes:
 
-    A0  regression    same encoder, three direct log10 step outputs, soft-projected
-                      onto the vocabulary so it travels through the same decoder
+    A0  regression    same encoder, three direct log10 step outputs, encoded by
+                      adjacent-bin interpolation that preserves their expectation
     A1  argmax        trained head, discrete action (no expectation)
     A2  expect        expected step, no variance shrink, no early stop, no gate
-    A2T expect, calibration off (the fitted temperatures are ~1.0; this measures
-                      whether applying them matters at all)
+    A2T expect, temperature calibration off
     A3  shrink        A2 + variance-driven shrink
-    A4  gate          A3 + deterministic safety gate   (the shipped configuration)
-    A5  early stop    A4 + stop proposing in the cheapest band when noul > 0.9
-                      (measured to hurt: it quits about halfway through the budget)
+    A4  gate          A3 + deterministic safety gate
+    A5  abstain       A4 + legacy pmax confidence hold (CP disabled)
+    A6  early stop    A4 + stop in the cheapest band when noul > 0.9
 
-The comparison is paired: every variant sees the same plants in the same draw.
+The C0-C3 primary comparison uses one deterministic gate and no pmax heuristic.
+Only C3 enables split conformal prediction; A0-A6 retain their CP-off definitions.
+Every variant sees the same plants in the same draw.
 """
 
 from __future__ import annotations
@@ -35,8 +36,9 @@ from jev_tune.model import Encoder
 from jev_tune.plants import HELDOUT_FAMILIES, sample_plants, ultimate_gain
 from jev_tune.primitives import Answer, Choice, Noul, Option, Score, softmax
 from jev_tune.train import _to_t
-
-TAU = 0.02  # log10 units; soft projection of a regressed step onto the vocabulary
+from _experiment_protocol import (
+    conformal_evidence_lines, expectation_preserving_probs, manifest, sha256, training_indices,
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -126,10 +128,9 @@ class RegressionBackend:
             out = self.model(f, c)
         r = out["step"].numpy()
         d = self.space.deltas
-        # soft projection: a distribution whose expectation is the regressed
-        # value, so A0 uses the same decoder as every other variant
-        logits = -((r[..., None] - d) ** 2) / (2 * TAU**2)
-        probs = softmax(logits, axis=-1)
+        # The A0 variant disables variance shrinkage. Its decoded expectation
+        # equals the continuous output clipped to the same vocabulary bounds.
+        probs = expectation_preserving_probs(r, d)
         return Answer(
             choice=[
                 Choice(f"step:{a}", self._options[i], probs[:, i])
@@ -165,17 +166,32 @@ def load_data(path: str):
     )
 
 
-# name, backend, expectation, shrink, early_stop, gate, calibrate, abstain
+def regression_training_subset(data):
+    """Reuse 02_train's exact 90% split; value-network arrays are not consumed."""
+    from jev_tune.expert import ExpertData
+    tr, va = training_indices(len(data.feats))
+    fields = {key: getattr(data, key)[tr]
+              for key in ("feats", "curves", "choice", "score", "noul", "cost")}
+    fields.update({key: getattr(data, key)
+                   for key in ("act_state", "act_delta", "act_cost", "act_best")})
+    return ExpertData(**fields), tr, va
+
+
+# name, backend, expectation, shrink, early_stop, gate, temperature, abstain, CP
 ABSTAIN = DEFAULT_ABSTAIN
 VARIANTS = (
-    ("A0_regress", "regress", True, 0.0, False, False, True, None),
-    ("A1_argmax", "head", False, 0.0, False, False, True, None),
-    ("A2_expect", "head", True, 0.0, False, False, True, None),
-    ("A2T_no_calib", "head", True, 0.0, False, False, False, None),
-    ("A3_shrink", "head", True, 1.0, False, False, True, None),
-    ("A4_gate", "head", True, 1.0, False, True, True, None),
-    ("A5_abstain", "head", True, 1.0, False, True, True, ABSTAIN),
-    ("A6_early_stop", "head", True, 1.0, True, True, True, None),
+    ("C0_MLP_regression", "regress", True, 0.0, False, True, False, None, False),
+    ("C1_uncalibrated", "head", True, 1.0, False, True, False, None, False),
+    ("C2_temperature_only", "head", True, 1.0, False, True, True, None, False),
+    ("C3_temperature_CP", "head", True, 1.0, False, True, True, None, True),
+    ("A0_regress", "regress", True, 0.0, False, False, True, None, False),
+    ("A1_argmax", "head", False, 0.0, False, False, True, None, False),
+    ("A2_expect", "head", True, 0.0, False, False, True, None, False),
+    ("A2T_no_calib", "head", True, 0.0, False, False, False, None, False),
+    ("A3_shrink", "head", True, 1.0, False, False, True, None, False),
+    ("A4_gate", "head", True, 1.0, False, True, True, None, False),
+    ("A5_abstain", "head", True, 1.0, False, True, True, ABSTAIN, False),
+    ("A6_early_stop", "head", True, 1.0, True, True, True, None, False),
 )
 
 
@@ -191,9 +207,13 @@ def main():
     ap.add_argument("--doc", default="docs/ABLATION.md")
     ap.add_argument("--skip-a0", action="store_true")
     ap.add_argument("--a0-cache", default="models/ablation_a0.pt")
+    ap.add_argument("--train-only", action="store_true", help="prepare the matched A0 cache and exit")
     args = ap.parse_args()
+    provenance = manifest(args, files=[args.data, Path(args.models)/"jev_head.pt",
+                                      Path(args.models)/"calibration.json"])
 
     data = load_data(args.data)
+    data, tr, va = regression_training_subset(data)
     print(
         f"[ablation] {len(data.feats):,} states, {args.draws} draws x {args.plants} plants",
         flush=True,
@@ -216,12 +236,31 @@ def main():
         "plants_per_draw": args.plants,
         "draws": [d["seed"] for d in draws],
         "rows": [],
+        "calibration_evidence": json.loads((Path(args.models)/"calibration.json").read_text(encoding="utf-8")),
+        "training_protocol": {
+            "training_seed": 0, "training_seeds_repeated": False,
+            "training_states": len(tr), "legacy_validation_states": len(va),
+            "temperature_CP_splits": "fresh independent plant-level splits from calibration_evidence; not the old 10% state validation split",
+            "split": "numpy.default_rng(0).permutation; first 90%; identical to 02_train.py",
+            "epochs": 40, "batch": 512, "lr": 2e-3,
+            "typed_head": "shipped checkpoint; training protocol from 02_train.py",
+            "limitation": "one checkpoint per architecture; draw variation is evaluation sampling, not training-seed robustness",
+            "a0_adapter": "two-neighbour interpolation, preserves bounded expectation; shrinkage=0",
+        },
     }
 
     a0 = None
     if not args.skip_a0:
         cache = Path(args.a0_cache)
-        if cache.is_file():
+        metadata_path = cache.with_suffix(".manifest.json")
+        cache_protocol = {
+            "data_sha256": sha256(args.data), "states": len(tr),
+            "split": "default_rng(0), first90pct", "seed": 0, "epochs": 40,
+            "implementation": "matched_split_expectation_v2",
+        }
+        compatible = (cache.is_file() and metadata_path.is_file()
+                      and json.loads(metadata_path.read_text(encoding="utf-8")).get("protocol") == cache_protocol)
+        if compatible:
             a0 = RegressionHead(n_feats=20, n_curve=64)
             a0.load_state_dict(torch.load(cache, map_location="cpu"))
             a0.eval()
@@ -235,12 +274,19 @@ def main():
             a0 = train_regression(data, epochs=40, seed=0)
             Path(cache).parent.mkdir(parents=True, exist_ok=True)
             torch.save(a0.state_dict(), cache)
+            metadata_path.write_text(json.dumps({
+                "protocol": cache_protocol,
+                "manifest": manifest(args, files=[args.data, cache]),
+            }, indent=2), encoding="utf-8")
             print(
                 f"[ablation] A0 trained in {time.perf_counter() - t:.0f}s -> {cache}",
                 flush=True,
             )
 
-    for name, backend_kind, expect, shrink, early, gate, calibrate, policy in VARIANTS:
+    if args.train_only:
+        return
+
+    for name, backend_kind, expect, shrink, early, gate, calibrate, policy, cp in VARIANTS:
         if backend_kind == "regress" and a0 is None:
             continue
         per_draw = []
@@ -255,6 +301,9 @@ def main():
                         args.models, calibrate=calibrate
                     )
                 backend = head_backends[key]
+
+            if cp and getattr(backend, "conformal", None) is None:
+                raise ValueError("C3 requires split CP metadata; run 02_train.py --calibrate-only first")
 
             r = evaluate_head(
                 backend,
@@ -271,6 +320,7 @@ def main():
                 early_stop=early,
                 safety_gate=gate,
                 abstain=policy,
+                conformal="backend" if cp else None,
             )
             rep = r.decision_report()
             per_draw.append(
@@ -278,12 +328,14 @@ def main():
                     "draw": di,
                     "median": float(np.median(r.best_j)),
                     "p90": float(np.percentile(r.best_j, 90)),
-                    "mean_experiments": float(np.mean(r.stop_iter)),
+                    "mean_experiments": float(np.mean(r.actual_simulations)),
+                    "mean_stop_index": float(np.mean(r.stop_iter)),
                     "rollbacks": int(r.rollbacks.sum()),
                     "failures": int((r.best_j >= 50.0).sum()),
                     "coverage": rep.get("coverage"),
                     "harmful_rate": rep.get("harmful_rate"),
                     "ece": None if backend_kind == "regress" else rep.get("ece"),
+                    "decision_report": rep,
                     "per_plant": [float(x) for x in r.best_j],
                 }
             )
@@ -297,9 +349,14 @@ def main():
         med = np.array([x["median"] for x in per_draw])
         exp = np.array([x["mean_experiments"] for x in per_draw])
         eces = [x["ece"] for x in per_draw if x["ece"] is not None]
+        set_sizes = [x['decision_report'].get('average_set_size') for x in per_draw
+                     if x['decision_report'].get('average_set_size') is not None]
         result["rows"].append(
             {
                 "variant": name,
+                "configuration": {"backend":backend_kind,"temperature":calibrate if backend_kind == "head" else False,
+                    "conformal":cp,"gate":gate,"shrinkage":shrink,
+                    "pmax_abstention":policy is not None},
                 "median_mean": float(med.mean()),
                 "median_std": float(med.std(ddof=1)) if len(med) > 1 else 0.0,
                 "p90_median": float(np.median([x["p90"] for x in per_draw])),
@@ -319,22 +376,26 @@ def main():
                 if any(x["harmful_rate"] is not None for x in per_draw)
                 else None,
                 "ece": float(np.mean(eces)) if eces else None,
+                "average_set_size": float(np.mean(set_sizes)) if set_sizes else None,
                 "per_draw": per_draw,
                 "wall_s": float(time.perf_counter() - t),
             }
         )
 
-    # paired differences against the shipped configuration, plant by plant
+    # Paired plant-wise differences, conditional on these fixed checkpoints.
     by = {r["variant"]: r for r in result["rows"]}
-    ref = by.get("A4_gate")
-    if ref is not None:
+    for ref_name, report_key in (("A4_gate", "paired_vs_A4"),
+                                 ("C2_temperature_only", "paired_vs_temperature_only")):
+        ref = by.get(ref_name)
+        if ref is None:
+            continue
         for r in result["rows"]:
             diffs = []
             for a, b in zip(r["per_draw"], ref["per_draw"]):
                 diffs.extend(np.asarray(a["per_plant"]) - np.asarray(b["per_plant"]))
             diffs = np.asarray(diffs)
             se = diffs.std(ddof=1) / np.sqrt(len(diffs))
-            result.setdefault("paired_vs_A4", {})[r["variant"]] = {
+            result.setdefault(report_key, {})[r["variant"]] = {
                 "mean_delta": float(diffs.mean()),
                 "ci95": [
                     float(diffs.mean() - 1.96 * se),
@@ -345,6 +406,8 @@ def main():
                 "n": int(len(diffs)),
             }
 
+    provenance["file_sha256"][args.a0_cache] = sha256(args.a0_cache)
+    result["manifest"] = provenance
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps(result, indent=2), encoding="utf-8")
     Path(args.doc).write_text(_doc(result), encoding="utf-8")
@@ -365,20 +428,28 @@ def main():
 def _doc(result: dict) -> str:
     rows = result["rows"]
     lines = [
-        "# Ablation: is the typed interface doing anything?",
+        "# Ablation: temperature, split CP and matched MLP control",
         "",
         "> [English](#english) · [简体中文](#简体中文)",
         "",
         "## English",
         "",
-        "Generated by `python scripts/17_ablation.py`. Every row uses the same "
-        "encoder, training data, cost function and experiment budget; only the "
-        "decision path changes.",
+        "Generated by `python scripts/17_ablation.py`. The controls share encoder "
+        "architecture, the 02_train training split, objective and maximum budget. "
+        "The ladder changes decoding and optional safeguards; all rows return the best measured point.",
         "",
-        f"* {result['plants_per_draw']} held-out plants per draw, "
+        f"* {result['plants_per_draw']} validation-family plants per draw, "
         f"{len(result['draws'])} draws (seeds {result['draws']})",
         f"* budget {result['budget']} experiments per plant",
         "* mean ± std is across draws of the per-draw median cost",
+        "* one trained checkpoint per architecture; these are evaluation draws, not repeated training seeds",
+        f"* A0 reuses the {result['training_protocol']['training_states']:,}-state training split and preserves its bounded continuous output; the typed checkpoint follows the 02_train protocol",
+        "* experiments counts actual simulator plant-runs, including initial/final measurements",
+        "* argmax uses the same trained classification checkpoint; these contrasts compare predictors/decoders, not the causal effect of wrapping arrays in typed containers",
+        "* C0 MLP Regression / C1 Uncalibrated / C2 Temp Only / C3 Temp+CP share the start, plants, maximum budget and deterministic gate; none uses the pmax heuristic",
+        "* C0 preserves its continuous expectation without variance shrinkage; C1-C3 share the same expectation/variance decoder. C3 alone enables CP, so C3 versus C2 isolates its hold rule",
+        "* the A0-A6 ladder disables CP; A5 is the legacy pmax policy, not the shipped default",
+        "* coverage below means permitted-action coverage, not teacher-label set coverage. Independent CP empirical coverage and set size are stored in calibration_evidence in the JSON",
         "",
         "| variant | median J | std | p90 | experiments | coverage | harmful | ECE | Δ vs A4 |",
         "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -397,7 +468,7 @@ def _doc(result: dict) -> str:
         lines += [
             "",
             "Paired difference against `A4_gate`, plant by plant (negative = better "
-            "than the shipped configuration):",
+            "than the gate-enabled, no-abstention reference):",
             "",
             "| variant | mean Δ | 95% CI | better | worse |",
             "| :--- | ---: | :--- | ---: | ---: |",
@@ -423,13 +494,21 @@ def _doc(result: dict) -> str:
         "",
         "## 简体中文",
         "",
-        "由 `python scripts/17_ablation.py` 生成。每一行用同一个编码器、同一批训练数据、",
-        "同一代价函数与同一实验预算，只改决策路径。",
+        "由 `python scripts/17_ablation.py` 生成。对照共享编码器结构、02_train训练划分、",
+        "目标函数与预算上限；阶梯改变解码及可选保护。所有行返回历史实测最优。",
         "",
-        f"* 每轮 {result['plants_per_draw']} 株留出对象，共 {len(result['draws'])} 轮"
+        f"* 每轮 {result['plants_per_draw']} 株验证族对象，共 {len(result['draws'])} 轮"
         f"（种子 {result['draws']}）",
         f"* 每株预算 {result['budget']} 次实验",
         "* 均值 ± 标准差是各轮中位代价的统计",
+        "* 每种结构仅一个训练检查点；三个种子用于评测抽样，不代表训练种子重复",
+        f"* A0复用{result['training_protocol']['training_states']:,}状态训练划分，保留有界连续输出；类型头沿用02_train协议的出厂检查点",
+        "* 实验次数统计真实对象仿真，包含初始与末次测量",
+        "* argmax复用同一分类检查点；这些对照比较预测器和解码规则，不证明把数组包装为类型容器本身产生性能收益",
+        "* C0 MLP Regression / C1 Uncalibrated / C2 Temp Only / C3 Temp+CP共享起点、对象、预算上限与确定性安全门，均不使用pmax启发式阈值",
+        "* C0保持连续期望且不做方差缩步；C1-C3共享期望/方差解码。只有C3启用CP，故C3与C2的差异隔离CP保持规则",
+        "* A0-A6阶梯关闭CP；A5是旧pmax策略，不是当前出厂默认",
+        "* 下表coverage是动作获准比例，不是标签被预测集覆盖的比例。独立CP经验标签覆盖率与集合大小保存在JSON的calibration_evidence",
         "",
         "| 变体 | 中位 J | 标准差 | p90 | 实验次数 | 覆盖率 | 有害步 | ECE | 相对 A4 |",
         "| :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
@@ -466,18 +545,35 @@ def _reading(result: dict, *, zh: bool) -> list[str]:
         return by[name]["coverage"] if name in by else float("nan")
 
     lines = ["", "**What the ladder says**" if not zh else "**阶梯说了什么**", ""]
+    lines += conformal_evidence_lines(result.get('calibration_evidence', {}), zh=zh)
+    if all(name in by for name in ("C0_MLP_regression", "C1_uncalibrated", "C2_temperature_only", "C3_temperature_CP")):
+        for name in ("C0_MLP_regression", "C1_uncalibrated", "C2_temperature_only", "C3_temperature_CP"):
+            r = by[name]
+            set_size = 'n/a' if r.get('average_set_size') is None else f"{r['average_set_size']:.4f}"
+            lines.append(
+                f"* {name}: median {r['median_mean']:.4f}, p90 {r['p90_median']:.4f}, "
+                f"{'回滚' if zh else 'rollbacks'} {r['rollbacks']}, "
+                f"{'动作覆盖率' if zh else 'action coverage'} {r['coverage']:.4f}, "
+                f"{'闭环平均集合大小' if zh else 'rollout mean set size'} {set_size}."
+            )
+        pd = result.get("paired_vs_temperature_only", {}).get("C3_temperature_CP")
+        if pd:
+            lines.append(
+                ("* CP相对Temp Only的配对平均代价差" if zh else "* CP minus Temp Only paired mean cost difference")
+                + f" {pd['mean_delta']:+.4f}, 95% CI [{pd['ci95'][0]:+.4f}, {pd['ci95'][1]:+.4f}]."
+            )
     if "A0_regress" in by and "A3_shrink" in by:
         d = m("A0_regress") - m("A3_shrink")
         if zh:
             lines.append(
-                f"* 类型化路径相对同尺寸回归头：A0 {m('A0_regress'):.3f} → "
+                f"* 类型化路径相对同编码器结构的回归对照：A0 {m('A0_regress'):.3f} → "
                 f"A3 {m('A3_shrink'):.3f}（中位代价差 {d:+.3f}），"
                 f"p90 {by['A0_regress']['p90_median']:.3f} → "
                 f"{by['A3_shrink']['p90_median']:.3f}。"
             )
         else:
             lines.append(
-                f"* typed vs a same-size regression head: A0 {m('A0_regress'):.3f} → "
+                f"* typed vs the matched-encoder regression control: A0 {m('A0_regress'):.3f} → "
                 f"A3 {m('A3_shrink'):.3f} (median difference {d:+.3f}), "
                 f"p90 {by['A0_regress']['p90_median']:.3f} → "
                 f"{by['A3_shrink']['p90_median']:.3f}."
@@ -515,26 +611,24 @@ def _reading(result: dict, *, zh: bool) -> list[str]:
             lines.append(
                 f"* 早停（按最便宜档 + noul）：实验次数 "
                 f"{by['A6_early_stop']['experiments_mean']:.1f}，中位代价相对 A4 "
-                f"{d:+.3f}——省下的实验不值得。"
+                f"{d:+.3f}；这是实验支出与最终代价的权衡，不给出通用取舍。"
             )
         else:
             lines.append(
                 f"* early stop (best band + noul): {by['A6_early_stop']['experiments_mean']:.1f} "
-                f"experiments, median cost vs A4 {d:+.3f} — the saved experiments are "
-                "not worth it."
+                f"experiments, median cost vs A4 {d:+.3f}; this reports the tradeoff "
+                "between experiment cost and final objective without a universal preference."
             )
     if "A2T_no_calib" in by and "A2_expect" in by:
         d = m("A2T_no_calib") - m("A2_expect")
         if zh:
             lines.append(
-                f"* 温度缩放（拟合值≈1）：关掉与打开相差 {d:+.3f}，即在这个模型上几乎"
-                "没有影响；保留它是为了在别的模型上不重新发明。"
+                f"* 旧阶梯的温度缩放对照：关掉与打开的中位代价差为 {d:+.3f}；不预设温度校准改善闭环代价。"
             )
         else:
             lines.append(
-                f"* temperature scaling (fitted T ≈ 1): off vs on differs by {d:+.3f}, "
-                "i.e. almost nothing on this model; it is kept so a retrained head does "
-                "not have to reinvent it."
+                f"* temperature scaling in the legacy ladder: off minus on median cost is {d:+.3f}; "
+                "calibration is not assumed to improve closed-loop cost."
             )
     lines.append("")
     return lines

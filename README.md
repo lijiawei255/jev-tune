@@ -4,17 +4,15 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)](pyproject.toml)
 [![MATLAB](https://img.shields.io/badge/MATLAB-R2024b%20verified-orange)](docs/SCALE.md#4-matlab-versions)
-[![decision latency](https://img.shields.io/badge/decision-0.19%20ms-brightgreen)](docs/STEP1_RESULTS.md)
+[![measured latency](https://img.shields.io/badge/latency-host%20measured-blue)](docs/COMPUTE.md)
 [![model size](https://img.shields.io/badge/model-200%20KB-lightgrey)](docs/STEP1_RESULTS.md)
 [![platform](https://img.shields.io/badge/platform-Python%20any%20OS%20%C2%B7%20MATLAB%20Windows-lightgrey)](docs/SCALE.md#4-matlab-versions)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![中文](https://img.shields.io/badge/README-简体中文-red)](README.zh-CN.md)
 
-**PID autotuning where each decision is a typed judgement, not a paragraph.**
-A 200 KB model reads the step response and returns one bounded gain step in
-**0.19 ms on a laptop CPU** — no autoregressive LLM, no cloud, no GPU. The
-shipped loop also **holds** a gain axis when its calibrated confidence is low;
-it does not touch the plant when it is unsure.
+**PID autotuning with typed probabilistic decisions and explicit abstention.**
+The numeric head uses one CPU forward pass. Empty, broad or opposing-direction CP sets veto axes. Held axes keep their
+last tested parameters; other axes may still change. Holding does not certify safety.
 
 > **Jev-inspired, not affiliated.** It uses the *Jev interface* — the three typed
 > primitives `choice` / `score` / `noul` with calibrated probabilities — not the
@@ -120,14 +118,16 @@ experiments (~0.55 s of simulation); the stall detector stopped the loop at nine
 
 ---
 
+See [Temperature + Split CP](docs/CONFORMAL.md) for the independent calibration results and precise coverage limits. Current CP costs are worse than the temperature-only control; neither a label-coverage theorem nor a hold certifies closed-loop safety.
+
 ## The 15-second version
 
 | | |
 | :--- | :--- |
 | **What it does** | picks the next PID gain step from the response it just measured, and holds when it is not confident |
-| **How fast** | **0.19 ms** for the model forward, **0.73 ms** for a complete typed decision (ONNX, 1 CPU thread; p99 1.36 ms) vs **5.34 s** per turn for a hosted LLM agent (measured, 40 calls) |
+| **How fast** | ONNX forward <!-- claim:decision_ms -->0.026<!-- /claim --> ms median; Python default typed/abstention path <!-- claim:typed_decision_ms -->0.319<!-- /claim --> ms median, <!-- claim:typed_decision_p99_ms -->0.708<!-- /claim --> ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |
 | **How few experiments** | **5 experiments** on a real Simulink motor cut the cost from **1.238 to 0.598** (the recorded run; with the corrected gain sweep the same model starts better and the tuner returns the lab's own gains instead — [why](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)); the result is never worse than the better of the start and the gains your model already had |
-| **How it generalises** | **validation family** (120 plants, used during design): **0.440** median / **1.038** p90 vs 0.567 / 1.705 for BO and CMA-ES. **Frozen test family** (120 thermal + dead-time plants, never used for any decision): **1.737** — **second**, behind a same-vocabulary hill climb at **1.711**, ahead of BO 1.877 and CMA-ES 1.976 |
+| **How it generalises** | Validation median 0.682; frozen thermal median 2.193. Current baselines and prior information are shown below. |
 
 ![before and after](assets/before_after.png)
 
@@ -153,13 +153,7 @@ the coverage/cost trade-off of holding.
 shot with no feedback. This keeps iterating, and it learns the *policy* once
 across a whole family of plants, so a new plant needs no re-tuning of the tuner.
 
-**vs. Bayesian optimisation and a same-size regression head.** At the same 20
-experiments the head is at 0.440 median / 1.038 p90, BO at 0.567 / 1.510 and
-CMA-ES at 1.705 / 2.519. Against a **regression head with the same encoder, the
-same data and the same budget** the typed path is 0.439 vs 0.494, with a much
-lighter tail (p90 1.039 vs 1.508) — that ablation is
-[`docs/ABLATION.md`](docs/ABLATION.md), and it also shows that the deterministic
-safety gate contributes nothing on this plant family.
+**Comparison with ordinary heads and optimizers.** Current matched-split regression/argmax controls are in [ABLATION](docs/ABLATION.md). One training checkpoint and three evaluation draws do not establish a general causal advantage of the type interface. The gate, calibrated thresholds and matched-coverage random hold are reported separately.
 
 **Why not just `pidtune`?** If you have an accurate model, use `pidtune`: two
 experiments reach 0.742 here, and [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md#if-you-already-have-an-accurate-model-use-pidtune)
@@ -174,11 +168,7 @@ on dead bands, inverse response and open-loop unstable plants (documented in
 python scripts/10_specialize.py --scenario valve_dead_zone --name valve
 ```
 
-Measured on a family the head had never seen: median cost **2.242 → 2.207 (−2 %)** after ~95 s of CPU on 30 held-out
-jitters — i.e. the specialist is not a fix for this family. The v0.2/v0.3 figures
-(−49 %, −16 %) were measured on scenario draws that were not reproducible before
-0.4.0; `docs/SPECIALIZE.md` says so and no longer quotes them. Details: `docs/SPECIALIZE.md` — the v0.2 figure of −49 % came
-from a head that has since been retrained, and does not reproduce.
+Specialization uses offline simulation and can also degrade held-out performance. Current measured artifacts and the withdrawn historical provenance explanation are documented in [SPECIALIZE](docs/SPECIALIZE.md).
 
 ---
 
@@ -241,7 +231,7 @@ rollback count. One tool call instead of twenty.
 
 ![agent in the loop vs agent as supervisor](assets/agent_vs_head.png)
 
-*Per-iteration numbers are measured (0.111 s simulation, 0.19 ms decision);
+*Historical illustration: 0.111 s simulation and 0.19 ms forward-only timing; current full-decision measurements are in docs/COMPUTE.md;
 the LLM latency is an assumption and labelled as such. Where the two speedups
 in the table come from (122 s → 8.8 s, 60 s → 2.7 s), and how it scales to
 hundreds of plants:
@@ -325,44 +315,37 @@ breakdown, the blocking/concurrency trade-off and the version matrix:
 
 ## Benchmarks
 
-**Validation family (120 two-mass plants, 20 experiments for every method).**
-This family was used for two design decisions — rejecting the lookahead value
-net, and comparing vocabulary v1 with v3 — so it is a validation set, not a
-clean test.
+**Validation family: two_mass, 120 plants.** Used for design decisions. Iterative methods have a maximum budget of 20; one-shot methods report actual runs. All analytic-start methods share oracle Ku/Tu; sweep failures use a fixed non-oracle fallback.
 
-| method | final cost (median) | p90 | × reference | success | sims to target | experiments |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| **Jev head** | **0.440** | **1.038** | **1.31** | **41 %** | **5.0** | 20 |
-| Bayesian optimisation | 0.567 | 1.510 | 1.56 | 35 % | 8.5 | 20 |
-| identify → `pidtune` | 0.742 | 1.705 | 1.91 | 29 % | 2.0 | 2 |
-| shrunken Z-N (factors chosen on the training zoo) | 1.290 | 1.905 | 4.48 | 30 % | 1.0 | 1 |
-| Z-N from a measured Ku/Tu (7-run sweep) | 1.860 | 2.791 | 2.99 | 16 % | 8.0 | 8 |
-| hill climb over the same vocabulary | 1.463 | 2.212 | 2.35 | 15 % | 5.0 | 20 |
-| CMA-ES | 1.705 | 2.519 | 3.58 | 13 % | 4.0 | 20 |
-| simplex | 2.037 | 2.879 | 4.43 | 7 % | 4.0 | 20 |
-| Ziegler-Nichols (analytic Ku/Tu) | 2.322 | 3.082 | 5.74 | 6 % | 1.0 | 1 |
+| method | median J | p90 J | actual simulations |
+| :--- | ---: | ---: | ---: |
+| `bo` | 0.547 | 1.552 | 20 |
+| `jev_head_swept` | 0.615 | 1.401 | 20 |
+| `shrunk_zn` | 1.290 | 1.905 | 1 |
+| `identify+pidtune_PID` | 0.742 | 1.705 | 2 |
+| `jev_head` | 0.682 | 1.305 | 20 |
+| `swept_zn` | 1.860 | 2.791 | 8 |
+| `vocab_hill` | 1.463 | 2.212 | 20 |
+| `cmaes` | 1.723 | 2.521 | 20 |
+| `simplex` | 2.037 | 2.879 | 20 |
+| `zn_classic` | 2.322 | 3.082 | 1 |
 
-**Frozen test family (120 thermal plants with large dead time).** Generated from
-a fixed grid with **no RNG**, defined after the head was trained, and evaluated
-**once**; no design decision was made on it.
+**Frozen thermal family: 120 fixed-grid plants.** Frozen after training and re-evaluated after correctness repairs, without selecting a new checkpoint on it. This is not a preregistered prospective test.
 
-| method | final cost (median) | p90 | × reference | success | sims to target | experiments |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| hill climb over the same vocabulary | **1.711** | **2.447** | **1.14** | **27 %** | 9.5 | 20 |
-| **Jev head** | 1.737 | 2.871 | 1.30 | 16 % | 13.0 | 20 |
-| Bayesian optimisation | 1.877 | 2.662 | 1.32 | 5 % | 13.0 | 20 |
-| CMA-ES | 1.976 | 2.879 | 1.36 | 4 % | 16.0 | 20 |
-| identify → `pidtune` | 2.330 | 3.064 | 1.49 | 1 % | 2.0 | 2 |
-| Ziegler-Nichols | 2.682 | 3.374 | 1.76 | 0 % | inf | 1 |
+| method | median J | p90 J | actual simulations |
+| :--- | ---: | ---: | ---: |
+| `vocab_hill` | 1.711 | 2.447 | 20 |
+| `jev_head_swept` | 2.000 | 5.177 | 20 |
+| `bo` | 1.878 | 2.684 | 20 |
+| `cmaes` | 2.000 | 2.879 | 20 |
+| `identify+pidtune_PID` | 2.330 | 3.064 | 2 |
+| `jev_head` | 2.193 | 3.199 | 20 |
+| `zn_classic` | 2.682 | 3.374 | 1 |
+| `swept_zn` | 3.580 | 5.334 | 8 |
+| `shrunk_zn` | 4.854 | 5.158 | 1 |
+| `simplex` | 2.302 | 3.146 | 20 |
 
-**Reading the two tables together.** On the family it was validated on, the head
-is the best method that does not know the model. On a frozen family it had never
-seen, it is **second**: a plain greedy hill climb over the same seven gain
-multipliers reaches a lower median and a much lighter tail. So the honest claim is
-"a useful default that beats the classical one-shot tuners and BO/CMA-ES at this
-budget", not "the best tuner on unseen plants". The 7-run Ku/Tu sweep failed to
-recover Ku on 0/120 thermal plants (the sweep window is shorter than the dead
-time), so the two `swept` rows fall back and should be read with that in mind.
+A lower baseline cost is reported without qualification. See [BENCHMARK](docs/BENCHMARK.md) for accounting and [raw tables](research/results/benchmark_table_thermal_deadtime.md) for sweep recovery/fallback details.
 
 **Real Simulink model (lab DC motor)**
 
@@ -379,7 +362,7 @@ Full numbers, caveats and reproduction: [`docs/STEP1_RESULTS.md`](docs/STEP1_RES
 
 ## What is not tested
 
-Two comparisons this project does not make. They are listed here so nobody has
+The following are two of the project's unmeasured comparisons. They are listed here so nobody has
 to infer the boundaries from the benchmark:
 
 | not tested | why it matters | what would close it |
@@ -419,16 +402,16 @@ not as validation of anything measured here:
 * **Calibration and abstention** — temperature scaling (Guo et al., 2017),
   selective prediction (Geifman & El-Yaniv, NeurIPS 2017), conformal risk control
   (Angelopoulos et al., arXiv:2208.02814). `docs/ABSTENTION.md` measures the
-  coverage/cost trade-off; it does not implement a conformal guarantee.
+  coverage/cost trade-off; it implements only per-axis marginal teacher-label split CP under exchangeability; this is not a closed-loop safety guarantee.
 
 ## Repository layout
 
 ```
 src/jev_tune/
   primitives.py  Choice / Score / Noul           (domain-agnostic shell)
-  decision.py    backend protocol, question registry, temperature  (shell)
-  decode.py      expectation, variance shrink, explicit abstention (shell)
-  evaluate.py    budget accounting, gate, per-decision trace      (shell)
+  decision.py    protocol + concrete PID backend, T/CP loading
+  decode.py      numeric expectation, shrink, CP/legacy abstention
+  evaluate.py    PID budget accounting, gate, trace, CP adapter   (PID loop)
   plants.py      plant zoo + vectorised closed-loop simulation    (PID testbed)
   metrics.py     response -> scalar cost                          (PID testbed)
   state.py       20 features + 2x64 traces                        (PID testbed)

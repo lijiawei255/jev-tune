@@ -294,30 +294,43 @@ class _DiagCMA:
 def run_cmaes(
     plants: PlantSet, x0: np.ndarray, *, budget: int = 120, lam: int = 6, seed: int = 0
 ) -> BaselineResult:
+    """Measure the shared start, then spend the remaining budget on samples.
+
+    The returned gain set is an actually evaluated candidate, not the final
+    distribution mean (which need not have been evaluated).
+    """
+    if budget < 1 or lam < 1:
+        raise ValueError("budget and population size must be positive")
     rng = np.random.default_rng(seed)
     n = plants.n
-    opt = _DiagCMA(n, np.clip(np.log10(np.maximum(x0, 1e-9)), LOG_LO, LOG_HI))
+    best_gains = np.clip(np.asarray(x0, dtype=float), 10**LOG_LO, 10**LOG_HI).copy()
+    opt = _DiagCMA(n, np.log10(best_gains))
 
-    history, axis_ = [], []
-    best = np.full(n, np.inf)
-    evals = 0
+    best = _eval(plants, best_gains)
+    history, axis_ = [best.copy()], [1.0]
+    evals = 1
     idx = np.arange(n)
     while evals < budget:
         m = min(lam, budget - evals)
-        cand = opt.ask(m, rng)
+        cand = np.clip(opt.ask(m, rng), LOG_LO, LOG_HI)
         flat = plants.take(np.tile(idx, m))
-        j = _eval(flat, (10 ** np.clip(cand, LOG_LO, LOG_HI)).reshape(-1, 3)).reshape(
-            m, n
-        )
+        sampled_gains = 10**cand
+        j = _eval(flat, sampled_gains.reshape(-1, 3)).reshape(m, n)
         evals += m
         opt.tell(cand, j)
-        best = np.minimum(best, j.min(axis=0))
+        winner = np.argmin(j, axis=0)
+        candidate_cost = j[winner, idx]
+        improved = candidate_cost < best
+        best_gains = np.where(
+            improved[:, None], sampled_gains[winner, idx], best_gains
+        )
+        best = np.minimum(best, candidate_cost)
         history.append(best.copy())
         axis_.append(float(evals))
 
     return BaselineResult(
         name="cmaes",
-        gains=10 ** np.clip(opt.mean, LOG_LO, LOG_HI),
+        gains=best_gains,
         best_j=best,
         history=np.column_stack(history),
         eval_axis=np.asarray(axis_),
@@ -337,6 +350,9 @@ def run_bo(
     seed: int = 0,
     n_init: int = 6,
 ) -> BaselineResult:
+    """Bayesian optimisation with the shared starting point in its budget."""
+    if budget < 1:
+        raise ValueError("budget must be positive")
     from scipy.stats import norm
     from sklearn.gaussian_process import GaussianProcessRegressor
     from sklearn.gaussian_process.kernels import ConstantKernel, Matern
@@ -345,7 +361,7 @@ def run_bo(
     n = plants.n
     # a budget below the default initial design would otherwise spend more
     # experiments than the budget it was given
-    n_init = max(2, min(n_init, budget))
+    n_init = max(1, min(n_init, budget))
     kernel = ConstantKernel(1.0) * Matern(length_scale=0.4, nu=2.5)
 
     X = np.clip(
@@ -353,11 +369,12 @@ def run_bo(
         LOG_LO,
         LOG_HI,
     )
+    X[0] = np.clip(np.log10(np.maximum(x0, 1e-9)), LOG_LO, LOG_HI)
     Y = np.stack([_eval(plants, 10 ** X[k]) for k in range(n_init)])  # (n_init,n)
 
     best = Y.min(axis=0)
-    history = [best.copy()]
-    axis_ = [float(n_init)]
+    history = list(np.minimum.accumulate(Y, axis=0))
+    axis_ = list(np.arange(1, n_init + 1, dtype=float))
     evals = n_init
 
     for _ in range(budget - n_init):
@@ -366,7 +383,7 @@ def run_bo(
             gp = GaussianProcessRegressor(
                 kernel=kernel, optimizer=None, normalize_y=True
             )
-            gp.fit(X[: evals - n_init + n_init][:, i, :], Y[:, i])
+            gp.fit(X[:, i, :], Y[:, i])
             cand = rng.uniform(LOG_LO, LOG_HI, size=(512, 3))
             mu, sd = gp.predict(cand, return_std=True)
             sd = np.maximum(sd, 1e-9)
@@ -480,6 +497,7 @@ def run_grid(
 
     history, axis_ = [], []
     best = np.full(n, np.inf)
+    best_gains = np.asarray(x0, dtype=float).copy()
     evals = 0
     for start in range(0, total, batch):
         chunk = grid[start : start + batch]
@@ -488,13 +506,18 @@ def run_grid(
         gains = (x0[None, :, :] * chunk[:, None, :]).reshape(-1, 3)
         j = _eval(flat, gains).reshape(m, n)
         evals += m
-        best = np.minimum(best, j.min(axis=0))
+        winner = np.argmin(j, axis=0)
+        candidate_cost = j[winner, np.arange(n)]
+        candidate_gains = gains.reshape(m, n, 3)[winner, np.arange(n)]
+        improved = candidate_cost < best
+        best_gains = np.where(improved[:, None], candidate_gains, best_gains)
+        best = np.minimum(best, candidate_cost)
         history.append(best.copy())
         axis_.append(float(evals))
 
     return BaselineResult(
         name="grid_sweep",
-        gains=x0.copy(),
+        gains=best_gains,
         best_j=best,
         history=np.column_stack(history),
         eval_axis=np.asarray(axis_),

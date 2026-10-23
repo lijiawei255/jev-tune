@@ -6,6 +6,8 @@ vectors at once, which is what makes CPU-only dataset generation cheap.
 
 from __future__ import annotations
 
+import hashlib
+
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -199,6 +201,31 @@ class PlantSet:
     noise_sigma: np.ndarray | None = None  # measurement noise (std, output units)
     dead_zone: np.ndarray | None = None  # actuator dead zone (input units)
     params: list[dict] = field(default_factory=list)
+    noise_seed: np.ndarray | None = None  # stable per-plant common-random-number stream
+
+    def __post_init__(self):
+        if self.noise_seed is None:
+            # Identify a physical plant independently of its batch position or
+            # polynomial padding. Repeated candidates for that plant deliberately
+            # see the same sensor noise, so costs remain paired and reproducible.
+            seeds = []
+            for i in range(self.n):
+                digest = hashlib.blake2b(digest_size=8, person=b"jev-noise")
+                for coeff in (self.num[i], self.den[i]):
+                    values = np.asarray(np.trim_zeros(coeff, trim="f"), dtype="<f8")
+                    digest.update(np.asarray([values.size], dtype="<u8").tobytes())
+                    digest.update(values.tobytes())
+                scalars = [self.delay_s[i], self.u_min[i], self.u_max[i],
+                           0.0 if self.noise_sigma is None else self.noise_sigma[i],
+                           0.0 if self.dead_zone is None else self.dead_zone[i]]
+                digest.update(np.asarray(scalars, dtype="<f8").tobytes())
+                seeds.append(int.from_bytes(digest.digest(), "little"))
+            self.noise_seed = np.asarray(seeds, dtype=np.uint64)
+        else:
+            seeds = np.asarray(self.noise_seed)
+            if seeds.shape != (self.n,) or not np.issubdtype(seeds.dtype, np.integer) or (seeds < 0).any():
+                raise ValueError("noise_seed must contain one nonnegative integer per plant")
+            self.noise_seed = seeds.astype(np.uint64, copy=True)
 
     def subset(self, idx) -> "PlantSet":
         idx = np.atleast_1d(idx)
@@ -217,6 +244,7 @@ class PlantSet:
             noise_sigma=None if self.noise_sigma is None else self.noise_sigma[idx],
             dead_zone=None if self.dead_zone is None else self.dead_zone[idx],
             params=[self.params[i] for i in idx],
+            noise_seed=self.noise_seed[idx],
         )
 
     def take(self, idx) -> "PlantSet":
@@ -237,6 +265,7 @@ class PlantSet:
             noise_sigma=None if self.noise_sigma is None else self.noise_sigma[idx],
             dead_zone=None if self.dead_zone is None else self.dead_zone[idx],
             params=[self.params[i] for i in idx],
+            noise_seed=self.noise_seed[idx],
         )
 
 
@@ -550,8 +579,16 @@ def simulate(
     dz = (
         np.zeros(N) if plants.dead_zone is None else np.asarray(plants.dead_zone, float)
     )
-    rng = np.random.default_rng(12345)
     has_noise = bool(np.any(noise > 0))
+    noise_draws = None
+    if has_noise:
+        # A stream belongs to the plant, not to its row in this call. Removing a
+        # stopped plant or broadcasting candidates must not change another
+        # plant's stochastic input. Explicit seeds permit independent replicates.
+        noise_draws = np.zeros((N, nsteps))
+        for seed in np.unique(plants.noise_seed[noise > 0]):
+            rows_for_seed = (plants.noise_seed == seed) & (noise > 0)
+            noise_draws[rows_for_seed] = np.random.default_rng(int(seed)).standard_normal(nsteps)
 
     for k in range(nsteps):
         # buffer layout: hist[:, j] holds u[k-1-dmax+j], so a transport delay of
@@ -560,8 +597,7 @@ def simulate(
         u_del = hist[rows, np.clip(dmax + 1 - d_steps, 0, dmax)]
         y = np.einsum("ni,ni->n", x, c) + d * u_del
         if has_noise:
-            y = y + noise * rng.standard_normal(N)
-            y_curve_noise_flag = True
+            y = y + noise * noise_draws[:, k]
 
         r = r_vec[k]
         e = r - y

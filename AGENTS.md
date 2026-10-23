@@ -6,7 +6,7 @@ It is written to be read top-to-bottom and executed without asking questions.
 ## What this project is
 
 A control-parameter autotuner whose decision step is a **Jev-style typed decision**
-(`choice` / `score` / `noul`) produced by a ~200 KB CPU model in **0.19 ms**,
+(`choice` / `score` / `noul`) produced by a small CPU model,
 instead of an autoregressive LLM call. It tunes PID gains for a plant it can
 only test by simulation.
 
@@ -14,8 +14,9 @@ only test by simulation.
 not in the runtime; the policy is trained in this repo. Say so if a user asks.
 This project is **Jev-inspired and not affiliated with TypeSafe AI**; it contains
 no Jev weights, no text input and no API access. `docs/JEV_MAPPING.md` lists what
-is borrowed and what is not. The 0.19 ms figure is the model forward; a complete
-typed decision (softmax + `Choice/Score/Noul` + decode) costs about 0.73 ms.
+is borrowed and what is not. `docs/COMPUTE.md` separates measured forward latency
+from the complete typed decision and default abstention path. Host measurements
+are not a target-board worst-case timing guarantee.
 
 Two runtimes ship in this repo:
 

@@ -60,8 +60,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install numpy scipy
+          pip install numpy scipy pytest
           pip install -e . --no-deps
+      - name: Verify committed vectors and reject NaN mutations before regeneration
+        env:
+          PYTHONPATH: src
+        run: python -m pytest tests/test_portability.py -k "not matlab" -q
+
       # gcc is preinstalled on ubuntu-latest; this compiles the C99 reference
       # and checks forward, feature assembly and resampling against Python
       - name: C99 reference matches Python

@@ -29,6 +29,7 @@ from jev_tune.model import JevHead
 from jev_tune.plants import make_plant, ultimate_gain
 from jev_tune.scenarios import SPECS
 from jev_tune.train import save, train_head
+from _experiment_protocol import manifest
 
 
 def build_family(args):
@@ -92,6 +93,7 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--models", default="models")
     ap.add_argument("--out", default="models/specialized")
+    ap.add_argument("--report", help="Optional versioned JSON report path")
     args = ap.parse_args()
 
     if not (args.scenario or args.spec):
@@ -144,7 +146,8 @@ def main():
         gzn_h,
         ku,
         tu,
-        iters=20,
+        budget=20,
+        conformal=None,
         value=None,
         use_value_filter=False,
         seed=args.seed,
@@ -155,7 +158,8 @@ def main():
         gzn_h,
         ku,
         tu,
-        iters=20,
+        budget=20,
+        conformal=None,
         value=None,
         use_value_filter=False,
         seed=args.seed,
@@ -180,10 +184,17 @@ def main():
         "fraction_better": better,
         "fraction_worse": worse,
         "wall_s": time.perf_counter() - t0,
+        "budget_per_plant": 20,
+        "conformal": "disabled for both arms; a changed specialist needs its own independent CP calibration",
+        "expert_simulation_counts": data.simulation_counts,
+        "manifest": manifest(args, files=[Path(args.models) / "jev_head.pt", Path(args.models) / "calibration.json"]),
     }
     (out_dir / f"{args.name}.json").write_text(
         json.dumps(report, indent=2), encoding="utf-8"
     )
+    if args.report:
+        Path(args.report).parent.mkdir(parents=True, exist_ok=True)
+        Path(args.report).write_text(json.dumps(report, indent=2), encoding="utf-8")
     print(
         f"[spec] zero-shot J={z:.3f}  specialised J={t:.3f}  "
         f"improvement {report['improvement']:+.0%}  ({report['wall_s']:.0f}s)"

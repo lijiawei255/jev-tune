@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import time
 from pathlib import Path
 
@@ -10,6 +11,7 @@ import numpy as np
 
 from jev_tune.expert import generate
 from jev_tune.plants import sample_plants
+from _experiment_protocol import manifest
 
 
 def main():
@@ -50,9 +52,15 @@ def main():
         gzn=gzn,
         ku=np.asarray(getattr(data, "ku", np.zeros(plants.n))),
         tu=np.asarray(getattr(data, "tu", np.zeros(plants.n))),
+        simulation_counts_json=np.asarray(json.dumps(data.simulation_counts)),
     )
 
-    sims = plants.n * args.steps * 16
+    sims = data.simulation_counts["total"]
+    Path(args.out).with_suffix(".manifest.json").write_text(
+        json.dumps(manifest(args, files=[args.out], extra={
+            "simulation_counts": data.simulation_counts,
+            "states": len(data.feats), "wall_s": dt,
+        }), indent=2), encoding="utf-8")
     print(
         f"[data] {len(data.feats):,} states, {len(data.act_state):,} lookahead samples"
     )

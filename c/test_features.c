@@ -12,6 +12,7 @@
 
 #include "jev_head.h"
 #include "test_features.h"
+#include "test_common.h"
 
 int main(void) {
     int c, i, failures = 0;
@@ -26,12 +27,12 @@ int main(void) {
                         JEV_SV_PREV_COST[0][c], JEV_SV_COST[0][c],
                         JEV_SV_ITER[0][c], 10.0f, 1.0f, &s);
         for (i = 0; i < JEV_N_FEATS; ++i) {
-            float d = fabsf(s.feats[i] - JEV_SV_FEATS[c][i]);
+            float d = finite_diff(s.feats[i], JEV_SV_FEATS[c][i]);
             if (d > worst_feats) worst_feats = d;
         }
         for (i = 0; i < JEV_N_CURVE; ++i) {
-            float d0 = fabsf(s.curves[0][i] - JEV_SV_CURVES[c][i]);
-            float d1 = fabsf(s.curves[1][i] - JEV_SV_CURVES[c][JEV_N_CURVE + i]);
+            float d0 = finite_diff(s.curves[0][i], JEV_SV_CURVES[c][i]);
+            float d1 = finite_diff(s.curves[1][i], JEV_SV_CURVES[c][JEV_N_CURVE + i]);
             if (d0 > worst_curves) worst_curves = d0;
             if (d1 > worst_curves) worst_curves = d1;
         }
@@ -46,8 +47,8 @@ int main(void) {
         float y_out[JEV_N_CURVE], u_out[JEV_N_CURVE];
         jev_resample(JEV_RV_Y[c], JEV_RV_U[c], JEV_RV_LEN[c], y_out, u_out);
         for (i = 0; i < JEV_N_CURVE; ++i) {
-            float dy = fabsf(y_out[i] - JEV_RV_Y_OUT[c][i]);
-            float du = fabsf(u_out[i] - JEV_RV_U_OUT[c][i]);
+            float dy = finite_diff(y_out[i], JEV_RV_Y_OUT[c][i]);
+            float du = finite_diff(u_out[i], JEV_RV_U_OUT[c][i]);
             if (dy > worst_resample) worst_resample = dy;
             if (du > worst_resample) worst_resample = du;
         }

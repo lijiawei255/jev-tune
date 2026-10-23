@@ -3,6 +3,40 @@
 All notable changes to this project. Numbers quoted here are measured, and the
 file that produced them is named next to them.
 
+[English](#english) · [简体中文](#简体中文)
+
+## English
+
+## [0.5.0] - 2026-10-24
+
+### Temperature + Split CP
+
+* Retain temperature scaling and fit split-conformal `1-p(teacher label)` quantiles on a separate plant-level sample. A third sample measures empirical coverage; evaluation labels never select thresholds.
+* Default alpha is 0.10 and k_max is 3. Empty, wide or opposing-direction sets hold axes before actuation; full-distribution expectation and variance shrink are retained. Python, MATLAB and C share vectors and metadata.
+* The guarantee is per-axis marginal teacher-label inclusion under exchangeability on fresh initial states. It does not imply joint, adaptive-loop or safety coverage. Empirical results, including an axis below nominal, are published in `docs/CONFORMAL.md`.
+* Matched E1/E2 controls show higher cost for CP than temperature-only and ordinary regression here. CP has a lower p90 than its coverage-matched random-hold control, but a higher median; all results are retained without retuning alpha or q_hat.
+
+### Fixed
+
+* Record each measured transition once, account for partial-axis holds, separate rollback events, and make gates independent across plants.
+* Early stopping now stops simulations. Real per-plant measurement counts replace stop-index estimates.
+* CMA-ES, BO and grid search return the measured winning gains. CMA/BO measure their shared initial point inside the budget.
+* Keep noisy simulations invariant under subsets and reordering. Forward horizon/reference settings into evaluator and expert metrics/features.
+* Reject nonfinite numbers, invalid probabilities and nonpositive temperatures. Stable softmax handles tiny positive temperatures; zero steps preserve parameter bits. Repair the opt-in ValueNet path.
+* Validate numeric Option payloads against explicit PID schemas; support a standalone arbitrary-axis numeric decoder and additive non-PID toy.
+* Repair MATLAB escalation totals and first-iteration rollback/history, with a shared decoder and tau_noul support.
+* C tests now reject NaN/Inf and cover every head plus policy boundaries; confident zero actions are distinct from abstention. Remove mutable static initialization.
+* Normalize ELF/COFF section accounting and unavailable resource values. Distinguish static RAM, stack frames, host readonly storage and full integer inference.
+
+### Evidence and documentation
+
+* Refit A0 on the matched 90% training split with expectation-preserving interpolation and a cache manifest. Keep the single-training-checkpoint limitation explicit.
+* Separate threshold selection and independent validation; add matched-coverage random hold, four calibration adaptation arms and actual acquisition counts. In the CP-off adaptation experiment, temperature-only improves slightly while threshold-only and combined worsen; thermal hill climbing still beats the default CP head.
+* Regenerate both 120-plant benchmarks, E1/E2/calibration, robustness, generalization, specialization, disturbance study, animation, C/MATLAB vectors and hardware/latency evidence from scripts.
+* Measure the actual default typed/abstention path with 2000 raw timing samples. Host timing is not target-board WCET.
+* Check registered prose and bilingual README/table rows against artifacts; manual evidence cannot count as an automatic pass.
+* Update English/Chinese architecture, applicability, benchmark, transfer, specialization, claims and experiment documentation; clearly version historical study pages.
+
 ## [0.4.1] - 2026-10-24
 
 ### Added
@@ -274,3 +308,28 @@ First public release: the typed-decision tuner (0.19 ms per decision, 200 KB
 model), the Simulink bridge with Fast Restart and a deterministic safety gate, the
 six-method benchmark, the robustness study (200/200 plants not worse than the
 start) and the scale economics. See the release notes.
+
+## 简体中文
+
+### 0.5.0 — 审计修复与证据重算
+
+每条实测转移只记一次，部分轴保持计入统计；回滚逐株独立，早停真正减少仿真。
+CMA/BO计入共同实测起点，CMA/BO/网格返回实测赢家。噪声在子集与重排下按对象保持一致，
+时长/参考值同步传入状态与代价。数值边界显式校验，极小温度稳定计算，零步保持参数位值；
+可选ValueNet恢复可执行。数值Option载荷契约统一，并增加非PID两轴加法示例。
+
+MATLAB修复首次回滚、历史错配和累计升级，并支持tau_noul独立解码。C校验覆盖全部头与策略，
+NaN/Inf变体必须失败，主动零动作不再冒充弃权；移除可变静态初始化。资源统计正确处理ELF/COFF，
+分别列静态RAM、栈帧、宿主只读占用与量化语义。
+
+A0采用同一90%训练划分及保持期望的插值；阈值选择与独立验证分开，增加匹配覆盖随机保持和
+四臂校准适配，采样按真实仿真计费。显式关闭CP的适配中，温度单独调整略有改善，阈值及组合变差；热工族仍由同词表爬山胜出。
+两族120株基准、消融、弃权、校准、鲁棒性、泛化、专门化、扰动研究、动画、端口向量和硬件证据均由脚本重算。
+时延测量覆盖默认弃权路径并保存2000个原始样本，不作板端WCET保证。注册正文及双语表格与产物独立比对，
+人工证据不计自动通过。当前文档双语同步，历史结果明确标注版本，训练种子重复等未测研究继续如实列明。
+
+保留温度缩放，并在独立对象样本上拟合分裂CP分位数，第三组样本只作经验评估。默认alpha=0.10、
+k_max=3；空集、过宽或正负矛盾集合事前保持，保留完整分布期望与方差缩步，Python/MATLAB/C同步。
+覆盖定理只适用于初态交换性下逐轴专家标签的边际包含率，不保证联合、自适应闭环或安全。
+实测第三轴低于名义水平，未重调阈值；E1中CP代价及p90劣于温度单独校准，E2中CP中位代价劣于
+匹配随机保持而p90更低，均照实发布。

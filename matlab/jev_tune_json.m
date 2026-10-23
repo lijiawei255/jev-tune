@@ -71,6 +71,8 @@ try
         out.own_J = R.own_J;
     end
     out.n_rollbacks = R.n_rollbacks;
+    out.n_escalations = R.n_escalations;
+    out.decision_policy = R.decision_policy;
     out.n_experiments = numel(R.hist);
     out.warnings = {};
     if isfield(R, 'stopTime') && abs(R.stopTime - 10) / 10 > 0.5
@@ -241,5 +243,10 @@ for i = 1:n
     h(i).gains = hist(i).gains(:).';
     h(i).step = hist(i).step(:).';
     h(i).event = char(hist(i).event);
+    for name = {'next_gains', 'proposed', 'held', 'escalate', 'reason', 'set_size'}
+        h(i).(name{1}) = hist(i).(name{1})(:).';
+    end
+    h(i).conformal_set = hist(i).conformal_set.'; % JSON axes x vocabulary
+    h(i).conformal_applied = hist(i).conformal_applied;
 end
 end

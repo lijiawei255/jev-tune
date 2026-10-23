@@ -2,8 +2,8 @@
 
 This is the honest demonstration behind the "objective must match" caveat:
 
-    step-trained head   applied to a disturbance -> cost stays high
-    disturbance-trained applied to a disturbance -> cost drops
+    Compare a step-trained head with an offline disturbance specialist.
+    Specialisation may improve or worsen the held-out cost.
 
 Both are measured on the same plant family with the same 20-experiment budget.
 The tracking specialist is produced by the same specialist flow, only with the
@@ -26,6 +26,7 @@ from jev_tune.expert import generate
 from jev_tune.model import JevHead
 from jev_tune.plants import PlantSet, sample_plants, simulate, ultimate_gain
 from jev_tune.train import train_head
+from _experiment_protocol import manifest
 
 SIM = dict(profile="step", disturb_amp=0.4, disturb_time=5.0)
 OBJECTIVE = "disturbance"
@@ -98,7 +99,8 @@ def main():
             gzn,
             ku,
             tu,
-            iters=20,
+            budget=20,
+            conformal=None,
             value=None,
             use_value_filter=False,
             seed=args.seed,
@@ -121,6 +123,10 @@ def main():
         "specialist_median": results["tracking_specialist"],
         "improvement": float(gain),
         "wall_s": time.perf_counter() - t0,
+        "budget_per_plant": 20,
+        "conformal": "disabled for both arms; disturbance objective and refitted weights need independent CP calibration",
+        "expert_simulation_counts": data.simulation_counts,
+        "manifest": manifest(args, files=[Path(args.models) / "jev_head.pt", Path(args.models) / "calibration.json"]),
     }
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     Path(args.out).write_text(json.dumps(report, indent=2), encoding="utf-8")

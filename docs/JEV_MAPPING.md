@@ -1,90 +1,65 @@
-# What this repository borrows from Jev — and what it does not
+# JEV_MAPPING
 
-> [English](#english) · [简体中文](#简体中文)
+[English](#english) · [简体中文](#简体中文)
 
 ## English
 
-This page exists because the repository is named `jev-tune` and uses Jev's
-interface. It is **not** a Jev client, it contains **no Jev weights**, and it is
-not affiliated with TypeSafe AI. Everything below separates what is publicly
-documented about Jev from what is implemented here.
+Jev-inspired and not affiliated with, endorsed by or sponsored by TypeSafe AI.
+This repository contains no Jev/Laya weights, tokenizer, text input or API access.
+The trained policy is this repository's numeric PID head.
 
-Public sources used (accessed 2026-10-23):
+Primary sources: [TypeSafe introduction](https://docs.typesafe.ai/introduction),
+[Choice](https://docs.typesafe.ai/primitives/choice),
+[Score](https://docs.typesafe.ai/primitives/score),
+[Noul](https://docs.typesafe.ai/primitives/noul). These are vendor public descriptions,
+not measurements or guarantees obtained by this project. The previously cited
+jevtypesafeai.com architecture page is an independent third-party site, not
+official architecture evidence; its implementation claims are not relied on here.
 
-* Jev architecture — <https://www.jevtypesafeai.com/jev/architecture>
-* Jev primitives, as documented by the TypeSafe SDK — <https://learnjev.com/tutorials/three-primitives>
+| Concept | Implemented here | Limit |
+| :--- | :--- | :--- |
+| Choice | 3 axes × 7 options, distributions and numeric payloads | PID checkpoint; confidence=max(p), not a correctness guarantee |
+| Score | five ordered cost bands, distribution | fixed synthetic rubric |
+| Noul | synthetic healthy-step label | no independently validated safety probability; tau_noul defaults to 0 |
+| Calibration | per-axis NLL temperature loaded at runtime | expert agreement differs from outcome calibration; T also changes expectation actions |
+| Abstention | default split-CP sets; optional legacy tau_act/tau_esc and global tau_noul | keep last tested parameter; escalation flag only; separate measured rollback |
+| Many questions | three Choice + Score + Noul in one forward | scaling with arbitrary question count unmeasured |
+| Registry | fixed supported IDs, UnknownQuestion on unsupported IDs | no natural-language questions or arbitrary rubric |
+| Training | supervised imitation of simulated coordinate search | no Jev training recipe reused |
 
-### Concept-by-concept
-
-| Concept | Jev (public description) | This repository | Status | Difference |
-| :--- | :--- | :--- | :--- | :--- |
-| Non-autoregressive decision | Typed, calibrated output instead of generated text; hosted API | One forward pass of a 200 KB convolutional encoder (`src/jev_tune/model.py`) | implemented | Numeric state (20 features + 2×64 trace samples), not text |
-| `choice` | One of up to 255 options, with per-option probabilities and a confidence | 7 multiplicative gain steps per axis, 3 axes (`src/jev_tune/decode.py`, `decision.py`) | implemented | 7 options, no free-text criteria; the "confidence" is `max(p)` and is logged, not thresholded |
-| `score` | Ordered level scale, fractional score + distribution + confidence | 5 cost bands of the current response (`decision.SCORE_LEVELS`) | implemented | The levels are fixed cost bands, not user-supplied rubric text |
-| `noul` | Calibrated yes/no, probability in [0,1], optional true/false criteria | P(the proposed step keeps the loop healthy) | implemented | Trained on a synthetic label, not on human criteria |
-| Probabilities, not just an answer | Every answer carries a distribution | Softmax over the choice logits; expectation + variance decode | implemented | — |
-| Calibration | "Calibration, not fluent writing, is the target"; confidence is concentration, not a correctness guarantee | One temperature per axis fitted by NLL (`models/calibration.json`), **applied inside the loop** (`decision.NumericBackend`), ECE reported in `docs/STEP1_RESULTS.md` | implemented | ECE there measures agreement with the **expert's** step, not whether the step lowered the cost; the outcome ECE (0.28) is in `docs/ABSTENTION.md` |
-| Threshold execution / escalation | Typed answers can be acted on directly or escalated | Three-zone `AbstainPolicy` in `decode.py`, inside `evaluate_head` and the MATLAB bridge: execute / hold / hold-and-flag-escalation | implemented | The escalation is a **flag**, not an action; there is no upstream service to escalate to. The deterministic gate remains separate and runs after the fact |
-| Many questions in one forward pass | "Questions in a call run in parallel in one round trip"; roughly 40–200× faster than a frontier LLM | 5 questions (3 choices + score + noul) answered by one forward pass | partial | The **scaling** claim ("more questions, nearly the same latency") is not measured here (planned as J3) |
-| Questions as input | A map of question id → typed question over a shared state | A fixed registry of question ids (`decision.tuner_questions`); an unknown id raises `UnknownQuestion` | partial | No natural-language question, no user-defined rubric, no per-call state schema |
-| System-1 / System-2 split | Jev is described as a System One model | The head is the fast path; a one-step lookahead value net exists but is **off by default** because it measured worse | partial | There is no LLM/System-2 fallback in the loop |
-| Training objective | Publicly described as an RLCD training objective (the internals are not published) | Supervised imitation of a coordinate-line-search expert on simulated plants, plus BCE for `noul` and CE for `score` (`src/jev_tune/train.py`) | implemented, different | Nothing about Jev's training recipe is reused |
-
-### What is explicitly not borrowed
-
-* No Jev weights, tokenizer, text encoder, API access, prompts or training data.
-* No claim of compatibility: "Jev-inspired" here means the three typed
-  primitives and the idea of a bounded, probabilistic answer. It does not mean
-  the outputs match Jev's, or that this code can call Jev.
-* Laya's 421 M text encoder is likewise absent. It appears only as a citation in
-  `docs/STEP1_RESULTS.md` and `docs/PHASE0_RESEARCH_REPORT.md`.
-
-### What would make this a Jev *implementation* rather than an inspiration
-
-A typed decision layer that takes arbitrary, user-defined questions as input
-(text or a schema), a text or multimodal state encoder, and calibration measured
-against outcomes rather than against a teacher's labels. The gap is listed here
-so a reader does not have to infer it.
-
----
+The reusable parts and the PID-specific runner are separated in
+[TRANSFER](TRANSFER.md). A typed interface does not itself demonstrate a causal
+advantage: read [ABLATION](ABLATION.md) and its single-training-seed limitation.
+Laya's [reported calibration table](https://github.com/NandhaKishorM/laya/blob/main/BENCHMARKS.md#calibration)
+contains ECE 0.466→0.081 on its own task; it is background, not a matched PID comparison.
 
 ## 简体中文
 
-本页存在的原因：仓库叫 `jev-tune`，用的是 Jev 的**接口风格**。它不是 Jev 客户端，
-**不含任何 Jev 权重**，与 TypeSafe AI 无隶属关系。下面逐项区分"Jev 公开文档怎么
-说"与"本仓库实际实现了什么"。
+本仓库受Jev启发，与TypeSafe AI无隶属、背书或赞助关系，不含Jev/Laya权重、分词器、文本输入或API访问。
+实际策略是本仓库训练的数值PID头。
 
-公开来源（2026-10-23 访问）：
+一手来源：[TypeSafe介绍](https://docs.typesafe.ai/introduction)、[Choice](https://docs.typesafe.ai/primitives/choice)、
+[Score](https://docs.typesafe.ai/primitives/score)、[Noul](https://docs.typesafe.ai/primitives/noul)。
+这些是厂商公开描述，不是本仓库测得的性能或保证。此前引用的jevtypesafeai.com架构页属于独立第三方，
+不能作为官方架构证据，本项目不再依赖其内部实现描述。
 
-* Jev 架构说明 — <https://www.jevtypesafeai.com/jev/architecture>
-* Jev 三种原语（TypeSafe SDK 文档）— <https://learnjev.com/tutorials/three-primitives>
+| 概念 | 本仓库实现 | 边界 |
+| :--- | :--- | :--- |
+| Choice | 3轴×7选项、分布与数值载荷 | PID权重，max(p)不保证正确 |
+| Score | 5个有序代价档及分布 | 固定合成评分标准 |
+| Noul | 合成健康动作标签 | 不是独立验证的安全概率，tau_noul默认0 |
+| 校准 | 每轴NLL温度在运行时应用 | 专家一致性不等于结果校准，T也改变期望动作 |
+| 弃权 | 默认分裂CP集合，可选旧tau_act/tau_esc及全局tau_noul | 保持上次实测参数，升级仅标记，事后回滚独立 |
+| 多问题 | 一次前向回答3个Choice及Score/Noul | 任意问题数扩展未测 |
+| 注册表 | 固定ID，未知项抛UnknownQuestion | 不接受自然语言问题或任意标准 |
+| 训练 | 仿真坐标搜索专家的监督模仿 | 未复用Jev训练配方 |
 
-### 逐项对照
+可复用组件与PID闭环边界见[TRANSFER](TRANSFER.md)。类型接口本身不证明因果收益，
+见[ABLATION](ABLATION.md)及其单训练种子限制。
+Laya的[源校准表](https://github.com/NandhaKishorM/laya/blob/main/BENCHMARKS.md#calibration)确有ECE 0.466→0.081，
+但任务不同，只作背景，不是同条件PID对比。
 
-| 概念 | Jev（公开描述） | 本仓库 | 状态 | 差异 |
-| :--- | :--- | :--- | :--- | :--- |
-| 非自回归决策 | 返回类型化、校准过的结果，而不是生成文本；托管 API | 200 KB 卷积编码器一次前向（`src/jev_tune/model.py`） | 已实现 | 输入是数值状态（20 特征 + 2×64 曲线采样），不是文本 |
-| `choice` | 最多 255 个选项中选一个，带每项概率与 confidence | 每个增益轴 7 个乘法档位，共 3 轴（`decode.py`、`decision.py`） | 已实现 | 只有 7 档；confidence 取 `max(p)`，只记录、不做阈值 |
-| `score` | 有序档位，返回分数、分布与 confidence | 当前响应的 5 个代价档（`decision.SCORE_LEVELS`） | 已实现 | 档位是固定代价区间，不是用户给的评分标准 |
-| `noul` | 校准的是/否，返回 [0,1] 概率，可带 true/false 判据 | "这一步能否保持闭环健康"的概率 | 已实现 | 标签由合成规则生成，不是人写的判据 |
-| 给概率而不只给答案 | 每个答案都带分布 | 对 choice logits 做 softmax；期望 + 方差解码 | 已实现 | — |
-| 校准 | "目标是校准，而不是流畅"；confidence 是答案集中度，不是正确性保证 | 每轴一个温度（NLL 拟合，`models/calibration.json`），**在回路内真正应用**（`decision.NumericBackend`），ECE 见 `docs/STEP1_RESULTS.md` | 已实现 | 那里的 ECE 衡量的是与**专家动作**的一致率，不是"这一步是否降低代价"；结果侧 ECE（0.28）在 `docs/ABSTENTION.md` |
-| 阈值执行 / 升级 | 类型化答案可直接执行或升级 | `decode.py` 的三段式 `AbstainPolicy`，接在 `evaluate_head` 与 MATLAB 桥里：执行 / 保持 / 保持并打升级标记 | 已实现 | 升级只是**标记**，不是动作；这里没有可升级到的上游服务。确定性闸门仍独立、事后运行 |
-| 多问题共享一次前向 | "一次往返里并行求值"；比前沿 LLM 快约 40–200 倍 | 一次前向回答 5 个问题（3 个 choice + score + noul） | 部分 | "问题变多、延迟几乎不变"这条**没有测**（计划中的 J3） |
-| 问题作为输入 | 问题 id → 类型化问题，共享同一状态 | 固定问题注册表（`decision.tuner_questions`），未知 id 抛 `UnknownQuestion` | 部分 | 没有自然语言问题、没有用户自定义评分标准 |
-| System-1 / System-2 分工 | Jev 被描述为 System One 模型 | 决策头是快路径；一步前瞻价值网存在但**默认关闭**（实测更差） | 部分 | 回路里没有 LLM / System-2 兜底 |
-| 训练方式 | 公开说法是 RLCD 训练目标（内部细节未公开） | 在仿真对象上模仿坐标线搜索专家，另加 `noul` 的 BCE 与 `score` 的 CE（`train.py`） | 已实现，但不同 | 没有复用 Jev 的任何训练配方 |
 
-### 明确没有借的东西
+Split-CP calibration and its restricted marginal teacher-label guarantee are documented in [CONFORMAL](CONFORMAL.md); they are this project's implementation, not a claim about Jev internals.
 
-* 没有 Jev 权重、分词器、文本编码器、API 访问、提示词或训练数据。
-* 不声明"兼容"：这里的 "Jev-inspired" 只指三种类型化原语和"有界、带概率的
-  答案"这个思路；不代表输出与 Jev 一致，也不代表这份代码能调用 Jev。
-* Laya 的 421 M 文本编码器同样不在运行时；它只作为引用出现在
-  `docs/STEP1_RESULTS.md` 与 `docs/PHASE0_RESEARCH_REPORT.md`。
-
-### 什么情况下才算"实现了 Jev"而不是"受其启发"
-
-需要：能接受任意用户定义问题（文本或 schema）的类型化决策层、文本或多模态状态
-编码器、以及按**真实结果**而不是按教师标签衡量的校准。把这些差距写在这里，
-是为了让读者不必自己推断。
+分裂CP校准及其有限的边际专家标签覆盖保证见[CONFORMAL](CONFORMAL.md)，这是本仓库实现，不是对Jev内部架构的推断。

@@ -13,15 +13,19 @@
 
 #include "jev_head.h"
 #include "test_vectors.h"
+#include "test_common.h"
 
 int main(void) {
     int c, i, a, failures = 0;
     float worst_logits = 0.0f, worst_probs = 0.0f, worst_step = 0.0f;
     jev_policy pol;
-    int escalations = 0;
+    jev_conformal cp;
+    int escalations = 0, expected_escalations = 0;
     pol.tau_act = JEV_TV_TAU_ACT;
     pol.tau_esc = JEV_TV_TAU_ESC;
     pol.tau_noul = JEV_TV_TAU_NOUL;
+    cp.enabled = JEV_TV_CP_ENABLED; cp.k_max = JEV_TV_CP_K_MAX;
+    for (a = 0; a < 3; ++a) cp.qhat[a] = JEV_TV_CP_QHAT[a];
 
     for (c = 0; c < JEV_TV_N; ++c) {
         jev_state s;
@@ -44,6 +48,14 @@ int main(void) {
         jev_answer(&lg, JEV_TV_TEMP, &p);
         jev_decode(&p, &act);
         jev_abstain(&act, &p, &pol, &escalations);
+        jev_apply_conformal(&act, &p, &cp, &escalations);
+#ifdef JEV_TEST_NAN_MUTATION
+        /* The Python regression test expects this corrupt implementation to fail. */
+        lg.choice[0][0] = p.choice[0][0] = act.step[0] = NAN;
+#endif
+#ifdef JEV_TEST_INF_MUTATION
+        lg.score[0] = p.score[0] = act.step[0] = INFINITY;
+#endif
 
         for (a = 0; a < 3; ++a) {
             for (i = 0; i < JEV_K; ++i) {
@@ -57,14 +69,37 @@ int main(void) {
             float dl = 0.0f, dp = 0.0f, ds = 0.0f;
             for (i = 0; i < 21; ++i) {
                 float v;
-                v = fabsf(got_logits[0][i] - JEV_TV_LOGITS[c][i]);
+                v = finite_diff(got_logits[0][i], JEV_TV_LOGITS[c][i]);
                 if (v > dl) dl = v;
-                v = fabsf(got_probs[0][i] - JEV_TV_PROBS[c][i]);
+                v = finite_diff(got_probs[0][i], JEV_TV_PROBS[c][i]);
                 if (v > dp) dp = v;
             }
             for (a = 0; a < 3; ++a) {
-                float v = fabsf(got_step[0][a] - JEV_TV_STEP[c][a]);
+                float v = finite_diff(got_step[0][a], JEV_TV_STEP[c][a]);
                 if (v > ds) ds = v;
+                v = finite_diff(act.proposed[a], JEV_TV_PROPOSED[c][a]);
+                if (v > ds) ds = v;
+                if (act.axis_held[a] != (int)JEV_TV_HELD[c][a] ||
+                    act.escalate[a] != (int)JEV_TV_ESCALATE[c][a] ||
+                    act.reason[a] != (int)JEV_TV_REASON[c][a]) failures++;
+                if (act.set_size[a] != (int)JEV_TV_SET_SIZE[c][a]) failures++;
+                for (i = 0; i < JEV_K; ++i)
+                    if (act.conformal_set[a][i] != (int)JEV_TV_CONFORMAL_SET[c][a * JEV_K + i]) failures++;
+                expected_escalations += (int)JEV_TV_ESCALATE[c][a];
+            }
+            for (i = 0; i < JEV_N_SCORE; ++i) {
+                float v = finite_diff(lg.score[i], JEV_TV_SCORE_LOGITS[c][i]);
+                if (v > dl) dl = v;
+                v = finite_diff(p.score[i], JEV_TV_SCORE_PROBS[c][i]);
+                if (v > dp) dp = v;
+            }
+            {
+                float v = finite_diff(lg.noul_logit, JEV_TV_NOUL_LOGITS[c][0]);
+                if (v > dl) dl = v;
+                v = finite_diff(p.noul, JEV_TV_NOUL[c][0]);
+                if (v > dp) dp = v;
+                if (act.held != (act.axis_held[0] && act.axis_held[1] && act.axis_held[2])) failures++;
+                if (act.conformal_applied != JEV_TV_CP_ENABLED) failures++;
             }
             if (dl > worst_logits) worst_logits = dl;
             if (dp > worst_probs) worst_probs = dp;
@@ -77,6 +112,7 @@ int main(void) {
         }
     }
 
+    if (escalations != expected_escalations) failures++;
     printf("cases %d\n", JEV_TV_N);
     printf("max_abs_diff_logits %.3e (tol %.1e)\n", worst_logits,
            (double)JEV_TOL_LOGITS);

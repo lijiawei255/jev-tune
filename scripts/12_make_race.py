@@ -44,6 +44,7 @@ from jev_tune.baselines import (
 from jev_tune.evaluate import evaluate_head
 from jev_tune.model import JevHead
 from jev_tune.plants import HELDOUT_FAMILIES, sample_plants, ultimate_gain
+from _experiment_protocol import manifest
 
 INK = "#1b2430"
 MUTED = "#95a5a6"
@@ -343,6 +344,7 @@ def main():
         data = json.loads(json_path.read_text(encoding="utf-8"))
     else:
         data = collect(args.plants, args.seed, args.models)
+        data["manifest"] = manifest(args, files=[Path(args.models) / "jev_head.pt", Path(args.models) / "calibration.json"])
         json_path.parent.mkdir(parents=True, exist_ok=True)
         json_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
         print(f"[race] wrote {json_path}")

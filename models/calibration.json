@@ -1,24 +1,268 @@
 {
+  "schema_version": 2,
   "choice_temperature": [
-    0.9955192002656079,
-    0.9191108573319186,
-    0.9576773776014933
+    1.8914944004413212,
+    1.5218893482685463,
+    1.5022457291115834
   ],
+  "temperature_fit_split": "temperature_fit",
   "ece_before": [
-    0.03336669733693683,
-    0.029896953529656867,
-    0.021337782077304957
+    0.13146542510675402,
+    0.06668065153420981,
+    0.04893583208103841
   ],
   "ece_after": [
-    0.031299685035752145,
-    0.010738037887243729,
-    0.019585691096023847
+    0.04947986020609907,
+    0.03768631131992236,
+    0.05564850603929002
   ],
+  "ece_evaluation_split": "empirical_eval",
   "val_choice_acc": [
-    0.66575,
-    0.6895,
-    0.67825
+    0.5546875,
+    0.716796875,
+    0.6953125
   ],
-  "val_score_acc": 0.9935,
-  "val_noul_acc": 0.96925
+  "val_score_acc": 0.96875,
+  "val_noul_acc": 0.982421875,
+  "split_conformal": {
+    "method": "split_conformal_lac",
+    "alpha": 0.1,
+    "n_calibration": 512,
+    "quantile_rank": 462,
+    "quantile_rule": "ceil((n+1)*(1-alpha)); rank n+1 uses bounded endpoint 1",
+    "qhat_per_axis": [
+      0.9067908043575168,
+      0.8764900883463167,
+      0.9068780226271902
+    ],
+    "k_max": 3,
+    "score": "1 - p_teacher_label",
+    "fit_split": "cp_fit",
+    "candidate_rule": "p >= 1-qhat (implemented as 1-p <= qhat to preserve ties)",
+    "fit_diagnostics": {
+      "n_states": 512,
+      "coverage_per_axis": [
+        0.90234375,
+        0.90234375,
+        0.90234375
+      ],
+      "mean_set_size_per_axis": [
+        2.986328125,
+        2.0,
+        2.501953125
+      ],
+      "empty_set_rate_per_axis": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "set_size_histogram_per_axis": [
+        [
+          0,
+          55,
+          101,
+          216,
+          86,
+          45,
+          8,
+          1
+        ],
+        [
+          0,
+          183,
+          206,
+          70,
+          46,
+          7,
+          0,
+          0
+        ],
+        [
+          0,
+          178,
+          139,
+          65,
+          62,
+          32,
+          30,
+          6
+        ]
+      ]
+    },
+    "evaluation": {
+      "n_states": 512,
+      "coverage_per_axis": [
+        0.919921875,
+        0.90625,
+        0.8828125
+      ],
+      "mean_set_size_per_axis": [
+        3.015625,
+        1.90625,
+        2.576171875
+      ],
+      "empty_set_rate_per_axis": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "set_size_histogram_per_axis": [
+        [
+          0,
+          53,
+          116,
+          187,
+          87,
+          65,
+          3,
+          1
+        ],
+        [
+          0,
+          196,
+          205,
+          78,
+          29,
+          4,
+          0,
+          0
+        ],
+        [
+          0,
+          170,
+          137,
+          70,
+          53,
+          43,
+          35,
+          4
+        ]
+      ],
+      "split": "empirical_eval",
+      "threshold_reselected_on_eval": false
+    },
+    "theory": {
+      "target": "expert single-axis best-action label on a fresh initial ZN state",
+      "nominal_marginal_coverage": 0.9,
+      "conditions": "exchangeable CP-fit and test states; model and temperature fixed independently before CP fitting",
+      "scope": "per-axis marginal teacher-label inclusion; empirical evaluation is a separate finite sample",
+      "not_guaranteed": [
+        "joint or simultaneous coverage across all gain axes",
+        "coverage conditional on plant family or on passing action gates",
+        "coverage on adaptively visited closed-loop states or shifted plants",
+        "closed-loop safety, stability, performance improvement, or safe physical trials"
+      ]
+    }
+  },
+  "created_utc": "2026-10-23T17:43:20.799843+00:00",
+  "splits": {
+    "temperature_fit": {
+      "seed": 62601,
+      "n_plants": 512,
+      "n_states": 512,
+      "one_state_per_plant": true,
+      "expert_steps": 1,
+      "init_scale": 0.0,
+      "state_sampling": "initial analytic ZN state; IID uniform training-family mixture",
+      "families": [
+        "fopdt",
+        "sopdt",
+        "third_rhp",
+        "integrating",
+        "pmsm_speed",
+        "position_loop"
+      ],
+      "data_sha256": "8112276799767ada127235791db00c416b6adf005d5a72e0cf20f4676acf7988",
+      "simulation_counts": {
+        "initial": 512,
+        "single_axis_candidates": 10752,
+        "combined_candidates": 512,
+        "remeasurements": 512,
+        "total": 12288
+      },
+      "data_file": "data\\calibration\\temperature_fit.npz",
+      "file_sha256": "de618327a1737e80fa0db68fb7d7390af2459c913621164457e6de056c15dce8"
+    },
+    "cp_fit": {
+      "seed": 62602,
+      "n_plants": 512,
+      "n_states": 512,
+      "one_state_per_plant": true,
+      "expert_steps": 1,
+      "init_scale": 0.0,
+      "state_sampling": "initial analytic ZN state; IID uniform training-family mixture",
+      "families": [
+        "fopdt",
+        "sopdt",
+        "third_rhp",
+        "integrating",
+        "pmsm_speed",
+        "position_loop"
+      ],
+      "data_sha256": "94087524eb56bd2c1f6f261eea8211bfcf97269eaaee3cd3ee777da74b4a1b24",
+      "simulation_counts": {
+        "initial": 512,
+        "single_axis_candidates": 10752,
+        "combined_candidates": 512,
+        "remeasurements": 512,
+        "total": 12288
+      },
+      "data_file": "data\\calibration\\cp_fit.npz",
+      "file_sha256": "74216c6dd8c93dd408df65e37183ba13ec089458605caa08b4cc1a1523b5356f"
+    },
+    "empirical_eval": {
+      "seed": 62603,
+      "n_plants": 512,
+      "n_states": 512,
+      "one_state_per_plant": true,
+      "expert_steps": 1,
+      "init_scale": 0.0,
+      "state_sampling": "initial analytic ZN state; IID uniform training-family mixture",
+      "families": [
+        "fopdt",
+        "sopdt",
+        "third_rhp",
+        "integrating",
+        "pmsm_speed",
+        "position_loop"
+      ],
+      "data_sha256": "de58b04f1db826b756417758665b46d0a29b31a24fb41958abd5fc9d820c337d",
+      "simulation_counts": {
+        "initial": 512,
+        "single_axis_candidates": 10752,
+        "combined_candidates": 512,
+        "remeasurements": 512,
+        "total": 12288
+      },
+      "data_file": "data\\calibration\\empirical_eval.npz",
+      "file_sha256": "757fc4a7c43bc871e06e1725077bd7795f995cec3367c571369c5b057e50c0e9"
+    }
+  },
+  "artifacts": {
+    "checkpoint_sha256": "8546f50dc25c1027d16c2d7da38b2320b23f9b82ba90b48a8315068c875ea82c",
+    "checkpoint_unchanged": true,
+    "calibration_data_files": {
+      "temperature_fit": {
+        "path": "data\\calibration\\temperature_fit.npz",
+        "sha256": "de618327a1737e80fa0db68fb7d7390af2459c913621164457e6de056c15dce8"
+      },
+      "cp_fit": {
+        "path": "data\\calibration\\cp_fit.npz",
+        "sha256": "74216c6dd8c93dd408df65e37183ba13ec089458605caa08b4cc1a1523b5356f"
+      },
+      "empirical_eval": {
+        "path": "data\\calibration\\empirical_eval.npz",
+        "sha256": "757fc4a7c43bc871e06e1725077bd7795f995cec3367c571369c5b057e50c0e9"
+      }
+    },
+    "training_data_sha256": "0be698afd7443695637bfa7f9ead51b05b279c063b7e25c9b745a2c0efb855a4",
+    "source_sha256": {
+      "scripts/02_train.py": "1f7e8e57eb48f4ba29639516c13ff146b7f544f41a3536fbc6d1d8e38cba94c6",
+      "src/jev_tune/primitives.py": "935beb006be0f2a6c7202ba09c8848db476f2d50630933276aa6b9ad4b781975",
+      "src/jev_tune/expert.py": "332b57d823d8e96fe80d6df8da57d8cbca32d28befdc0d222c0bd3a815aa3b83",
+      "src/jev_tune/plants.py": "39dab5f06a9353461d5cb2c45c22fb77fa562633d26bf9a3833205561459155e",
+      "src/jev_tune/state.py": "7e58a26ccb76d58c50a7d0994beccd2e7d18a4c4ac61c32f3bb83c7e93239cf8",
+      "src/jev_tune/model.py": "7d9605433d4894ca6200ce8cdc86eb46302600692bd2c70a591bcd1e607cd9b3"
+    }
+  }
 }

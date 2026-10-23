@@ -1,244 +1,161 @@
-"""E2: how much should the head be allowed to hold, and is holding worth it?
+"""E2: select on one draw; validate separately against no-hold and random-hold.
 
-The abstention threshold is policy, not physics.  This script sweeps
-`AbstainPolicy.tau_act` on one held-out draw, reports coverage against final
-cost and the harmful-step rate, picks a threshold by a stated rule, then
-**validates that threshold on two draws it was not chosen on**.
-
-    python scripts/20_abstention.py --plants 120 --draws 3
-
-Outputs `research/results/abstention.json` and `docs/ABSTENTION.md`.
+The random control shuffles complete three-axis hold masks without cost labels.
+It matches scheduled mask frequencies, not a claim of independent deployment.
 """
-
 from __future__ import annotations
-
 import argparse
 import json
 from pathlib import Path
-
 import numpy as np
-
 from jev_tune.decision import load_backend
-from jev_tune.decode import AbstainPolicy
+from jev_tune.decode import DEFAULT_ABSTAIN, AbstainPolicy
 from jev_tune.evaluate import evaluate_head
 from jev_tune.plants import HELDOUT_FAMILIES, sample_plants, ultimate_gain
+from _experiment_protocol import conformal_evidence_lines, manifest
 
-GRID = (None, 0.30, 0.35, 0.40, 0.45, 0.50, 0.55, 0.60, 0.70)
-
-
-def _draw(seed: int, n: int) -> dict:
-    plants = sample_plants(n, seed=seed, families=HELDOUT_FAMILIES, heldout=True)
-    ku, tu = ultimate_gain(plants)
-    gzn = np.column_stack([0.6 * ku, 1.2 * ku / tu, 0.075 * ku * tu])
-    return {"seed": seed, "plants": plants, "ku": ku, "tu": tu, "gzn": gzn}
+GRID = (None, .30, .35, .40, .45, .50, .55, .60, .70)
 
 
-def _run(backend, d, tau):
-    policy = (
-        None
-        if tau is None
-        else AbstainPolicy(tau_act=tau, tau_esc=max(0.0, tau - 0.10))
-    )
-    r = evaluate_head(
-        backend,
-        d["plants"],
-        d["gzn"],
-        d["ku"],
-        d["tu"],
-        budget=20,
-        seed=d["seed"],
-        abstain=policy,
-    )
-    rep = r.decision_report()
+def _draw(seed, n):
+    p = sample_plants(n, seed=seed, families=HELDOUT_FAMILIES, heldout=True)
+    ku, tu = ultimate_gain(p)
+    return dict(seed=seed, plants=p, ku=ku, tu=tu,
+                gzn=np.column_stack([.6*ku, 1.2*ku/tu, .075*ku*tu]))
+
+
+def shuffled_mask_provider(axis_held, seed, valid=None):
+    """Shuffle whole masks: preserve per-axis and joint mask frequencies."""
+    masks = np.asarray(axis_held, bool).copy()
+    flat = masks.reshape(-1, masks.shape[-1])
+    usable = np.ones(len(flat), bool) if valid is None else np.asarray(valid, bool).ravel()
+    selected = flat[usable]
+    scheduled = np.zeros_like(flat)
+    scheduled[usable] = selected[np.random.default_rng(seed).permutation(len(selected))]
+    shuffled = scheduled.reshape(masks.shape)
+    def provide(decision, iteration, plant_indices):
+        return shuffled[np.asarray(plant_indices), iteration]
+    return provide
+
+
+def _run(backend, d, tau, *, policy_name=None, hold_provider=None, conformal=None):
+    policy = None if tau is None else AbstainPolicy(tau, max(0., tau-.1))
+    r = evaluate_head(backend, d['plants'], d['gzn'], d['ku'], d['tu'],
+        budget=20, seed=d['seed'], abstain=policy, hold_mask_provider=hold_provider,
+        conformal=conformal)
     return {
-        "tau_act": tau,
-        "coverage": rep.get("coverage"),
-        "abstain_rate": rep.get("abstain_rate"),
-        "harmful_rate": rep.get("harmful_rate"),
-        "improvement_rate": rep.get("improvement_rate"),
-        "ece": rep.get("ece"),
-        "median": float(np.median(r.best_j)),
-        "p90": float(np.percentile(r.best_j, 90)),
-        "failures": int((r.best_j >= 50.0).sum()),
-        "per_plant": [float(x) for x in r.best_j],
-        "confidence_mean": float(np.mean(r.decisions["confidence"])),
-    }
+        'policy': policy_name or ('no_abstention' if tau is None else 'threshold'),
+        'tau_act': tau, 'conformal': conformal is not None,
+        'draw_seed': d['seed'], 'median': float(np.median(r.best_j)),
+        'p90': float(np.percentile(r.best_j, 90)), 'failures': int((r.best_j>=50).sum()),
+        'mean_experiments': float(np.mean(r.actual_simulations)),
+        'rollbacks': int(r.rollbacks.sum()),
+        'per_plant': r.best_j.tolist(), **r.decision_report()}, r
+
+
+def _summary(rows, policy):
+    selected = [r for r in rows if r['policy']==policy]
+    def mean(key):
+        vals = [r[key] for r in selected if r.get(key) is not None]
+        return float(np.mean(vals)) if vals else None
+    return {'policy': policy, 'tau_act': selected[0]['tau_act'],
+        'conformal': selected[0]['conformal'],
+        'median_mean': mean('median'),
+        'median_std': float(np.std([r['median'] for r in selected], ddof=1)) if len(selected)>1 else 0.,
+        'coverage': mean('coverage'), 'axis_coverage': mean('axis_coverage'),
+        'average_set_size': mean('average_set_size'),
+        'conformal_hold_axis_rate': mean('conformal_hold_axis_rate'),
+        'harmful_rate': mean('harmful_rate'), 'ece': mean('ece'),
+        'mean_experiments': mean('mean_experiments'),
+        'p90_mean': mean('p90'),
+        'rollbacks': sum(r['rollbacks'] for r in selected),
+        'failures': sum(r['failures'] for r in selected)}
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--plants", type=int, default=120)
-    ap.add_argument("--draws", type=int, default=3)
-    ap.add_argument("--seed0", type=int, default=7)
-    ap.add_argument("--models", default="models")
-    ap.add_argument("--out", default="research/results/abstention.json")
-    ap.add_argument("--doc", default="docs/ABSTENTION.md")
+    ap.add_argument('--plants', type=int, default=120)
+    ap.add_argument('--draws', type=int, default=3, help='one selection draw plus validation draws')
+    ap.add_argument('--seed0', type=int, default=7)
+    ap.add_argument('--models', default='models')
+    ap.add_argument('--out', default='research/results/abstention.json')
+    ap.add_argument('--doc', default='docs/ABSTENTION.md')
     args = ap.parse_args()
-
-    backend = load_backend(args.models)
-    draws = [_draw(args.seed0 + 10 * i, args.plants) for i in range(args.draws)]
-    print(f"[abstain] {args.draws} draws x {args.plants} plants", flush=True)
-
+    provenance = manifest(args, files=[Path(args.models)/'jev_head.pt', Path(args.models)/'calibration.json'])
+    if args.draws < 2:
+        ap.error('--draws requires one selection draw and at least one validation draw')
+    b = load_backend(args.models)
+    if getattr(b, 'conformal', None) is None:
+        raise ValueError('the CP comparison requires split CP metadata; run 02_train.py --calibrate-only first')
+    draws = [_draw(args.seed0+10*i, args.plants) for i in range(args.draws)]
     sweep = []
     for tau in GRID:
-        row = _run(backend, draws[0], tau)
+        row, _ = _run(b, draws[0], tau)
         sweep.append(row)
-        print(
-            f"  tau={str(tau):>5}  coverage {row['coverage']:.2f}  "
-            f"median {row['median']:.3f}  p90 {row['p90']:.3f}  "
-            f"harmful {row['harmful_rate']:.3f}  ece {row['ece']:.3f}",
-            flush=True,
-        )
-
-    # selection rule, stated before the validation runs: minimise median cost
-    # among thresholds that still execute at least half of the proposals.
-    eligible = [r for r in sweep if r["coverage"] is not None and r["coverage"] >= 0.5]
-    chosen = min(eligible, key=lambda r: r["median"]) if eligible else sweep[0]
-    tau_star = chosen["tau_act"]
-    print(
-        f"[abstain] chosen tau_act={tau_star} (rule: coverage >= 0.50, lowest median)"
-    )
-
+        print(f"[select] tau={tau} median={row['median']:.4f} coverage={row['coverage']:.3f}", flush=True)
+    chosen = min((r for r in sweep if r['coverage']>=.5), key=lambda r:r['median'])
+    tau = chosen['tau_act']
     validation = []
-    for d in draws:
-        for tau in (None, tau_star):
-            row = _run(backend, d, tau)
-            row["draw_seed"] = d["seed"]
-            validation.append(row)
-            print(
-                f"  validate seed {d['seed']} tau={str(tau):>5}  "
-                f"coverage {row['coverage']:.2f}  median {row['median']:.3f}  "
-                f"harmful {row['harmful_rate']:.3f}",
-                flush=True,
-            )
-
-    def summarise(tau):
-        rows = [r for r in validation if r["tau_act"] == tau]
-        return {
-            "tau_act": tau,
-            "median_mean": float(np.mean([r["median"] for r in rows])),
-            "median_std": float(np.std([r["median"] for r in rows], ddof=1))
-            if len(rows) > 1
-            else 0.0,
-            "coverage": float(np.mean([r["coverage"] for r in rows])),
-            "harmful_rate": float(np.mean([r["harmful_rate"] for r in rows])),
-            "ece": float(np.mean([r["ece"] for r in rows])),
-            "failures": int(sum(r["failures"] for r in rows)),
-        }
-
-    summary = [summarise(None), summarise(tau_star)]
-    payload = {
-        "plants_per_draw": args.plants,
-        "draws": [d["seed"] for d in draws],
-        "sweep_draw_seed": draws[0]["seed"],
-        "selection_rule": "among tau with coverage >= 0.50, lowest median cost",
-        "chosen_tau_act": tau_star,
-        "sweep": [{k: v for k, v in r.items() if k != "per_plant"} for r in sweep],
-        "validation": [
-            {k: v for k, v in r.items() if k != "per_plant"} for r in validation
-        ],
-        "summary": summary,
-    }
+    for d in draws[1:]:
+        off, _ = _run(b, d, None)
+        on, r = _run(b, d, tau, policy_name='threshold')
+        valid = r.decisions['valid'] & (r.decisions['event']!='rollback')
+        provider = shuffled_mask_provider(r.decisions['axis_held'], d['seed']+1000, valid)
+        random, _ = _run(b, d, None, policy_name='random_hold', hold_provider=provider)
+        legacy, _ = _run(b, d, DEFAULT_ABSTAIN.tau_act, policy_name='legacy_pmax_0.35')
+        cp, cr = _run(b, d, None, policy_name='temperature_CP', conformal='backend')
+        cp_valid = cr.decisions['valid'] & (cr.decisions['event']!='rollback')
+        cp_provider = shuffled_mask_provider(cr.decisions['axis_held'], d['seed']+2000, cp_valid)
+        cp_random, _ = _run(b, d, None, policy_name='CP_random_hold', hold_provider=cp_provider)
+        validation.extend([off, on, random, legacy, cp, cp_random])
+        print(f"[validate {d['seed']}] off={off['median']:.4f} threshold={on['median']:.4f} random={random['median']:.4f}", flush=True)
+        print(f"[validate {d['seed']}] CP={cp['median']:.4f} CP-random={cp_random['median']:.4f}", flush=True)
+    payload = {'plants_per_draw': args.plants, 'draws': [d['seed'] for d in draws],
+        'calibration_evidence': json.loads((Path(args.models)/'calibration.json').read_text(encoding='utf-8')),
+        'sweep_draw_seed': draws[0]['seed'], 'validation_draw_seeds': [d['seed'] for d in draws[1:]],
+        'selection_rule': 'lowest selection median among policies with joint action coverage >=0.50',
+        'chosen_tau_act': tau, 'sweep': sweep, 'validation': validation,
+        'legacy_tau_act': DEFAULT_ABSTAIN.tau_act,
+        'default_policy': 'temperature plus split CP; no pmax heuristic',
+        'summary': [_summary(validation, p) for p in ('no_abstention','threshold','random_hold','legacy_pmax_0.35','temperature_CP','CP_random_hold')],
+        'random_control': 'shuffle whole three-axis masks across plants/time without outcome labels; report actual coverage separately',
+        'manifest': provenance}
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
-    Path(args.out).write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    Path(args.doc).write_text(_doc(payload), encoding="utf-8")
-    print(f"[abstain] wrote {args.out} and {args.doc}")
+    Path(args.out).write_text(json.dumps(payload, indent=2), encoding='utf-8')
+    Path(args.doc).write_text(_doc(payload), encoding='utf-8')
 
 
-def _doc(p: dict) -> str:
-    s0, s1 = p["summary"][0], p["summary"][1]
-    tau = p["chosen_tau_act"]
-    lines = [
-        "# Explicit abstention: coverage against cost",
-        "",
-        "> [English](#english) · [简体中文](#简体中文)",
-        "",
-        "## English",
-        "",
-        "Generated by `python scripts/20_abstention.py`. The head may hold an axis",
-        "(`delta = 0`, gains unchanged) when the calibrated `p_max` is below",
-        "`tau_act`. `tau_act` was swept on draw 0 and then validated on all draws,",
-        "including the one it was chosen on.",
-        "",
-        f"* {p['plants_per_draw']} held-out plants per draw, draws {p['draws']}",
-        f"* selection rule: {p['selection_rule']}",
-        f"* chosen `tau_act` = **{tau}**",
-        "",
-        "| tau_act | coverage | median J | p90 | harmful steps | ECE |",
-        "| ---: | ---: | ---: | ---: | ---: | ---: |",
-    ]
-    for r in p["sweep"]:
-        tau_s = "off" if r["tau_act"] is None else f"{r['tau_act']:.2f}"
-        lines.append(
-            f"| {tau_s} | {r['coverage']:.2f} | {r['median']:.3f} | {r['p90']:.3f} | "
-            f"{r['harmful_rate']:.3f} | {r['ece']:.3f} |"
-        )
-    lines += [
-        "",
-        "Validation (mean over the draws):",
-        "",
-        "| policy | median J | coverage | harmful steps | ECE | diverged |",
-        "| :--- | ---: | ---: | ---: | ---: | ---: |",
-        f"| no abstention | {s0['median_mean']:.3f} ± {s0['median_std']:.3f} | "
-        f"{s0['coverage']:.2f} | {s0['harmful_rate']:.3f} | {s0['ece']:.3f} | "
-        f"{s0['failures']} |",
-        f"| `tau_act={tau}` | {s1['median_mean']:.3f} ± {s1['median_std']:.3f} | "
-        f"{s1['coverage']:.2f} | {s1['harmful_rate']:.3f} | {s1['ece']:.3f} | "
-        f"{s1['failures']} |",
-        "",
-        "**How to read it.** The confidence of this head sits in a narrow band",
-        "(the calibration table in `STEP1_RESULTS.md` shows 7-way accuracy around",
-        "0.67), so a high threshold holds almost everything and a low one almost",
-        "nothing. The table is the honest version of that trade-off: coverage is",
-        "what you give up, the harmful-step rate is what you buy, and the median",
-        "cost is the net. An abstention rule that lowers the median cost *and*",
-        "keeps coverage is worth shipping; one that only lowers the harmful rate",
-        "while making the median worse is a safety knob, not a better tuner, and",
-        "should be described that way.",
-        "",
-        "---",
-        "",
-        "## 简体中文",
-        "",
-        "由 `python scripts/20_abstention.py` 生成。当校准后的 `p_max` 低于 `tau_act`",
-        "时，决策头可以**弃权**（`delta = 0`，增益保持不变）。`tau_act` 在第 0 轮上扫描，",
-        "再在所有轮上验证（包括选择时用过的那一轮）。",
-        "",
-        f"* 每轮 {p['plants_per_draw']} 株留出对象，轮次 {p['draws']}",
-        f"* 选择规则：{p['selection_rule']}",
-        f"* 选定 `tau_act` = **{tau}**",
-        "",
-        "| tau_act | 覆盖率 | 中位 J | p90 | 有害步比例 | ECE |",
-        "| ---: | ---: | ---: | ---: | ---: | ---: |",
-    ]
-    for r in p["sweep"]:
-        tau_s = "关闭" if r["tau_act"] is None else f"{r['tau_act']:.2f}"
-        lines.append(
-            f"| {tau_s} | {r['coverage']:.2f} | {r['median']:.3f} | {r['p90']:.3f} | "
-            f"{r['harmful_rate']:.3f} | {r['ece']:.3f} |"
-        )
-    lines += [
-        "",
-        "验证（各轮均值）：",
-        "",
-        "| 策略 | 中位 J | 覆盖率 | 有害步比例 | ECE | 发散数 |",
-        "| :--- | ---: | ---: | ---: | ---: | ---: |",
-        f"| 不弃权 | {s0['median_mean']:.3f} ± {s0['median_std']:.3f} | "
-        f"{s0['coverage']:.2f} | {s0['harmful_rate']:.3f} | {s0['ece']:.3f} | "
-        f"{s0['failures']} |",
-        f"| `tau_act={tau}` | {s1['median_mean']:.3f} ± {s1['median_std']:.3f} | "
-        f"{s1['coverage']:.2f} | {s1['harmful_rate']:.3f} | {s1['ece']:.3f} | "
-        f"{s1['failures']} |",
-        "",
-        "**怎么读。** 这个决策头的置信度落在一个很窄的区间里（`STEP1_RESULTS.md` 的校准表",
-        "显示 7 选一准确率约 0.67），所以阈值定高几乎全部弃权，定低几乎不弃权。上表是",
-        "这个权衡的诚实版本：覆盖率是你付出的，有害步比例是你换来的，中位代价是净结果。",
-        "如果一条弃权规则既降低中位代价又保住覆盖率，那它值得发布；如果它只降低有害步",
-        "比例却让中位代价变差，那它是安全旋钮，不是更好的调参器——就应该照这个说法写。",
-        "",
-    ]
-    return "\n".join(lines)
+def _fmt(x):
+    return 'n/a' if x is None else f'{x:.4f}'
 
 
-if __name__ == "__main__":
+def _doc(p):
+    lines = ['# Explicit abstention: independent validation and random hold', '',
+             '> [English](#english) · [简体中文](#简体中文)', '']
+    for zh in (False, True):
+        lines += ['## 简体中文' if zh else '## English', '',
+            (f"只在seed {p['sweep_draw_seed']}选阈值；验证仅用{p['validation_draw_seeds']}，不计入选择集。"
+             if zh else f"Select only on seed {p['sweep_draw_seed']}; validate only on {p['validation_draw_seeds']}, excluding selection data."),
+            ('CP不在这些验证对象上调参；其qhat固定来自独立CP校准划分。动作覆盖率不同于专家标签集合覆盖率；后者及独立评估平均集合大小保存于JSON的calibration_evidence。'
+             if zh else 'CP is not tuned on these validation plants: qhat is fixed from the independent CP calibration split. Action coverage differs from teacher-label set coverage; the latter and independent evaluation set sizes are preserved in the JSON calibration_evidence.'),
+            f"N={p['plants_per_draw']}/draw; budget=20; selected tau_act={p['chosen_tau_act']}.", '',
+            (f"当前默认是Temperature+Split CP，不叠加pmax阈值。tau_act={p['legacy_tau_act']}是旧策略对照；候选阈值的本次选择不会修改生产策略。阈值扫描与其随机对照均关闭CP；另列CP及覆盖匹配随机保持。"
+             if zh else f"The shipped default is Temperature+Split CP without a pmax threshold. tau_act={p['legacy_tau_act']} is a legacy control; selecting a candidate here does not change production. The threshold sweep and its random control disable CP; separate rows compare CP and matched random holds."), '',
+        ]
+        lines += conformal_evidence_lines(p.get('calibration_evidence', {}), zh=zh)
+        lines += ['| selection tau | coverage | median J | p90 | harmful | ECE |',
+            '| ---: | ---: | ---: | ---: | ---: | ---: |']
+        for r in p['sweep']:
+            lines.append(f"| {r['tau_act']} | {_fmt(r['coverage'])} | {_fmt(r['median'])} | {_fmt(r['p90'])} | {_fmt(r.get('harmful_rate'))} | {_fmt(r.get('ece'))} |")
+        lines += ['', '| validation policy | median J mean ± std | p90 mean | coverage | axis coverage | harmful | ECE | actual experiments | rollbacks |',
+                  '| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |']
+        for r in p['summary']:
+            lines.append(f"| {r['policy']} | {r['median_mean']:.4f} ± {r['median_std']:.4f} | {_fmt(r['p90_mean'])} | {_fmt(r['coverage'])} | {_fmt(r['axis_coverage'])} | {_fmt(r['harmful_rate'])} | {_fmt(r['ece'])} | {_fmt(r['mean_experiments'])} | {r['rollbacks']} |")
+        lines += ['', (
+            '随机对照打乱三轴保持mask，保留预定mask频率，不使用代价标签；它是覆盖匹配诊断，不是部署策略。回滚可能改变实际事件数，表中另报实际覆盖率。coverage是至少一轴获准的整步比例；harmful统计执行后代价增加超过2%的转移。ECE用三轴平均pmax与整步改善作描述性比较，不将它当已验证的联合成功概率。每种策略仅一个训练检查点；结果不是安全保证。'
+            if zh else 'The random control shuffles whole three-axis hold masks without outcome labels. It preserves scheduled mask frequencies and is a matched-coverage diagnostic, not a deployment rule. Rollbacks may change actual event counts; measured coverage is reported. Coverage counts steps with at least one permitted axis. Harm means a >2% cost increase after execution. ECE descriptively compares mean axis pmax with joint improvement; it does not establish a calibrated joint success probability. Each policy uses one trained checkpoint; these results do not establish safety.'), '']
+    return '\n'.join(lines)
+
+
+if __name__ == '__main__':
     main()

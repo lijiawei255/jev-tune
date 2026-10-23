@@ -14,16 +14,20 @@ claimed**: nothing here was run on a board.
 | parameters, built-in (unused) value head | 8,513 |
 | parameters, separate `value_net.pt` (lookahead, off by default) | 5,761 |
 | multiply-accumulates per decision | 83,584 |
-| ONNX forward, p50 / p95 / p99 | 0.189 / 0.243 / 0.449 ms |
-| complete typed decision, p50 / p95 / p99 | 0.727 / 0.988 / 1.358 ms |
+| ONNX forward, p50 / p95 / p99 | 0.026 / 0.028 / 0.035 ms |
+| complete typed decision, p50 / p95 / p99 | 0.319 / 0.517 / 0.708 ms |
 | ONNX file | 164.1 KB |
-| C99 static flash (code 4.5 KB + weights 159.3 KB, `-Os`, object file) | 164.3 KB |
-| C99 static RAM (`.data` + `.bss`) | 16 B |
+| C99 host read-only footprint (code 5.0 KB + read-only data 159.3 KB + metadata, `-Os`) | 164.8 KB |
+| C99 static RAM (`.data` + `.bss`) | 0 B |
+| C99 `jev_forward` stack frame, host compiler estimate | 6.6 KB |
 | dynamic allocation in `c/` | **0** (no `malloc`/`calloc`/`free`) |
-| int8 (per-tensor): same argmax | 94.1% of 256 states |
-| int8 (per-tensor): step within 1e-3 | 36.3% |
+| int8 (per-tensor): same argmax per axis | 94.1% of 768 axes (256 training states) |
+| int8 (per-tensor): step within 1e-3 | 58.2% |
 | int8 (per-channel): same argmax | 97.3% |
-| int8 (per-channel): step within 1e-3 | 55.1% |
+| int8 (per-channel): all three argmax choices agree | 91.8% |
+| int8 (per-channel): states with changed hold mask | 15 / 256 |
+| int8 (per-channel): states with changed conformal sets | 57 / 256 |
+| int8 (per-channel): step within 1e-3 | 71.7% |
 | int8 (per-channel): max step difference | 1.04e-01 |
 
 The MACs are counted from the layer shapes: 5×2×16 at length 32 for the
@@ -32,13 +36,15 @@ the trunk and the five heads. Batch 1, one forward pass.
 
 ### What this does and does not support
 
-* It supports: the decision is small (40 k parameters, 84 k MACs) and its
-  p99 is comfortably inside a millisecond on one CPU thread.
+* Measured default TS+CP decision p50 / p99: 0.319 / 0.708 ms, including conformal masks and vetoes. These are percentiles, not WCET.
 * It does **not** support: "runs on chip X". Static footprint from a host
   `gcc -Os` object is not a linker map for your target, and feature
   extraction plus the trace capture are usually the real cost.
-* The 0.19 ms figure is the forward pass. The 0.5–0.7 ms figure is a complete
-  typed decision in Python, which is what the loop pays. Quote the right one.
+* Static RAM excludes stack and caller buffers. The reported stack frame excludes nested frames, libm and runtime: it is not peak stack.
+* Weight-only int8 is simulated by rounded/dequantized weights with float32 kernels. Agreement percentages are per axis unless explicitly joint; no int8 speed or footprint was measured.
+* Quantized outputs reuse the float32 head's conformal quantiles without recalibration. Label coverage does not automatically transfer to this modified model, and neither coverage nor set agreement certifies control safety.
+* Nominal convolution/linear multiply-add FLOPs: 167,168 (2 per MAC); excludes nonlinear functions, softmax, features and policy logic.
+* Host: `{'platform': 'Windows-11-10.0.26300-SP0', 'processor': 'Intel64 Family 6 Model 183 Stepping 1, GenuineIntel', 'python': '3.12.15', 'torch': '2.14.1+cpu'}`. Compiler/target: `gcc.EXE (tdm64-1) 4.9.2` / `x86_64-w64-mingw32`. See hardware.json for flags, section sizes and stack frames.
 
 ---
 
@@ -53,16 +59,20 @@ the trunk and the five heads. Batch 1, one forward pass.
 | 参数量（内置但未使用的前瞻头） | 8,513 |
 | 参数量（独立 `value_net.pt`，默认关闭） | 5,761 |
 | 单次决策乘加数（MACs） | 83,584 |
-| ONNX 前向 p50 / p95 / p99 | 0.189 / 0.243 / 0.449 ms |
-| 完整类型化决策 p50 / p95 / p99 | 0.727 / 0.988 / 1.358 ms |
+| ONNX 前向 p50 / p95 / p99 | 0.026 / 0.028 / 0.035 ms |
+| 完整类型化决策 p50 / p95 / p99 | 0.319 / 0.517 / 0.708 ms |
 | ONNX 文件 | 164.1 KB |
-| C99 静态 Flash（代码 4.5 KB + 权重 159.3 KB，`-Os`，目标文件） | 164.3 KB |
-| C99 静态 RAM（`.data` + `.bss`） | 16 B |
+| C99 宿主只读占用（代码 5.0 KB + 只读数据 159.3 KB + 元数据，`-Os`） | 164.8 KB |
+| C99 静态 RAM（`.data` + `.bss`） | 0 B |
+| C99 `jev_forward` 自身栈帧（宿主编译器估计） | 6.6 KB |
 | `c/` 中的动态分配 | **0**（无 `malloc`/`calloc`/`free`） |
-| 仅权重量化 int8（逐张量）：argmax 一致 | 94.1%（256 个状态） |
-| int8（逐张量）：步长误差 ≤1e-3 | 36.3% |
+| 仅权重量化 int8（逐张量）：按轴 argmax 一致 | 94.1%（256 个训练状态、768 个轴） |
+| int8（逐张量）：步长误差 ≤1e-3 | 58.2% |
 | int8（逐通道）：argmax 一致 | 97.3% |
-| int8（逐通道）：步长误差 ≤1e-3 | 55.1% |
+| int8（逐通道）：三个轴 argmax 全部一致 | 91.8% |
+| int8（逐通道）：保持掩码改变的状态数 | 15 / 256 |
+| int8（逐通道）：CP集合改变的状态数 | 57 / 256 |
+| int8（逐通道）：步长误差 ≤1e-3 | 71.7% |
 | int8（逐通道）：最大步长差 | 1.04e-01 |
 
 MACs 按层形状计：第一层卷积 5×2×16、长度 32；第二层 5×16×32、长度 16；再加 MLP、
@@ -70,8 +80,11 @@ trunk 与五个头。批大小 1，一次前向。
 
 ### 这些数字支持什么、不支持什么
 
-* 支持：决策很小（4 万参数、8.4 万 MACs），单线程 CPU 上 p99 远小于 1 ms。
+* 默认TS+CP决策路径（含集合构建与否决）实测 p50 / p99：0.319 / 0.708 ms。这是分位延迟，不是最坏执行时间保证。
 * **不支持**「能在某款芯片上跑」：主机 `gcc -Os` 的目标文件不等于你目标板的链接
   映射；而且真正的成本通常是特征提取与波形采集。
-* 0.19 ms 是前向；0.5–0.7 ms 是 Python 里一次完整类型化决策，也就是回路实际付的
-  代价。引用时请引用对的那个。
+* 静态 RAM 不含栈与调用者缓冲区。自身栈帧不含嵌套调用、libm 与运行时，不等于峰值栈。
+* 仅权重量化 int8 通过取整后反量化、float32 内核运算来评估敏感性；未测 int8 内核速度与占用。除明确联合指标外，一致率按轴计。
+* 量化输出沿用float32头的CP分位数，没有重新校准；修改模型后标签覆盖率不会自动继承，覆盖率与集合一致率都不证明控制安全。
+* 卷积/全连接名义乘加折算 167,168 FLOPs（每 MAC 算 2 次），不含非线性、softmax、特征与策略。
+* 宿主环境：`{'platform': 'Windows-11-10.0.26300-SP0', 'processor': 'Intel64 Family 6 Model 183 Stepping 1, GenuineIntel', 'python': '3.12.15', 'torch': '2.14.1+cpu'}`；编译器/target：`gcc.EXE (tdm64-1) 4.9.2` / `x86_64-w64-mingw32`。flags、section与各函数栈帧见 hardware.json。

@@ -1,6 +1,6 @@
 """E6: hard numbers for the edge / real-time claim.
 
-Everything here is measured or counted, not estimated:
+These are host measurements, operation counts and compiler stack estimates:
 
 * parameters, split by what actually runs (the ONNX export does not contain the
   unused value head);
@@ -17,6 +17,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import hashlib
+import platform
+import re
 import shutil
 import subprocess
 import tempfile
@@ -25,8 +28,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from jev_tune.decision import load_backend
-from jev_tune.decode import DEFAULT_ABSTAIN, ActionSpace, decide
+from jev_tune.decision import read_conformal
+from jev_tune.decode import ActionSpace, decide
 from jev_tune.model import JevHead, ValueNet
 from jev_tune.primitives import Answer, Choice, Noul, Option, Score, softmax
 
@@ -42,7 +45,7 @@ def count_macs(model: JevHead) -> dict:
     mlp2 = 64 * 64
     trunk1 = 128 * (32 + 64)
     trunk2 = 128 * 128
-    choice = 3 * 7 * 128
+    choice = sum(layer.in_features * layer.out_features for layer in model.choice)
     score = 5 * 128
     noul = 128
     parts = {
@@ -84,28 +87,51 @@ def param_counts(models: Path) -> dict:
 def c_footprint() -> dict:
     gcc = shutil.which("gcc")
     size = shutil.which("size")
-    if gcc is None:
-        return {"error": "gcc not found"}
+    if gcc is None or size is None:
+        return {"status": "unavailable", "error": "gcc or size not found"}
     src = ROOT / "c" / "jev_head.c"
     with tempfile.TemporaryDirectory() as tmp:
         obj = Path(tmp) / "jev_head.o"
         proc = subprocess.run(
-            [gcc, "-std=c99", "-Os", "-c", str(src), "-o", str(obj), "-lm"],
+            [gcc, "-std=c99", "-Os", "-fstack-usage", "-c", str(src), "-o", str(obj)],
             capture_output=True,
             text=True,
         )
         if proc.returncode != 0:
-            return {"error": proc.stderr[-500:]}
-        out = {"object_bytes": obj.stat().st_size}
-        if size is not None:
-            s = subprocess.run([size, "-A", str(obj)], capture_output=True, text=True)
-            for line in s.stdout.splitlines():
-                f = line.split()
-                if len(f) >= 2 and f[1].isdigit():
-                    out[f[0]] = int(f[1])
+            return {"status": "unavailable", "error": proc.stderr[-500:]}
+        s = subprocess.run([size, "-A", str(obj)], capture_output=True, text=True)
+        sections = parse_size_sections(s.stdout)
+        if s.returncode or not sections:
+            return {"status": "unavailable", "error": "size -A failed or had no sections",
+                    "object_bytes": obj.stat().st_size}
+        out = {"status": "ok", "object_bytes": obj.stat().st_size, **sections,
+               "compiler": subprocess.check_output([gcc, "--version"], text=True).splitlines()[0],
+               "target": subprocess.check_output([gcc, "-dumpmachine"], text=True).strip(),
+               "flags": ["-std=c99", "-Os", "-fstack-usage"],
+               "size_raw": s.stdout.replace(str(obj), "jev_head.o")}
+        stack = {}
+        for su in Path(tmp).glob("*.su"):
+            for line in su.read_text().splitlines():
+                match = re.match(r".*:\d+:\d+:(\S+)\s+(\d+)\s+(.*)", line)
+                if match:
+                    stack[match[1]] = {"bytes": int(match[2]), "kind": match[3]}
+        out["stack_frames"] = stack
+        out["forward_stack_frame_bytes"] = stack.get("jev_forward", {}).get("bytes")
+        out["stack_note"] = "per-function compiler estimate; excludes caller buffers, nested frames, libm and runtime; not peak stack"
+        out["object_scope"] = "core jev_head.o only; excludes caller-supplied temperature/CP configuration and linked libc/libm/runtime"
         # a linked image is the number a firmware engineer budgets, but it also
         # contains the runtime start-up; report the object, and say so
         return out
+
+
+def parse_size_sections(output: str) -> dict:
+    """Read GNU size -A section rows, both ELF and COFF, excluding totals."""
+    result = {}
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) >= 2 and fields[0].startswith(".") and fields[1].isdigit():
+            result[fields[0]] = int(fields[1])
+    return result
 
 
 def _answer_from_logits(logits, temperature):
@@ -151,10 +177,15 @@ def int8_agreement(models: Path, cases: int = 256) -> dict:
     with torch.no_grad():
         a = base(f, c)
     ans_a = _answer_from_logits(a, temp)
-    dec_a = decide(ans_a, space, abstain=DEFAULT_ABSTAIN)
+    conformal = read_conformal(models)
+    dec_a = decide(ans_a, space, conformal=conformal)
+    sets_a = np.stack(dec_a.conformal_set, axis=-2)
     probs_a = np.stack([ch.probs for ch in ans_a.choice], axis=-2)
 
-    out = {"cases": int(cases), "activations": "float32"}
+    out = {"cases": int(cases), "activations": "float32",
+           "conformal_policy": None if conformal is None else {
+               "qhat_per_axis": list(conformal.q_hat), "alpha": conformal.alpha, "k_max": conformal.k_max},
+           "float32_mean_set_size_per_axis": dec_a.set_size.mean(axis=0).tolist()}
     for mode in ("per_tensor", "per_channel"):
         q = load()
         with torch.no_grad():
@@ -173,20 +204,38 @@ def int8_agreement(models: Path, cases: int = 256) -> dict:
                 p.copy_(torch.round(p / scale_t).clamp(-127, 127) * scale_t)
             b = q(f, c)
         ans_b = _answer_from_logits(b, temp)
-        dec_b = decide(ans_b, space, abstain=DEFAULT_ABSTAIN)
+        dec_b = decide(ans_b, space, conformal=conformal)
+        sets_b = np.stack(dec_b.conformal_set, axis=-2)
+        set_changed = (sets_a != sets_b).any(axis=-1)
         probs_b = np.stack([ch.probs for ch in ans_b.choice], axis=-2)
         step_diff = np.abs(dec_a.step - dec_b.step)
+        same_argmax = probs_a.argmax(-1) == probs_b.argmax(-1)
+        held_diff = dec_a.held != dec_b.held
         out[mode] = {
             "argmax_agreement": float(
-                (probs_a.argmax(-1) == probs_b.argmax(-1)).mean()
+                same_argmax.mean()
             ),
+            "argmax_joint_agreement": float(same_argmax.all(axis=-1).mean()),
+            "argmax_axis_disagreements": int((~same_argmax).sum()),
+            "held_axis_disagreements": int(held_diff.sum()),
+            "held_state_disagreements": int(held_diff.any(axis=-1).sum()),
             "held_pattern_same": bool(np.array_equal(dec_a.held, dec_b.held)),
+            "conformal_set_axis_disagreements": int(set_changed.sum()),
+            "conformal_set_state_disagreements": int(set_changed.any(axis=-1).sum()),
+            "conformal_set_joint_agreement": float((~set_changed.any(axis=-1)).mean()),
+            "mean_set_size_per_axis": dec_b.set_size.mean(axis=0).tolist(),
+            "escalation_axis_disagreements": int((dec_a.escalate != dec_b.escalate).sum()),
+            "reason_axis_disagreements": int((dec_a.reason != dec_b.reason).sum()),
             "step_max_abs_diff": float(step_diff.max()),
             "step_mean_abs_diff": float(step_diff.mean()),
             "steps_within_1e-3": float((step_diff <= 1e-3).mean()),
             "steps_within_1e-2": float((step_diff <= 1e-2).mean()),
+            "joint_steps_within_1e-3": float((step_diff <= 1e-3).all(axis=-1).mean()),
         }
     out["quantisation"] = "weight-only int8, symmetric, activations float32"
+    out["implementation"] = "weights rounded then dequantized; float32 kernels, no int8 runtime"
+    out["agreement_unit"] = "argmax_agreement and steps_within_* are per-axis; joint_* require every axis"
+    out["source"] = "data/expert_train.npz; 256 evenly spaced training states, not held-out rollout performance"
     return out
 
 
@@ -197,6 +246,7 @@ def main():
     ap.add_argument("--out", default="research/results/hardware.json")
     ap.add_argument("--doc", default="docs/COMPUTE.md")
     args = ap.parse_args()
+    torch.set_num_threads(1)
 
     models = Path(args.models)
     lat = json.loads((ROOT / args.latency).read_text(encoding="utf-8-sig"))
@@ -210,8 +260,12 @@ def main():
     )
     csize = c_footprint()
     int8 = int8_agreement(models)
+    from _experiment_protocol import manifest
 
     payload = {
+        "manifest": manifest(args, files=[models / "jev_head.pt", models / "calibration.json",
+                                          ROOT / args.latency, ROOT / "c/jev_head.c", ROOT / "c/jev_head.h"],
+                             extra={"quantization_seed": 0, "quantization_cases": 256}),
         "latency_source": args.latency,
         "onnx_forward_ms": lat["onnx_forward_ms"],
         "onnx_forward_p95_ms": lat["onnx_forward_p95_ms"],
@@ -222,12 +276,17 @@ def main():
         "params": counts,
         "macs": macs,
         "c_footprint": csize,
-        "c_flash_bytes": int(_flash_bytes(csize)),
-        "c_ram_bytes": int(_ram_bytes(csize)),
+        "c_flash_bytes": _flash_bytes(csize),
+        "c_ram_bytes": _ram_bytes(csize),
+        "mac_flops_convention": "2 * dense nominal MACs; excludes nonlinear functions, softmax, decode and features",
+        "multiply_add_flops": 2 * macs["total"],
         "int8": int8,
         "onnx_file_bytes": lat.get("onnx_file_bytes"),
+        "environment": {"platform": platform.platform(), "processor": platform.processor(),
+                        "python": platform.python_version(), "torch": torch.__version__},
+        "model_sha256": hashlib.sha256((models / "jev_head.pt").read_bytes()).hexdigest(),
         "note": (
-            "one CPU thread, batch 1, laptop CPU. No cycle counts: nothing here "
+            "one CPU thread, batch 1, host CPU. No cycle counts: nothing here "
             "has been run on an MCU."
         ),
     }
@@ -251,14 +310,19 @@ def _fmt_bytes(n):
 
 
 def _flash_bytes(c: dict):
-    if "text" in c:  # GNU/ELF style from `size -A`
-        return c["text"] + c.get("rodata", 0)
-    keys = (".text", ".rdata", ".rdata$zzz", ".xdata", ".pdata")
-    return sum(c.get(k, 0) for k in keys)
+    if c.get("status") == "unavailable" or "error" in c:
+        return None
+    prefixes = (".text", ".rodata", ".rdata", ".xdata", ".pdata", ".eh_frame", ".gcc_except_table")
+    sections = [v for k, v in c.items() if k.startswith(prefixes) and isinstance(v, int)]
+    if not sections:
+        return None
+    return sum(sections)
 
 
 def _ram_bytes(c: dict):
-    return c.get(".data", c.get("data", 0)) + c.get(".bss", c.get("bss", 0))
+    if c.get("status") == "unavailable" or "error" in c or not any(k.startswith((".data", ".bss")) for k in c):
+        return None
+    return sum(v for k, v in c.items() if k.startswith((".data", ".bss")) and isinstance(v, int))
 
 
 def _doc(p: dict) -> str:
@@ -267,7 +331,7 @@ def _doc(p: dict) -> str:
     flash = _flash_bytes(c)
     ram = _ram_bytes(c)
     code = c.get(".text", c.get("text"))
-    weights = c.get(".rdata", c.get("rodata"))
+    weights = c.get(".rdata", c.get(".rodata"))
     lines = [
         "# Compute and memory, measured",
         "",
@@ -288,12 +352,16 @@ def _doc(p: dict) -> str:
         f"| ONNX forward, p50 / p95 / p99 | {p['onnx_forward_ms']:.3f} / {p['onnx_forward_p95_ms']:.3f} / {p['onnx_forward_p99_ms']:.3f} ms |",
         f"| complete typed decision, p50 / p95 / p99 | {p['typed_decision_ms']:.3f} / {p['typed_decision_p95_ms']:.3f} / {p['typed_decision_p99_ms']:.3f} ms |",
         f"| ONNX file | {_fmt_bytes(p['onnx_file_bytes'])} |",
-        f"| C99 static flash (code {_fmt_bytes(code)} + weights {_fmt_bytes(weights)}, `-Os`, object file) | {_fmt_bytes(flash)} |",
+        f"| C99 host read-only footprint (code {_fmt_bytes(code)} + read-only data {_fmt_bytes(weights)} + metadata, `-Os`) | {_fmt_bytes(flash)} |",
         f"| C99 static RAM (`.data` + `.bss`) | {_fmt_bytes(ram)} |",
+        f"| C99 `jev_forward` stack frame, host compiler estimate | {_fmt_bytes(c.get('forward_stack_frame_bytes'))} |",
         f"| dynamic allocation in `c/` | **0** (no `malloc`/`calloc`/`free`) |",
-        f"| int8 (per-tensor): same argmax | {100 * q['per_tensor']['argmax_agreement']:.1f}% of {q['cases']} states |",
+        f"| int8 (per-tensor): same argmax per axis | {100 * q['per_tensor']['argmax_agreement']:.1f}% of {3 * q['cases']} axes ({q['cases']} training states) |",
         f"| int8 (per-tensor): step within 1e-3 | {100 * q['per_tensor']['steps_within_1e-3']:.1f}% |",
         f"| int8 (per-channel): same argmax | {100 * q['per_channel']['argmax_agreement']:.1f}% |",
+        f"| int8 (per-channel): all three argmax choices agree | {100 * q['per_channel']['argmax_joint_agreement']:.1f}% |",
+        f"| int8 (per-channel): states with changed hold mask | {q['per_channel']['held_state_disagreements']} / {q['cases']} |",
+        f"| int8 (per-channel): states with changed conformal sets | {q['per_channel']['conformal_set_state_disagreements']} / {q['cases']} |",
         f"| int8 (per-channel): step within 1e-3 | {100 * q['per_channel']['steps_within_1e-3']:.1f}% |",
         f"| int8 (per-channel): max step difference | {q['per_channel']['step_max_abs_diff']:.2e} |",
         "",
@@ -303,13 +371,15 @@ def _doc(p: dict) -> str:
         "",
         "### What this does and does not support",
         "",
-        "* It supports: the decision is small (40 k parameters, 84 k MACs) and its",
-        "  p99 is comfortably inside a millisecond on one CPU thread.",
+        f"* Measured default TS+CP decision p50 / p99: {p['typed_decision_ms']:.3f} / {p['typed_decision_p99_ms']:.3f} ms, including conformal masks and vetoes. These are percentiles, not WCET.",
         '* It does **not** support: "runs on chip X". Static footprint from a host',
         "  `gcc -Os` object is not a linker map for your target, and feature",
         "  extraction plus the trace capture are usually the real cost.",
-        "* The 0.19 ms figure is the forward pass. The 0.5–0.7 ms figure is a complete",
-        "  typed decision in Python, which is what the loop pays. Quote the right one.",
+        "* Static RAM excludes stack and caller buffers. The reported stack frame excludes nested frames, libm and runtime: it is not peak stack.",
+        "* Weight-only int8 is simulated by rounded/dequantized weights with float32 kernels. Agreement percentages are per axis unless explicitly joint; no int8 speed or footprint was measured.",
+        "* Quantized outputs reuse the float32 head's conformal quantiles without recalibration. Label coverage does not automatically transfer to this modified model, and neither coverage nor set agreement certifies control safety.",
+        f"* Nominal convolution/linear multiply-add FLOPs: {p['multiply_add_flops']:,} (2 per MAC); excludes nonlinear functions, softmax, features and policy logic.",
+        f"* Host: `{p['environment']}`. Compiler/target: `{c.get('compiler', 'unavailable')}` / `{c.get('target', 'unavailable')}`. See hardware.json for flags, section sizes and stack frames.",
         "",
         "---",
         "",
@@ -327,12 +397,16 @@ def _doc(p: dict) -> str:
         f"| ONNX 前向 p50 / p95 / p99 | {p['onnx_forward_ms']:.3f} / {p['onnx_forward_p95_ms']:.3f} / {p['onnx_forward_p99_ms']:.3f} ms |",
         f"| 完整类型化决策 p50 / p95 / p99 | {p['typed_decision_ms']:.3f} / {p['typed_decision_p95_ms']:.3f} / {p['typed_decision_p99_ms']:.3f} ms |",
         f"| ONNX 文件 | {_fmt_bytes(p['onnx_file_bytes'])} |",
-        f"| C99 静态 Flash（代码 {_fmt_bytes(code)} + 权重 {_fmt_bytes(weights)}，`-Os`，目标文件） | {_fmt_bytes(flash)} |",
+        f"| C99 宿主只读占用（代码 {_fmt_bytes(code)} + 只读数据 {_fmt_bytes(weights)} + 元数据，`-Os`） | {_fmt_bytes(flash)} |",
         f"| C99 静态 RAM（`.data` + `.bss`） | {_fmt_bytes(ram)} |",
+        f"| C99 `jev_forward` 自身栈帧（宿主编译器估计） | {_fmt_bytes(c.get('forward_stack_frame_bytes'))} |",
         "| `c/` 中的动态分配 | **0**（无 `malloc`/`calloc`/`free`） |",
-        f"| 仅权重量化 int8（逐张量）：argmax 一致 | {100 * q['per_tensor']['argmax_agreement']:.1f}%（{q['cases']} 个状态） |",
+        f"| 仅权重量化 int8（逐张量）：按轴 argmax 一致 | {100 * q['per_tensor']['argmax_agreement']:.1f}%（{q['cases']} 个训练状态、{3 * q['cases']} 个轴） |",
         f"| int8（逐张量）：步长误差 ≤1e-3 | {100 * q['per_tensor']['steps_within_1e-3']:.1f}% |",
         f"| int8（逐通道）：argmax 一致 | {100 * q['per_channel']['argmax_agreement']:.1f}% |",
+        f"| int8（逐通道）：三个轴 argmax 全部一致 | {100 * q['per_channel']['argmax_joint_agreement']:.1f}% |",
+        f"| int8（逐通道）：保持掩码改变的状态数 | {q['per_channel']['held_state_disagreements']} / {q['cases']} |",
+        f"| int8（逐通道）：CP集合改变的状态数 | {q['per_channel']['conformal_set_state_disagreements']} / {q['cases']} |",
         f"| int8（逐通道）：步长误差 ≤1e-3 | {100 * q['per_channel']['steps_within_1e-3']:.1f}% |",
         f"| int8（逐通道）：最大步长差 | {q['per_channel']['step_max_abs_diff']:.2e} |",
         "",
@@ -341,11 +415,14 @@ def _doc(p: dict) -> str:
         "",
         "### 这些数字支持什么、不支持什么",
         "",
-        "* 支持：决策很小（4 万参数、8.4 万 MACs），单线程 CPU 上 p99 远小于 1 ms。",
+        f"* 默认TS+CP决策路径（含集合构建与否决）实测 p50 / p99：{p['typed_decision_ms']:.3f} / {p['typed_decision_p99_ms']:.3f} ms。这是分位延迟，不是最坏执行时间保证。",
         "* **不支持**「能在某款芯片上跑」：主机 `gcc -Os` 的目标文件不等于你目标板的链接",
         "  映射；而且真正的成本通常是特征提取与波形采集。",
-        "* 0.19 ms 是前向；0.5–0.7 ms 是 Python 里一次完整类型化决策，也就是回路实际付的",
-        "  代价。引用时请引用对的那个。",
+        "* 静态 RAM 不含栈与调用者缓冲区。自身栈帧不含嵌套调用、libm 与运行时，不等于峰值栈。",
+        "* 仅权重量化 int8 通过取整后反量化、float32 内核运算来评估敏感性；未测 int8 内核速度与占用。除明确联合指标外，一致率按轴计。",
+        "* 量化输出沿用float32头的CP分位数，没有重新校准；修改模型后标签覆盖率不会自动继承，覆盖率与集合一致率都不证明控制安全。",
+        f"* 卷积/全连接名义乘加折算 {p['multiply_add_flops']:,} FLOPs（每 MAC 算 2 次），不含非线性、softmax、特征与策略。",
+        f"* 宿主环境：`{p['environment']}`；编译器/target：`{c.get('compiler', 'unavailable')}` / `{c.get('target', 'unavailable')}`。flags、section与各函数栈帧见 hardware.json。",
         "",
     ]
     return "\n".join(lines)

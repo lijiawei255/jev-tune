@@ -8,8 +8,9 @@ well posed and the one-step lookahead data is exactly the candidate set used at
 inference.
 
 Per plant and per step: 21 single-axis probes + 1 combined probe = 22
-simulations.  A 20-step trajectory therefore costs 20 x 22 + 1 = 441
-simulations, which is why the dataset is the expensive part of this project.
+candidate simulations, plus the initial response and any rejected-combination
+remeasurements. ``ExpertData.simulation_counts`` records actual plant-runs;
+22 is not the full cost of the current implementation.
 """
 
 from __future__ import annotations
@@ -45,11 +46,15 @@ class ExpertData:
     act_delta: np.ndarray
     act_cost: np.ndarray
     act_best: np.ndarray
+    simulation_counts: dict[str, int] | None = None
 
 
 def _sim(plants: PlantSet, gains: np.ndarray, objective: str = "step", **sim_kwargs):
     res = simulate(plants, gains, **sim_kwargs)
-    j = cost_from_metrics(res["metrics"], y_curve=res["y_curve"], objective=objective)
+    normalization = {key: sim_kwargs[key] for key in ("horizon", "ref") if key in sim_kwargs}
+    j = cost_from_metrics(
+        res["metrics"], y_curve=res["y_curve"], objective=objective, **normalization
+    )
     return res, j
 
 
@@ -65,6 +70,7 @@ def generate(
     **sim_kwargs,
 ):
     space = space or ActionSpace()
+    normalization = {key: sim_kwargs[key] for key in ("horizon", "ref") if key in sim_kwargs}
     rng = np.random.default_rng(seed)
     n = plants.n
     idx = np.arange(n)
@@ -91,8 +97,14 @@ def generate(
 
     prev_action = np.zeros((n, 3))
     prev_cost = np.zeros(n)
+    counts = {"initial": 0, "single_axis_candidates": 0,
+              "combined_candidates": 0, "remeasurements": 0}
 
-    res, j_now = _sim(plants, gains, objective, **sim_kwargs)
+    def measured(batch_plants, batch_gains, category):
+        counts[category] += batch_plants.n
+        return _sim(batch_plants, batch_gains, objective, **sim_kwargs)
+
+    res, j_now = measured(plants, gains, "initial")
 
     for t in range(steps):
         feats, curves = build_state(
@@ -107,9 +119,10 @@ def generate(
             prev_cost=prev_cost,
             cost=j_now,
             iteration=np.full(n, t, dtype=float),
+            **normalization,
         )
 
-        # --- 15 single-axis probes (axis-major, so reshape is trivial)
+        # --- 3*k single-axis probes (axis-major, so reshape is trivial)
         probe_gains = []
         probe_delta = []
         for axis in range(3):
@@ -120,16 +133,16 @@ def generate(
                 d = np.zeros(3)
                 d[axis] = space.deltas[k]
                 probe_delta.append(d)
-        probe_gains = np.concatenate(probe_gains)  # (15n, 3)
+        probe_gains = np.concatenate(probe_gains)  # (3*k*n, 3)
         flat = plants.take(np.tile(idx, 3 * space.k))
-        _, j_probe = _sim(flat, probe_gains, objective, **sim_kwargs)
+        _, j_probe = measured(flat, probe_gains, "single_axis_candidates")
         j_probe = j_probe.reshape(3, space.k, n)  # (axis, bin, plant)
 
         best_bin = np.argmin(j_probe, axis=1)  # (3, n)
         combined = gains * (10 ** space.deltas[best_bin].T)  # (n,3)
 
         # --- combined probe: the next state, and the Noul label
-        res_next, j_next = _sim(plants, combined, objective, **sim_kwargs)
+        res_next, j_next = measured(plants, combined, "combined_candidates")
 
         unstable = (
             (~np.isfinite(j_next))
@@ -172,7 +185,7 @@ def generate(
         prev_cost = j_now
         res = res_next if better.all() else res
         if not better.all():
-            res, j_now = _sim(plants, gains, objective, **sim_kwargs)
+            res, j_now = measured(plants, gains, "remeasurements")
         else:
             j_now = j_next
 
@@ -187,6 +200,7 @@ def generate(
         act_delta=np.concatenate(out["act_delta"]),
         act_cost=np.concatenate(out["act_cost"]),
         act_best=np.concatenate(out["act_best"]),
+        simulation_counts={**counts, "total": sum(counts.values())},
     )
     data.ku = ku
     data.tu = tu

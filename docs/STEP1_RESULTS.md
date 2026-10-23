@@ -1,3 +1,6 @@
+> Historical study record (through v0.4.1). Its timing path excluded default abstention, and older benchmark/risk counts have been superseded by v0.5.0. Current results: [CLAIMS](CLAIMS.md), [BENCHMARK](BENCHMARK.md), [COMPUTE](COMPUTE.md).
+> 历史研究记录（截至v0.4.1）：当时时延不含默认显式弃权，旧基准/风险计数已由v0.5.0替代；当前结果见上述文档。
+
 # Step 1 + 2 results — numeric decision head
 
 > [English](#step-1--2-results--numeric-decision-head) · [简体中文](#step-1--2-结果中文)

@@ -1,348 +1,948 @@
 {
-  "note": "Every number this repository publishes, with the artifact it comes from. scripts/16_check_claims.py re-reads these and fails when the artifact and the claim disagree. Update both when you re-run a script. All benchmark numbers are at 20 experiments per plant, the same budget for every method.",
+  "note": "Registered current artifact values and explicitly linked prose only; not every number in historical documents. Iterative benchmarks have a maximum budget; one-shot methods list actual simulations. Manual claims are unverified by the checker and excluded from automatic passes.",
   "claims": [
     {
       "id": "decision_ms",
-      "text": "0.19 ms for the ONNX forward pass (one CPU thread, batch 1)",
+      "text": "Current registered decision_ms; see artifact and protocol",
       "source": "research/results/latency.json",
       "path": "onnx_forward_ms",
-      "value": 0.189,
-      "tol": 0.01,
-      "reproduce": "python scripts/04_export_onnx.py"
+      "value": 0.026249999791616574,
+      "tol": 1e-09,
+      "reproduce": "python scripts/04_export_onnx.py",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.md",
+          "format": ".3f"
+        },
+        {
+          "file": "README.zh-CN.md",
+          "format": ".3f"
+        }
+      ]
     },
     {
       "id": "typed_decision_ms",
-      "text": "0.73 ms for one complete typed decision (forward + softmax + Choice/Score/Noul + decode) in Python",
+      "text": "Current registered typed_decision_ms; see artifact and protocol",
       "source": "research/results/latency.json",
       "path": "typed_decision_ms",
-      "value": 0.727,
-      "tol": 0.05,
-      "reproduce": "python scripts/04_export_onnx.py"
+      "value": 0.3191499999957159,
+      "tol": 1e-09,
+      "reproduce": "python scripts/04_export_onnx.py",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.md",
+          "format": ".3f"
+        },
+        {
+          "file": "README.zh-CN.md",
+          "format": ".3f"
+        }
+      ]
     },
     {
       "id": "typed_decision_p99_ms",
-      "text": "1.36 ms p99 for one complete typed decision",
+      "text": "Current registered typed_decision_p99_ms; see artifact and protocol",
       "source": "research/results/hardware.json",
       "path": "typed_decision_p99_ms",
-      "value": 1.358,
-      "tol": 0.2,
-      "reproduce": "python scripts/21_hardware.py"
+      "value": 0.7084500025666784,
+      "tol": 1e-09,
+      "reproduce": "python scripts/21_hardware.py",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "README.md",
+          "format": ".3f"
+        },
+        {
+          "file": "README.zh-CN.md",
+          "format": ".3f"
+        }
+      ]
     },
     {
       "id": "heldout_budget",
-      "text": "20 experiments per plant for every method, in both benchmark tables",
+      "text": "Iterative per-plant maximum budget / 迭代方法逐株预算上限",
       "source": "research/results/eval_heldout_120.json",
       "path": "budget_per_plant",
-      "value": 20,
-      "tol": 0,
-      "reproduce": "python scripts/03_evaluate.py --plants 120 --budget 20"
+      "value": 20.0,
+      "tol": 1e-09,
+      "reproduce": "python scripts/03_evaluate.py --plants 120 --budget 20",
+      "label": "Iterative per-plant maximum budget / 迭代方法逐株预算上限",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "heldout_head_median",
-      "text": "validation family (two_mass, used for design decisions): 0.440 median cost on 120 plants at 20 experiments",
+      "text": "Current registered heldout_head_median; see artifact and protocol",
       "source": "research/results/eval_heldout_120.json",
       "path": "rows[method=jev_head].final_cost_median",
-      "value": 0.44,
-      "tol": 0.001,
-      "reproduce": "python scripts/03_evaluate.py --plants 120 --budget 20"
+      "value": 0.6824209871302402,
+      "tol": 1e-09,
+      "reproduce": "python scripts/03_evaluate.py --plants 120 --budget 20",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "heldout_head_p90",
-      "text": "p90 1.038 on the same 120 plants",
+      "text": "Current registered heldout_head_p90; see artifact and protocol",
       "source": "research/results/eval_heldout_120.json",
       "path": "rows[method=jev_head].final_cost_p90",
-      "value": 1.038,
-      "tol": 0.002,
-      "reproduce": "same"
+      "value": 1.3045351854998664,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "heldout_bo_median",
-      "text": "0.567 median cost for Bayesian optimisation at the same 20 experiments",
+      "text": "Current registered heldout_bo_median; see artifact and protocol",
       "source": "research/results/eval_heldout_120.json",
       "path": "rows[method=bo].final_cost_median",
-      "value": 0.567,
-      "tol": 0.001,
-      "reproduce": "same"
+      "value": 0.5465844215466668,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "heldout_cmaes_median",
-      "text": "1.705 median cost for CMA-ES at the same 20 experiments",
+      "text": "Current registered heldout_cmaes_median; see artifact and protocol",
       "source": "research/results/eval_heldout_120.json",
       "path": "rows[method=cmaes].final_cost_median",
-      "value": 1.705,
-      "tol": 0.001,
-      "reproduce": "same"
+      "value": 1.7230955656796068,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "heldout_pidtune_median",
-      "text": "0.742 median cost for identify-then-pidtune, which costs 2 experiments",
+      "text": "Current registered heldout_pidtune_median; see artifact and protocol",
       "source": "research/results/eval_heldout_120.json",
       "path": "rows[method=identify+pidtune_PID].final_cost_median",
-      "value": 0.742,
-      "tol": 0.001,
-      "reproduce": "same"
+      "value": 0.7418860565252687,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "heldout_shrunk_zn_median",
-      "text": "1.290 median cost for Z-N shrunk by fixed factors chosen on the training families",
+      "text": "Current registered heldout_shrunk_zn_median; see artifact and protocol",
       "source": "research/results/eval_heldout_120.json",
       "path": "rows[method=shrunk_zn].final_cost_median",
-      "value": 1.29,
-      "tol": 0.001,
-      "reproduce": "same"
+      "value": 1.289879713404844,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "test_head_median",
-      "text": "frozen test family (thermal + dead time, never used for any decision): 1.737 median at 20 experiments",
+      "text": "Current registered test_head_median; see artifact and protocol",
       "source": "research/results/eval_thermal_deadtime_120.json",
       "path": "rows[method=jev_head].final_cost_median",
-      "value": 1.737,
-      "tol": 0.001,
-      "reproduce": "python scripts/03_evaluate.py --family thermal_deadtime --plants 120 --budget 20"
+      "value": 2.1926502839522044,
+      "tol": 1e-09,
+      "reproduce": "python scripts/03_evaluate.py --family thermal_deadtime --plants 120 --budget 20",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "test_hill_median",
-      "text": "on that family a same-vocabulary hill climb is first at 1.711, so the head is second",
+      "text": "Current registered test_hill_median; see artifact and protocol",
       "source": "research/results/eval_thermal_deadtime_120.json",
       "path": "rows[method=vocab_hill].final_cost_median",
-      "value": 1.711,
-      "tol": 0.001,
-      "reproduce": "same"
+      "value": 1.7105911643299714,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "test_bo_median",
-      "text": "Bayesian optimisation on the frozen test family: 1.877 at 20 experiments",
+      "text": "Current registered test_bo_median; see artifact and protocol",
       "source": "research/results/eval_thermal_deadtime_120.json",
       "path": "rows[method=bo].final_cost_median",
-      "value": 1.877,
-      "tol": 0.001,
-      "reproduce": "same"
+      "value": 1.8781329057874558,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "test_sweep_recovered",
-      "text": "the 7-run Kp sweep recovered Ku on 0 of 120 thermal plants; the swept rows fall back",
+      "text": "Current registered test_sweep_recovered; see artifact and protocol",
       "source": "research/results/eval_thermal_deadtime_120.json",
       "path": "sweep_recovered",
-      "value": 0,
-      "tol": 0,
-      "reproduce": "same"
+      "value": 0.0,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "abl_typed_vs_regression",
-      "text": "typed + shrink (A3) 0.439 vs same-size regression head (A0) 0.494, mean over 3 draws of 120 held-out plants",
+      "text": "Temp+CP matched-gate median / 同门Temp+CP中位代价",
       "source": "research/results/ablation.json",
-      "path": "rows[variant=A3_shrink].median_mean",
-      "value": 0.439,
-      "tol": 0.002,
-      "reproduce": "python scripts/17_ablation.py --plants 120 --draws 3"
+      "path": "rows[variant=C3_temperature_CP].median_mean",
+      "value": 0.6720461646419523,
+      "tol": 1e-09,
+      "reproduce": "python scripts/17_ablation.py --plants 120 --draws 3",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ],
+      "label": "Temp+CP matched-gate median / 同门Temp+CP中位代价"
     },
     {
       "id": "abl_regression_head",
-      "text": "the regression head's median on the same draws",
+      "text": "Matched MLP control median / 同条件MLP代价",
       "source": "research/results/ablation.json",
-      "path": "rows[variant=A0_regress].median_mean",
-      "value": 0.494,
-      "tol": 0.002,
-      "reproduce": "same"
+      "path": "rows[variant=C0_MLP_regression].median_mean",
+      "value": 0.4553953647894981,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ],
+      "label": "Matched MLP control median / 同条件MLP代价"
     },
     {
       "id": "abstain_coverage",
-      "text": "the shipped abstention executes 60% of proposals",
+      "text": "CP permitted proposal rate (not label coverage) / CP动作获准率，非标签覆盖率",
       "source": "research/results/abstention.json",
-      "path": "summary[1].coverage",
-      "value": 0.6,
-      "tol": 0.05,
-      "reproduce": "python scripts/20_abstention.py --plants 120 --draws 3"
+      "path": "summary[policy=temperature_CP].coverage",
+      "value": 0.4664473684210526,
+      "tol": 1e-09,
+      "reproduce": "python scripts/20_abstention.py --plants 120 --draws 3",
+      "label": "CP permitted proposal rate (not label coverage) / CP动作获准率，非标签覆盖率",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "abstain_tau",
-      "text": "tau_act chosen by the coverage rule",
+      "text": "Legacy pmax candidate, null disables heuristic; default uses CP / 旧pmax候选，null表示关闭，默认使用CP",
       "source": "research/results/abstention.json",
       "path": "chosen_tau_act",
-      "value": 0.35,
-      "tol": 0.001,
-      "reproduce": "same"
+      "value": null,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "label": "Legacy pmax candidate, null disables heuristic; default uses CP / 旧pmax候选，null表示关闭，默认使用CP",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "race_head_median",
-      "text": "0.463 median cost in the 40-plant race (the README animation)",
+      "text": "Current registered race_head_median; see artifact and protocol",
       "source": "research/results/race.json",
       "path": "runs.head.curve[-1]",
-      "value": 0.463,
-      "tol": 0.005,
-      "reproduce": "python scripts/12_make_race.py --reuse"
+      "value": 0.6552030131501959,
+      "tol": 1e-09,
+      "reproduce": "python scripts/12_make_race.py --reuse",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "race_cmaes_median",
-      "text": "1.569 median cost for CMA-ES in the same race, also 20 experiments",
+      "text": "Current registered race_cmaes_median; see artifact and protocol",
       "source": "research/results/race.json",
       "path": "runs.cmaes.curve[-1]",
-      "value": 1.569,
-      "tol": 0.005,
-      "reproduce": "same"
+      "value": 1.6586203302179259,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "llm_turn_median_s",
-      "text": "5.34 s median for one hosted-model turn (GLM-5.3-Flash, 40 calls)",
+      "text": "Current registered llm_turn_median_s; see artifact and protocol",
       "source": "research/results/race.json",
       "path": "assumptions.llm_turn_s",
-      "value": 5.34,
-      "tol": 0.01,
-      "reproduce": "python scripts/14_agent_baseline.py"
+      "value": 5.344215700002678,
+      "tol": 1e-09,
+      "reproduce": "python scripts/14_agent_baseline.py",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "llm_parse_failures",
-      "text": "13 of 40 hosted-model answers were unparseable",
+      "text": "Current registered llm_parse_failures; see artifact and protocol",
       "source": "research/results/race.json",
       "path": "assumptions.llm_parse_failures",
-      "value": 13,
-      "tol": 0,
-      "reproduce": "same"
+      "value": 13.0,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "robustness_no_worse",
-      "text": "200/200 plants end at or better than their starting point",
+      "text": "Current registered robustness_no_worse; see artifact and protocol",
       "source": "research/results/robustness.json",
       "path": "rows",
       "reduce": "sum:n",
       "where": {
         "gate": true
       },
-      "value": 200,
-      "tol": 0,
-      "reproduce": "python scripts/11_robustness.py"
+      "value": 200.0,
+      "tol": 1e-09,
+      "reproduce": "python scripts/11_robustness.py",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "robustness_none_worse",
-      "text": "no plant in the robustness study ended worse than it started",
+      "text": "Current registered robustness_none_worse; see artifact and protocol",
       "source": "research/results/robustness.json",
       "path": "rows",
       "all_equal": [
         "worse_pct",
         0.0
       ],
-      "value": 1,
-      "tol": 0,
-      "reproduce": "same"
+      "value": 1.0,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "generalization_beaten",
-      "text": "32 of 40 out-of-zoo plants within 5% of the best classical tuner",
+      "text": "Current registered generalization_beaten; see artifact and protocol",
       "source": "research/results/generalization.json",
       "path": "plants_beaten",
-      "value": 32,
-      "tol": 0,
-      "reproduce": "python scripts/08_generalize.py"
+      "value": 26.0,
+      "tol": 1e-09,
+      "reproduce": "python scripts/08_generalize.py",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "generalization_ratio",
-      "text": "median cost ratio vs the best classical tuner on the out-of-zoo set",
+      "text": "Current registered generalization_ratio; see artifact and protocol",
       "source": "research/results/generalization.json",
       "path": "median_ratio",
-      "value": 1.014,
-      "tol": 0.01,
-      "reproduce": "same"
+      "value": 1.0149083562597614,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "params_decision_path",
-      "text": "40,683 parameters in the exported decision path",
+      "text": "Current registered params_decision_path; see artifact and protocol",
       "source": "research/results/hardware.json",
       "path": "params.decision_path",
-      "value": 40683,
-      "tol": 0,
-      "reproduce": "python scripts/21_hardware.py"
+      "value": 40683.0,
+      "tol": 1e-09,
+      "reproduce": "python scripts/21_hardware.py",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "macs_per_decision",
-      "text": "83,584 multiply-accumulates per decision (batch 1, one forward pass)",
+      "text": "Current registered macs_per_decision; see artifact and protocol",
       "source": "research/results/hardware.json",
       "path": "macs.total",
-      "value": 83584,
-      "tol": 0,
-      "reproduce": "same"
+      "value": 83584.0,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "c_static_flash",
-      "text": "168,260 bytes for the C99 reference (code + weights, gcc -Os object)",
+      "text": "Current registered c_static_flash; see artifact and protocol",
       "source": "research/results/hardware.json",
       "path": "c_flash_bytes",
-      "value": 168260,
-      "tol": 0,
-      "reproduce": "same"
+      "value": 168784.0,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "c_static_ram",
-      "text": "16 bytes of static RAM (.data + .bss); no dynamic allocation",
+      "text": "Current registered c_static_ram; see artifact and protocol",
       "source": "research/results/hardware.json",
       "path": "c_ram_bytes",
-      "value": 16,
-      "tol": 0,
-      "reproduce": "same"
+      "value": 0.0,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "int8_per_channel_argmax",
-      "text": "weight-only per-channel int8 keeps the same argmax on 97.3% of states",
+      "text": "Current registered int8_per_channel_argmax; see artifact and protocol",
       "source": "research/results/hardware.json",
       "path": "int8.per_channel.argmax_agreement",
-      "value": 0.973,
-      "tol": 0.002,
-      "reproduce": "same"
+      "value": 0.97265625,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "int8_per_channel_step",
-      "text": "but only 55% of decoded steps stay within 1e-3, so int8 is not a drop-in for the step",
+      "text": "Current registered int8_per_channel_step; see artifact and protocol",
       "source": "research/results/hardware.json",
       "path": "int8.per_channel.steps_within_1e-3",
-      "value": 0.551,
-      "tol": 0.002,
-      "reproduce": "same"
+      "value": 0.7174479166666666,
+      "tol": 1e-09,
+      "reproduce": "same",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "bench_fast_restart_ms",
-      "text": "111 ms per experiment with Fast Restart (StopTime 15 s)",
+      "text": "Current registered bench_fast_restart_ms; see artifact and protocol",
       "source": "research/bench/bench_log_15s.txt",
       "regex": "fr_ms=\\[[^\\]]*\\] median=([0-9.]+)",
       "value": 111.0,
-      "tol": 0.5,
-      "reproduce": "research/bench/bench_run.m"
+      "tol": 1e-09,
+      "reproduce": "research/bench/bench_run.m",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "bench_normal_ms",
-      "text": "869 ms per experiment without Fast Restart",
+      "text": "Current registered bench_normal_ms; see artifact and protocol",
       "source": "research/bench/bench_log_15s.txt",
       "regex": "normal_ms=\\[[^\\]]*\\] median=([0-9.]+)",
       "value": 868.8,
-      "tol": 0.5,
-      "reproduce": "research/bench/bench_run.m"
+      "tol": 1e-09,
+      "reproduce": "research/bench/bench_run.m",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "matlab_parity",
-      "text": "MATLAB forward matches the exported reference within 3.8e-06; the decoded step (temperature + shrink + abstention) within 2.6e-08",
-      "source": "models/jev_head_weights.mat",
-      "value": 3.815e-06,
-      "tol": 1e-06,
-      "verified_by": "manual",
-      "reproduce": "python scripts/06_export_weights_mat.py && matlab -batch \"W=load('models/jev_head_weights.mat'); o=jev_head_forward(W,W.ref_feats,W.ref_curves); max(abs(o.choice(:)-W.ref_choice(:)))\"",
-      "note": "v0.3 documented 7.6e-06 for the logits only. The step parity is new in 0.4.0 and is the number that matters: it covers temperature, variance shrink, abstention and clipping."
+      "text": "MATLAB maximum Choice logit error over 24 vectors / MATLAB 24向量最大logit误差",
+      "source": "research/results/matlab_parity.json",
+      "value": 5.7220459e-06,
+      "tol": 1e-09,
+      "reproduce": "matlab -batch \"addpath('matlab'); test_portability('research/results/matlab_parity.json')\"",
+      "path": "max_errors.choice_logits",
+      "label": "MATLAB maximum Choice logit error over 24 vectors / MATLAB 24向量最大logit误差",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "specialize_valve_jspecialised",
-      "text": "valve dead band: 2.242 zero-shot to 2.207 specialised (30 held-out jitters): essentially no improvement",
-      "source": "docs/SPECIALIZE.md",
-      "value": 2.207,
-      "tol": 0.001,
-      "verified_by": "manual",
-      "reproduce": "python scripts/10_specialize.py --scenario valve_dead_zone --plants 120",
-      "note": "v0.2 recorded 1.152 and v0.3 recorded 1.884, both on scenario draws that were not reproducible before 0.4.0 (salted hash seeds). With the crc32 seed the same command lands at 2.207. Re-measured 2026-10-23."
+      "text": "Current registered specialize_valve_jspecialised; see artifact and protocol",
+      "source": "research/results/specialization.json",
+      "value": 2.1676503885102965,
+      "tol": 1e-09,
+      "reproduce": "python scripts/10_specialize.py --scenario valve_dead_zone --plants 120 --name valve --report research/results/specialization.json",
+      "path": "specialised_median",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
     },
     {
       "id": "calibrate_only_negative",
-      "text": "on valve_dead_zone, calibration-only adaptation made the median worse (2.213 to 2.286); it is not shown to rescue an out-of-distribution policy",
+      "text": "CP-off temperature adaptation combined arm / 显式关闭CP的组合适配臂",
       "source": "research/results/calibrate_only.json",
       "path": "adapted.median",
-      "value": 2.286,
-      "tol": 0.01,
-      "reproduce": "python scripts/22_calibrate_only.py --plants 8 --steps 6"
+      "value": 2.2855869344588085,
+      "tol": 1e-09,
+      "reproduce": "python scripts/22_calibrate_only.py --plants 8 --steps 6",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ],
+      "label": "CP-off temperature adaptation combined arm / 显式关闭CP的组合适配臂"
+    },
+    {
+      "id": "calibration_samples",
+      "text": "Current registered calibration_samples; see artifact and protocol",
+      "source": "research/results/calibrate_only.json",
+      "path": "calibration_samples",
+      "value": 48.0,
+      "reproduce": "python scripts/22_calibrate_only.py",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "calibration_simulations",
+      "text": "Current registered calibration_simulations; see artifact and protocol",
+      "source": "research/results/calibrate_only.json",
+      "path": "calibration_simulations",
+      "value": 56.0,
+      "reproduce": "python scripts/22_calibrate_only.py",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "calibration_base_median",
+      "text": "Current registered calibration_base_median; see artifact and protocol",
+      "source": "research/results/calibrate_only.json",
+      "path": "arms.base.median",
+      "value": 2.2619562426643673,
+      "reproduce": "python scripts/22_calibrate_only.py",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "calibration_T_only_median",
+      "text": "Current registered calibration_T_only_median; see artifact and protocol",
+      "source": "research/results/calibrate_only.json",
+      "path": "arms.temperature_only.median",
+      "value": 2.2459818137519196,
+      "reproduce": "python scripts/22_calibrate_only.py",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "calibration_tau_only_median",
+      "text": "Current registered calibration_tau_only_median; see artifact and protocol",
+      "source": "research/results/calibrate_only.json",
+      "path": "arms.threshold_only.median",
+      "value": 2.2855869344588085,
+      "reproduce": "python scripts/22_calibrate_only.py",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "temperature_Kp",
+      "text": "Current registered temperature_Kp; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "choice_temperature[0]",
+      "value": 1.8914944004413212,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "cp_qhat_Kp",
+      "text": "Current registered cp_qhat_Kp; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "split_conformal.qhat_per_axis[0]",
+      "value": 0.9067908043575168,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "cp_coverage_Kp",
+      "text": "Current registered cp_coverage_Kp; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "split_conformal.evaluation.coverage_per_axis[0]",
+      "value": 0.919921875,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "cp_set_size_Kp",
+      "text": "Current registered cp_set_size_Kp; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "split_conformal.evaluation.mean_set_size_per_axis[0]",
+      "value": 3.015625,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "temperature_Ki",
+      "text": "Current registered temperature_Ki; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "choice_temperature[1]",
+      "value": 1.5218893482685463,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "cp_qhat_Ki",
+      "text": "Current registered cp_qhat_Ki; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "split_conformal.qhat_per_axis[1]",
+      "value": 0.8764900883463167,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "cp_coverage_Ki",
+      "text": "Current registered cp_coverage_Ki; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "split_conformal.evaluation.coverage_per_axis[1]",
+      "value": 0.90625,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "cp_set_size_Ki",
+      "text": "Current registered cp_set_size_Ki; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "split_conformal.evaluation.mean_set_size_per_axis[1]",
+      "value": 1.90625,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "temperature_Kd",
+      "text": "Current registered temperature_Kd; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "choice_temperature[2]",
+      "value": 1.5022457291115834,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "cp_qhat_Kd",
+      "text": "Current registered cp_qhat_Kd; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "split_conformal.qhat_per_axis[2]",
+      "value": 0.9068780226271902,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "cp_coverage_Kd",
+      "text": "Current registered cp_coverage_Kd; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "split_conformal.evaluation.coverage_per_axis[2]",
+      "value": 0.8828125,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "cp_set_size_Kd",
+      "text": "Current registered cp_set_size_Kd; see artifact and protocol",
+      "source": "models/calibration.json",
+      "path": "split_conformal.evaluation.mean_set_size_per_axis[2]",
+      "value": 2.576171875,
+      "reproduce": "python scripts/02_train.py --calibrate-only",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "uncalibrated_median",
+      "source": "research/results/ablation.json",
+      "path": "rows[variant=C1_uncalibrated].median_mean",
+      "text": "Current registered uncalibrated_median; see artifact and protocol",
+      "value": 0.43572645010310945,
+      "reproduce": "python scripts/17_ablation.py",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "temperature_only_median",
+      "source": "research/results/ablation.json",
+      "path": "rows[variant=C2_temperature_only].median_mean",
+      "text": "Current registered temperature_only_median; see artifact and protocol",
+      "value": 0.45366397183945456,
+      "reproduce": "python scripts/17_ablation.py",
+      "tol": 1e-09,
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".6f"
+        },
+        {
+          "file": "docs/CONFORMAL.md",
+          "format": ".6f"
+        }
+      ]
     }
   ]
 }

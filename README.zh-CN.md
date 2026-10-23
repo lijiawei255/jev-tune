@@ -1,10 +1,12 @@
 # jev-tune
 
+> **受Jev启发，与TypeSafe AI无隶属、背书或赞助关系。** 本项目使用自己训练的数值头，不含Jev/Laya权重或API。[English](README.md)
+
 [![tests](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml/badge.svg)](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)](pyproject.toml)
 [![MATLAB](https://img.shields.io/badge/MATLAB-R2024b%20%E5%AE%9E%E6%B5%8B-orange)](docs/SCALE.md)
-[![decision latency](https://img.shields.io/badge/decision-0.19%20ms-brightgreen)](docs/STEP1_RESULTS.md)
+[![measured latency](https://img.shields.io/badge/latency-host%20measured-blue)](docs/COMPUTE.md)
 [![model size](https://img.shields.io/badge/model-200%20KB-lightgrey)](docs/STEP1_RESULTS.md)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 ## 让你的 Agent 直接接管
@@ -72,10 +74,8 @@ solver      ...
 
 [![English](https://img.shields.io/badge/README-English-blue)](README.md)
 
-**PID 调参，每一次判断都是"选一个选项"，而不是写一段话。**
-一个 200 KB 的模型看一眼阶跃响应，在笔记本 CPU 上 **0.19 毫秒**给出一个有界的
-增益调整量——不用自回归大模型、不联网、不需要 GPU。发布版还会在**把握度不足时保持
-不动**：没把握就不碰被控对象。
+**PID调参：温度缩放与分裂CP集合弃权。**
+数值头在CPU上一次前向；空集、过宽或正负矛盾集合否决对应轴，保持上次实测参数，其他轴仍可能改变，保持不证明安全。
 
 > **受 Jev 启发，非官方关联。** 这里借的是它的**接口规范**：`choice`（多选一）、
 > `score`（分档打分）、`noul`（是否安全）三个带校准概率的原语。**不是** TypeSafe 的
@@ -100,14 +100,16 @@ solver      ...
 
 ---
 
+独立校准结果及覆盖边界见[温度与分裂CP](docs/CONFORMAL.md)。当前CP代价逊于温度单独校准；标签覆盖定理或保持动作均不证明闭环安全。
+
 ## 15 秒看懂
 
 | | |
 | :--- | :--- |
 | **做什么** | 看刚测到的响应，决定下一步把 PID 增益乘多少 |
-| **多快** | 模型前向 **0.19 ms**、完整类型化决策 **0.73 ms**（ONNX，单线程，p99 1.36 ms）；托管大模型 Agent 一次 **5.34 s**（实测，40 次调用） |
+| **多快** | ONNX前向中位<!-- claim:decision_ms -->0.026<!-- /claim --> ms；Python默认类型化/弃权路径中位<!-- claim:typed_decision_ms -->0.319<!-- /claim --> ms、p99 <!-- claim:typed_decision_p99_ms -->0.708<!-- /claim --> ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |
 | **多省实验** | 真实 Simulink 电机上 **5 次实验**把代价从 **1.238 降到 0.598**（v0.2 的记录运行；修正增益扫描后同一模型起点更好，整定器会直接返回电机自带的增益——[原因](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong)）；结果不会比 ZN 起点与模型自带增益中更好的那组更差 |
-| **多能泛化** | **验证族**（120 株，参与过设计决策）：**0.440 / p90 1.038**，对比 BO 0.567、CMA-ES 1.705。**冻结测试族**（120 株"一阶 + 大延迟"热工对象，从未用于任何决策）：**1.737，第二**——同词表爬山 1.711 更低，BO 1.877、CMA-ES 1.976 更高 |
+| **多能泛化** | 验证族中位0.682；冻结热工族中位2.193，当前基线和先验来源见下表。 |
 
 ![前后对比](assets/before_after.png)
 
@@ -138,9 +140,7 @@ solver      ...
 python scripts/10_specialize.py --scenario valve_dead_zone --name valve
 ```
 
-在没见过的对象族上实测：中位代价 **2.242 → 2.207（−2%）**，30 个留出抖动、约 95 秒 CPU——
-也就是说，专门化**没有**修好这一族。v0.2/v0.3 记的 −49% / −16% 是在 0.4.0 之前
-**不可复现**的场景抽样上测的；`docs/SPECIALIZE.md` 已写明，不再引用它们。
+专门化依赖离线仿真，也可能让留出性能变差。当前实测及撤回的历史归因见[SPECIALIZE](docs/SPECIALIZE.md)。
 
 ---
 
@@ -197,7 +197,7 @@ python -m jev_tune.cli matlab --model 你的模型.slx --auto --json
 
 ![Agent 在环 vs 决策头](assets/agent_vs_head.png)
 
-*仿真 0.111→0.09 s 与决策 0.19 ms 是实测；LLM 往返是假设，已在图注标明。*
+*历史示意使用仿真0.111→0.09 s与仅前向0.19 ms；当前完整决策实测见docs/COMPUTE.md，LLM往返为图中标明的假设。*
 
 ### 在自己的 Simulink 模型上用
 
@@ -269,38 +269,37 @@ jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
 
 ## 基准
 
-**验证族（120 个双质量谐振对象，每个方法 20 次实验）。** 这一族参与过两个设计决策——
-否掉前瞻价值网、比较词表 v1 与 v3——所以它是**验证集**，不是干净测试集。
+**验证族：120个two_mass对象。** 参与过设计决策。迭代方法最多20次，一次性方法列实际消耗；解析起点方法共享oracle Ku/Tu，扫描失败统一采用固定非oracle先验。
 
-| 方法 | 最终代价（中位） | p90 | × 参考 | 成功率 | 达目标实验数 | 实验预算 |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| **Jev 决策头** | **0.440** | **1.038** | **1.31** | **41%** | **5.0** | 20 |
-| 贝叶斯优化 | 0.567 | 1.510 | 1.56 | 35% | 8.5 | 20 |
-| 辨识 → `pidtune` | 0.742 | 1.705 | 1.91 | 29% | 2.0 | 2 |
-| 缩小 Z-N | 1.290 | 1.905 | 4.48 | 30% | 1.0 | 1 |
-| 实测 Ku/Tu 的 Z-N | 1.860 | 2.791 | 2.99 | 16% | 8.0 | 8 |
-| 同词表爬山 | 1.463 | 2.212 | 2.35 | 15% | 5.0 | 20 |
-| CMA-ES | 1.705 | 2.519 | 3.58 | 13% | 4.0 | 20 |
-| 单纯形 | 2.037 | 2.879 | 4.43 | 7% | 4.0 | 20 |
-| Ziegler-Nichols（解析 Ku/Tu） | 2.322 | 3.082 | 5.74 | 6% | 1.0 | 1 |
+| method | median J | p90 J | actual simulations |
+| :--- | ---: | ---: | ---: |
+| `bo` | 0.547 | 1.552 | 20 |
+| `jev_head_swept` | 0.615 | 1.401 | 20 |
+| `shrunk_zn` | 1.290 | 1.905 | 1 |
+| `identify+pidtune_PID` | 0.742 | 1.705 | 2 |
+| `jev_head` | 0.682 | 1.305 | 20 |
+| `swept_zn` | 1.860 | 2.791 | 8 |
+| `vocab_hill` | 1.463 | 2.212 | 20 |
+| `cmaes` | 1.723 | 2.521 | 20 |
+| `simplex` | 2.037 | 2.879 | 20 |
+| `zn_classic` | 2.322 | 3.082 | 1 |
 
-**冻结测试族（120 个"一阶 + 大延迟"热工对象）。** 由固定网格生成、**不含随机种子**，
-在决策头训练完成之后定义，**只评一次**；没有任何设计决策用到它。
+**冻结热工族：120个固定网格对象。** 训练后冻结，本轮正确性修复后重测，未据此选择新权重；不是预注册前瞻测试。
 
-| 方法 | 最终代价（中位） | p90 | × 参考 | 成功率 | 达目标实验数 | 实验预算 |
-| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
-| 同词表爬山 | **1.711** | **2.447** | **1.14** | **27%** | 9.5 | 20 |
-| **Jev 决策头** | 1.737 | 2.871 | 1.30 | 16% | 13.0 | 20 |
-| 贝叶斯优化 | 1.877 | 2.662 | 1.32 | 5% | 13.0 | 20 |
-| CMA-ES | 1.976 | 2.879 | 1.36 | 4% | 16.0 | 20 |
-| 辨识 → `pidtune` | 2.330 | 3.064 | 1.49 | 1% | 2.0 | 2 |
-| Ziegler-Nichols | 2.682 | 3.374 | 1.76 | 0% | inf | 1 |
+| method | median J | p90 J | actual simulations |
+| :--- | ---: | ---: | ---: |
+| `vocab_hill` | 1.711 | 2.447 | 20 |
+| `jev_head_swept` | 2.000 | 5.177 | 20 |
+| `bo` | 1.878 | 2.684 | 20 |
+| `cmaes` | 2.000 | 2.879 | 20 |
+| `identify+pidtune_PID` | 2.330 | 3.064 | 2 |
+| `jev_head` | 2.193 | 3.199 | 20 |
+| `zn_classic` | 2.682 | 3.374 | 1 |
+| `swept_zn` | 3.580 | 5.334 | 8 |
+| `shrunk_zn` | 4.854 | 5.158 | 1 |
+| `simplex` | 2.302 | 3.146 | 20 |
 
-**两张表一起读。** 在它被验证过的那一族上，决策头是不掌握模型的方案里最好的；在它从未
-见过的冻结族上，它是**第二**：一个朴素的贪心爬山（同样 7 档增益乘子）中位更低、尾部
-更轻。所以诚实的说法是"一个能打赢经典一次性整定与同预算 BO/CMA-ES 的有用默认值"，
-而不是"未见对象上最好的整定器"。另外，7 次 Kp 扫描在 120 个热工对象上 **0 个**恢复出
-Ku（扫描窗口比死区时间还短），两个 `swept` 行因此走了回退，读的时候要知道。
+基线代价更低也照实报告。计账规则见[BENCHMARK](docs/BENCHMARK.md)，扫描恢复/回退见[原始表](research/results/benchmark_table_thermal_deadtime.md)。
 
 **真实 Simulink 模型（直流电机）**
 
@@ -317,7 +316,7 @@ Ku（扫描窗口比死区时间还短），两个 `swept` 行因此走了回退
 
 ## 没有做的对照
 
-这个项目**没有**做两件事，列在这里，免得读者从基准里自己猜边界：
+以下是这个项目尚未做的对照中的两项，列在这里，免得读者从基准里自己猜边界：
 
 | 没做的 | 为什么重要 | 补上它需要什么 |
 | :--- | :--- | :--- |

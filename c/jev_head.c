@@ -154,28 +154,22 @@ static const float JEV_MULT[JEV_K] = {0.50f, 0.70f, 0.87f, 1.00f,
                                       1.15f, 1.43f, 2.00f};
 
 static float population_var(void) {
-    static int ready = 0;
-    static float v = 0.0f;
-    if (!ready) {
-        float d[JEV_K], mean = 0.0f, acc = 0.0f;
-        int i;
-        for (i = 0; i < JEV_K; ++i) {
-            d[i] = log10f(JEV_MULT[i]);
-            mean += d[i];
-        }
-        mean /= (float)JEV_K;
-        for (i = 0; i < JEV_K; ++i) {
-            acc += (d[i] - mean) * (d[i] - mean);
-        }
-        v = acc / (float)JEV_K; /* numpy np.var normalisation, not N-1 */
-        ready = 1;
+    float d[JEV_K], mean = 0.0f, acc = 0.0f;
+    int i;
+    for (i = 0; i < JEV_K; ++i) {
+        d[i] = log10f(JEV_MULT[i]);
+        mean += d[i];
     }
-    return v;
+    mean /= (float)JEV_K;
+    for (i = 0; i < JEV_K; ++i) {
+        acc += (d[i] - mean) * (d[i] - mean);
+    }
+    return acc / (float)JEV_K; /* population variance, no mutable static state */
 }
 
 void jev_decode(const jev_probs *p, jev_action *out) {
     float var_ref = population_var();
-    int ax, i, all_hold = 1;
+    int ax, i;
     for (ax = 0; ax < 3; ++ax) {
         float mu = 0.0f, e2 = 0.0f, var, gate, conf = 0.0f;
         for (i = 0; i < JEV_K; ++i) {
@@ -188,14 +182,18 @@ void jev_decode(const jev_probs *p, jev_action *out) {
         if (var < 0.0f) var = 0.0f;
         gate = 1.0f / (1.0f + var / var_ref);
         out->step[ax] = clipf(mu * gate, -JEV_MAX_STEP, JEV_MAX_STEP);
+        out->proposed[ax] = out->step[ax];
         out->confidence[ax] = conf;
-        if (out->step[ax] != 0.0f) all_hold = 0;
+        out->axis_held[ax] = out->escalate[ax] = out->reason[ax] = 0;
+        out->set_size[ax] = 0;
+        for (i = 0; i < JEV_K; ++i) out->conformal_set[ax][i] = 0;
     }
-    out->held = all_hold;
+    out->held = 0;
+    out->conformal_applied = 0;
 }
 
 void jev_decode_argmax(const jev_probs *p, jev_action *out) {
-    int ax, i, all_hold = 1;
+    int ax, i;
     for (ax = 0; ax < 3; ++ax) {
         int best = 0;
         float conf = 0.0f;
@@ -205,10 +203,14 @@ void jev_decode_argmax(const jev_probs *p, jev_action *out) {
         }
         out->step[ax] = clipf(log10f(JEV_MULT[best]), -JEV_MAX_STEP,
                               JEV_MAX_STEP);
+        out->proposed[ax] = out->step[ax];
         out->confidence[ax] = conf;
-        if (out->step[ax] != 0.0f) all_hold = 0;
+        out->axis_held[ax] = out->escalate[ax] = out->reason[ax] = 0;
+        out->set_size[ax] = 0;
+        for (i = 0; i < JEV_K; ++i) out->conformal_set[ax][i] = 0;
     }
-    out->held = all_hold;
+    out->held = 0;
+    out->conformal_applied = 0;
 }
 
 int jev_gate_rollback(float cost, float best_cost, int rollbacks,
@@ -223,18 +225,53 @@ void jev_abstain(jev_action *act, const jev_probs *p, const jev_policy *pol,
     int ax, i;
     for (ax = 0; ax < 3; ++ax) {
         float conf = 0.0f;
+        int low, unsafe;
         for (i = 0; i < JEV_K; ++i) {
             if (p->choice[ax][i] > conf) conf = p->choice[ax][i];
         }
-        if (pol != 0 && (conf < pol->tau_act || p->noul < pol->tau_noul)) {
+        low = pol != 0 && conf < pol->tau_act;
+        unsafe = pol != 0 && p->noul < pol->tau_noul;
+        act->axis_held[ax] = low || unsafe;
+        act->escalate[ax] = act->axis_held[ax] && conf < pol->tau_esc;
+        act->reason[ax] = unsafe ? 3 : (act->escalate[ax] ? 2 : (low ? 1 : 0));
+        if (act->axis_held[ax]) {
             act->step[ax] = 0.0f;
-            if (escalations != 0 && conf < pol->tau_esc) {
+            if (escalations != 0 && act->escalate[ax]) {
                 (*escalations)++;
             }
         }
     }
-    act->held = (act->step[0] == 0.0f) && (act->step[1] == 0.0f) &&
-                (act->step[2] == 0.0f);
+    act->held = act->axis_held[0] && act->axis_held[1] && act->axis_held[2];
+}
+
+void jev_apply_conformal(jev_action *act, const jev_probs *p,
+                         const jev_conformal *cp, int *escalations) {
+    int ax, i;
+    act->conformal_applied = cp != 0 && cp->enabled;
+    for (ax = 0; ax < 3; ++ax) {
+        int n = 0, positive = 0, negative = 0, reason = 0;
+        for (i = 0; i < JEV_K; ++i) {
+            int selected = act->conformal_applied && (1.0 - (double)p->choice[ax][i]) <= cp->qhat[ax];
+            act->conformal_set[ax][i] = selected;
+            if (selected) {
+                n++;
+                positive |= JEV_MULT[i] > 1.0f;
+                negative |= JEV_MULT[i] < 1.0f;
+            }
+        }
+        act->set_size[ax] = n;
+        if (!act->conformal_applied) continue;
+        if (n == 0) reason = 4;
+        else if (n > cp->k_max) reason = 5;
+        else if (positive && negative) reason = 6;
+        if (reason) {
+            if (!act->escalate[ax] && escalations != 0) (*escalations)++;
+            act->axis_held[ax] = act->escalate[ax] = 1;
+            act->step[ax] = 0.0f;
+            if (act->reason[ax] != 3) act->reason[ax] = reason;
+        }
+    }
+    act->held = act->axis_held[0] && act->axis_held[1] && act->axis_held[2];
 }
 
 void jev_apply_step(float gains[3], const float step[3]) {

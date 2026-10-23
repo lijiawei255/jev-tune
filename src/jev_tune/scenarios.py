@@ -215,6 +215,7 @@ def _stack(plants) -> PlantSet:
         noise_sigma=np.concatenate([p.noise_sigma for p in plants]),
         dead_zone=np.concatenate([p.dead_zone for p in plants]),
         params=[pp for p in plants for pp in p.params],
+        noise_seed=np.concatenate([p.noise_seed for p in plants]),
     )
 
 

@@ -20,6 +20,7 @@ from jev_tune.evaluate import evaluate_head
 from jev_tune.model import JevHead
 from jev_tune.plants import ultimate_gain
 from jev_tune.scenarios import names, variants
+from _experiment_protocol import manifest
 
 
 def load_head(models: str, n_actions: int = 7) -> JevHead:
@@ -63,9 +64,9 @@ def main():
 
         zn = run_zn(p)
         rl = run_relay(p)
-        cm = run_cmaes(p, gzn, budget=18, lam=6)
+        cm = run_cmaes(p, gzn, budget=args.iters, lam=6)
         hr = evaluate_head(
-            head, p, gzn, kuf, tuf, iters=args.iters, value=None, use_value_filter=False
+            head, p, gzn, kuf, tuf, budget=args.iters, value=None, use_value_filter=False
         )
 
         jev = np.median(hr.best_j)
@@ -121,6 +122,9 @@ def main():
                 "plants_total": total_plants,
                 "median_ratio": float(np.median(ratios)),
                 "draws_per_scenario": args.draws,
+                "budget_per_plant": args.iters,
+                "prior": "analytic Ku/Tu; no identification cost included",
+                "manifest": manifest(args, files=[Path(args.models) / "jev_head.pt", Path(args.models) / "calibration.json"]),
             },
             indent=2,
         ),

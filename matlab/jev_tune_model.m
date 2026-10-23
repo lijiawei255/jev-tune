@@ -14,6 +14,7 @@ function R = jev_tune_model(mdlPath, workDir, iters, stopTime, stepGain, cfg)
 %       is advisory only -- the veto lives in ordinary code.
 
 if nargin < 3 || isempty(iters), iters = 20; end
+validateattributes(iters, {'numeric'}, {'scalar', 'integer', 'positive', 'finite'});
 if nargin < 4, stopTime = []; end
 if nargin < 5 || isempty(stepGain), stepGain = 1.0; end
 if nargin < 6 || isempty(cfg), cfg = struct(); end
@@ -38,6 +39,8 @@ defaults = struct( ...
     'pid_block', 'PID Controller', ...
     'instrument_block', '', ...    % tap this block on the working copy
     'instrument_port', 1, ...      % which output port to tap
+    'tau_act', [], 'tau_esc', [], 'tau_noul', [], ... % optional policy overrides
+    'cp_enabled', [], 'cp_qhat', [], 'cp_alpha', [], 'cp_k_max', [], ...
     'keep_loaded', false);         % true => leave the model compiled for reuse
 f = fieldnames(defaults);
 for i = 1:numel(f)
@@ -55,6 +58,9 @@ here = fileparts(mfilename('fullpath'));
 addpath(here);
 thisDir = fileparts(here);
 W = load(fullfile(thisDir, 'models', 'jev_head_weights.mat'));
+for policyName = {'tau_act', 'tau_esc', 'tau_noul', 'cp_enabled', 'cp_qhat', 'cp_alpha', 'cp_k_max'}
+    if ~isempty(cfg.(policyName{1})), W.(policyName{1}) = cfg.(policyName{1}); end
+end
 
 % ---------------------------------------------------------------- model copy
 % A model compile costs ~10 s and a MATLAB cold start ~50 s, both far more
@@ -329,6 +335,7 @@ end
 prevAction = zeros(1, 3);
 prevCost = 0;
 nRollbacks = 0;
+nEscalated = 0;
 stall = 0;
 hist = struct('gains', {}, 'M', {}, 'J', {}, 't', {}, 'y', {}, 'u', {}, 'step', {}, 'event', {});
 
@@ -349,6 +356,17 @@ for it = 0:iters-1
         fprintf('[jev] iter %2d  simulation failed (%s)\n', it, short_msg(err.message));
     end
 
+    % Every row describes the gains that produced this measurement.  The next
+    % proposal/rollback is stored separately, including on early exits.
+    hist(end+1).gains = gains; hist(end).M = M; hist(end).J = J; %#ok<AGROW>
+    hist(end).t = t; hist(end).y = y; hist(end).u = u;
+    hist(end).step = zeros(1, 3); hist(end).event = "measured";
+    hist(end).next_gains = gains;
+    hist(end).held = false(1, 3); hist(end).escalate = false(1, 3);
+    hist(end).proposed = zeros(1, 3); hist(end).reason = zeros(1, 3);
+    hist(end).set_size = zeros(1, 3); hist(end).conformal_set = false(7, 3);
+    hist(end).conformal_applied = false;
+
     if J < bestJ - 1e-3
         bestJ = J; bestGains = gains; bestY = y; bestT = t; bestU = u;
         stall = 0;
@@ -356,6 +374,7 @@ for it = 0:iters-1
         stall = stall + 1;
     end
     if stall >= 5
+        hist(end).event = "stop";
         fprintf('[jev] early stop: no improvement for 5 iterations\n');
         break
     end
@@ -368,13 +387,12 @@ for it = 0:iters-1
         event = "rollback";
         fprintf('[jev] iter %2d  J=%.3f unstable -> rollback #%d to [%.3g %.3g %.3g]\n', ...
             it, J, nRollbacks, gains(1), gains(2), gains(3));
-        hist(end+1).gains = gains; hist(end).M = M; hist(end).J = J; %#ok<AGROW>
-        hist(end).t = t; hist(end).y = y; hist(end).u = u;
-        hist(end).step = zeros(1, 3); hist(end).event = event;
+        hist(end).next_gains = gains; hist(end).event = event;
         prevAction = zeros(1, 3); prevCost = J;
         continue
     end
     if ~simOK
+        hist(end).event = "simulation_failed";
         % the gate is exhausted and the model still will not run: stop instead
         % of feeding empty signals to the feature builder
         fprintf('[jev] stopping: the model does not simulate at these gains\n');
@@ -389,52 +407,15 @@ for it = 0:iters-1
         prevAction, prevCost, J, it, stopTime, refCmd);
     out = jev_head_forward(W, feats, curves);
 
-    step = zeros(1, 3);
-    mult = [0.50, 0.70, 0.87, 1.00, 1.15, 1.43, 2.00];
-    d = log10(mult);
-    % the fitted temperature from models/calibration.json travels in the .mat
-    % file, so this loop decodes the same distribution as the Python evaluator
-    if isfield(W, 'temperature') && numel(W.temperature) >= 3
-        temp = W.temperature(:).';
-    else
-        temp = ones(1, 3);
-    end
-    % abstention thresholds travel with the weights too
-    if isfield(W, 'tau_act')
-        tauAct = W.tau_act(1);
-    else
-        tauAct = 0;
-    end
-    if isfield(W, 'tau_esc')
-        tauEsc = W.tau_esc(1);
-    else
-        tauEsc = 0;
-    end
-    nEscalated = 0;
-    for ax = 1:3
-        p = softmax_local(out.choice(:, ax, 1) / temp(ax)).';
-        mu = p * d.';
-        v = max(p * (d.^2).' - mu^2, 0);
-        % var(d, 1) is the population variance; numpy's np.var is the same
-        % normalisation, while MATLAB's default var() divides by N-1 and made
-        % the shrink 6 % different from the Python loop
-        gate = 1 / (1 + v / var(d, 1));
-        proposed = min(max(stepGain * mu * gate, -0.32), 0.32);
-        % explicit abstention, same thresholds as decode.AbstainPolicy:
-        % hold the axis (delta = 0) when the calibrated p_max is too low
-        if max(p) < tauAct
-            step(ax) = 0;
-            if max(p) < tauEsc
-                nEscalated = nEscalated + 1;
-            end
-        else
-            step(ax) = proposed;
-        end
-    end
+    decision = jev_decode(W, out, stepGain);
+    step = decision.step;
+    nEscalated = nEscalated + sum(decision.escalate);
 
-    hist(end+1).gains = gains; hist(end).M = M; hist(end).J = J; %#ok<AGROW>
-    hist(end).t = t; hist(end).y = y; hist(end).u = u;
     hist(end).step = step; hist(end).event = event;
+    hist(end).held = decision.held; hist(end).escalate = decision.escalate;
+    hist(end).proposed = decision.proposed; hist(end).reason = decision.reason;
+    hist(end).set_size = decision.set_size; hist(end).conformal_set = decision.conformal_set;
+    hist(end).conformal_applied = decision.conformal_applied;
 
     fprintf('[jev] iter %2d  J=%.3f  gains=[%.3g %.3g %.3g]  step=[%+.3f %+.3f %+.3f]\n', ...
         it, J, gains(1), gains(2), gains(3), step(1), step(2), step(3));
@@ -442,6 +423,7 @@ for it = 0:iters-1
     prevAction = step;
     prevCost = J;
     gains = min(max(gains .* (10 .^ step), 1e-4), 1e3);
+    hist(end).next_gains = gains;
 end
 
 % ---------------------------------------------------------------- finish
@@ -467,9 +449,14 @@ if J < bestJ
     % we re-ran the best gains, so `gains` already equals bestGains
     bestJ = J; bestY = y; bestT = t; bestU = u;
 end
-hist(end+1).gains = bestGains; hist(end).M = M; hist(end).J = bestJ; %#ok<AGROW>
+hist(end+1).gains = bestGains; hist(end).M = M; hist(end).J = J; %#ok<AGROW>
 hist(end).t = t; hist(end).y = y; hist(end).u = u;
 hist(end).step = zeros(1, 3); hist(end).event = "final";
+hist(end).next_gains = bestGains;
+hist(end).held = false(1, 3); hist(end).escalate = false(1, 3);
+hist(end).proposed = zeros(1, 3); hist(end).reason = zeros(1, 3);
+hist(end).set_size = zeros(1, 3); hist(end).conformal_set = false(7, 3);
+hist(end).conformal_applied = false;
 
 T.loop = toc(tLoop);
 tSave = tic;
@@ -479,6 +466,14 @@ R = struct('model', mdlName, 'stopTime', stopTime, 'iters', iters, ...
     'final_gains', bestGains, 'final_J', bestJ, 'n_rollbacks', nRollbacks, 'stepGain', stepGain, ...
     'n_escalations', nEscalated, ...
     'hist', hist, 'scopes', {scopes}, 'best_t', bestT, 'best_y', bestY, 'best_u', bestU);
+R.decision_policy = struct('step_gain', stepGain);
+for policyName = {'temperature', 'tau_act', 'tau_esc', 'tau_noul', ...
+        'cp_enabled', 'cp_qhat', 'cp_alpha', 'cp_k_max', 'cp_n_calibration', ...
+        'cp_quantile_rank', 'cp_method', 'model_sha256', 'calibration_sha256'}
+    if isfield(W, policyName{1})
+        R.decision_policy.(policyName{1}) = W.(policyName{1});
+    end
+end
 R.timings = T;
 save(fullfile(workDir, 'tune_result.mat'), 'R');
 R.timings.save = toc(tSave);
@@ -723,12 +718,6 @@ function s = short_msg(msg)
 s = regexprep(msg, '<a href="[^"]*">', '');
 s = regexprep(s, '</a>', '');
 if numel(s) > 160, s = [s(1:157) '...']; end
-end
-
-function p = softmax_local(z)
-z = z(:) - max(z);
-e = exp(z);
-p = e / sum(e);
 end
 
 function close_model(mdlName)

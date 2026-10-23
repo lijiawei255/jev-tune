@@ -1,19 +1,19 @@
 """Head vs classical baselines on held-out plants, at one common budget.
 
 Reference: a strong CMA-ES run (240 simulations per plant) defines the target
-cost (1.05x).  *Every competitor below gets the same ``--budget`` experiments
-per plant*, including the ones a method needs to estimate its own priors:
+cost (1.05x). Iterative competitors have the same maximum ``--budget``;
+one-shot methods report their actual lower cost. Priors are explicitly charged:
 
     zn                 1   analytic Ku/Tu (oracle: free frequency response)
-    relay_zn           2   relay experiment for Ku/Tu + one verification run
+    swept_zn           8   seven Kp tests for Ku/Tu + one verification run
     shrunk_zn          1   Z-N x fixed factors, chosen on the TRAIN families
     identify+pidtune   2   open-loop step fit + pidtune, one verification run
     simplex           20
     vocab_hill        20   greedy climb over the same vocabulary the head emits
-    cmaes             20   same budget, small population (7 generations)
+    cmaes             20   measured common start + remaining search budget
     bo                20
     jev_head          20   analytic Ku/Tu in its features (oracle)
-    jev_head_relay    20   relay-estimated Ku/Tu, relay counted as experiment 1
+    jev_head_swept    20   seven Kp tests counted; failed sweeps use Ku=Tu=1
 
 The head's training cost is paid once off-line and is not in its per-plant
 budget; see the caveat printed at the end and in ``docs/BENCHMARK.md``.
@@ -46,11 +46,13 @@ from jev_tune.matlab_baseline import matlab_available
 from jev_tune.model import JevHead
 from jev_tune.plants import (
     HELDOUT_FAMILIES,
+    TEST_FAMILIES,
     TRAIN_FAMILIES,
     estimate_ultimate_gain,
     sample_plants,
     ultimate_gain,
 )
+from _experiment_protocol import manifest
 
 
 def load_head(models_dir: str):
@@ -63,6 +65,12 @@ def load_head(models_dir: str):
     from jev_tune.decision import load_backend
 
     return load_backend(models_dir)
+
+
+def sweep_prior(ku, tu):
+    """Shared documented non-oracle fallback; failed estimates never use truth."""
+    ok = np.isfinite(ku) & np.isfinite(tu) & (ku > 0) & (tu > 0)
+    return np.where(ok, ku, 1.), np.where(ok, tu, 1.), ok
 
 
 def main():
@@ -79,7 +87,7 @@ def main():
         "--budget",
         type=int,
         default=20,
-        help="experiments per plant, identical for every method",
+        help="maximum experiments per plant for iterative methods",
     )
     ap.add_argument("--ref-budget", type=int, default=240)
     ap.add_argument("--seed", type=int, default=7)
@@ -87,6 +95,14 @@ def main():
     ap.add_argument("--out", default="research/results")
     ap.add_argument("--table", default="")
     args = ap.parse_args()
+    if args.budget < 2:
+        ap.error("--budget must cover an initial response and at least one proposal")
+    provenance = manifest(args, files=[Path(args.models)/"jev_head.pt",
+        Path(args.models)/"calibration.json"], extra={"evaluation_seed": args.seed,
+        "shrunk_zn_selection_seed": args.seed, "reference_seed": 11})
+    head = load_head(args.models)
+    if getattr(head, "conformal", None) is None:
+        raise ValueError("the default benchmark requires split CP metadata; run 02_train.py --calibrate-only first")
 
     Path(args.out).mkdir(parents=True, exist_ok=True)
     if args.family:
@@ -145,6 +161,9 @@ def main():
         ("cmaes", lambda: run_cmaes(plants, x0, budget=args.budget, lam=4)),
         ("bo", lambda: run_bo(plants, x0, budget=args.budget, n_init=6)),
     ):
+        if name == "swept_zn" and args.budget < 8:
+            print("[eval] swept_zn skipped: its seven-run prior plus verification exceeds the budget")
+            continue
         t = time.perf_counter()
         r = fn()
         r.wall_s = time.perf_counter() - t
@@ -153,8 +172,6 @@ def main():
             f"  {name:16s} {r.wall_s:6.1f}s  J median={np.median(r.best_j):.3f}"
             f"  ({r.eval_axis[-1]:.0f} sims)"
         )
-
-    head = load_head(args.models)
 
     t = time.perf_counter()
     hr = evaluate_head(
@@ -176,10 +193,12 @@ def main():
 
     # same head, but Ku/Tu come from the 7-run Kp sweep a real installation
     # must do; those seven experiments are charged to its budget
+    sweep_start = time.perf_counter()
     ku_s, tu_s, sweep_sims = estimate_ultimate_gain(plants)
-    ok = np.isfinite(ku_s) & np.isfinite(tu_s) & (ku_s > 0) & (tu_s > 0)
-    ku_s = np.where(ok, ku_s, ku)
-    tu_s = np.where(ok, tu_s, tu)
+    sweep_wall = time.perf_counter() - sweep_start
+    ku_s, tu_s, ok = sweep_prior(ku_s, tu_s)
+    # Same available fallback as run_swept_zn; never reveal the analytic plant
+    # oracle to only one competitor after an identification failure.
     gzn_s = np.column_stack([0.6 * ku_s, 1.2 * ku_s / tu_s, 0.075 * ku_s * tu_s])
     if args.budget - sweep_sims < 2:
         print(
@@ -202,7 +221,7 @@ def main():
             sims_already_spent=sweep_sims,
         )
         hr_s.name = "jev_head_swept"
-        hr_s.wall_s = time.perf_counter() - t
+        hr_s.wall_s = time.perf_counter() - t + sweep_wall
         results.append(hr_s)
         print(
             f"  {'jev_head_swept':16s} {hr_s.wall_s:6.1f}s  "
@@ -234,6 +253,20 @@ def main():
                 else float("inf"),
                 "budget": int(r.eval_axis[-1]),
                 "wall_s": float(getattr(r, "wall_s", 0.0)),
+                "decision_report": r.decision_report() if hasattr(r, "decision_report") else None,
+                "rollbacks": int(r.rollbacks.sum()) if hasattr(r, "rollbacks") else None,
+                "decision_policy": "temperature plus split CP; no pmax heuristic"
+                if r.name in {"jev_head", "jev_head_swept"} else None,
+                "oracle_access": "analytic Ku/Tu in initial gains and/or features"
+                if r.name in {"zn_classic", "shrunk_zn", "simplex", "vocab_hill", "cmaes", "bo", "jev_head"}
+                else "none",
+                "initial_point": "analytic Z-N, measured within the budget"
+                if r.name in {"simplex", "vocab_hill", "cmaes", "bo", "jev_head"}
+                else "method-specific, charged in experiments",
+                "fallback_policy": "Ku=1, Tu=1 on sweep failure"
+                if r.name in {"swept_zn", "jev_head_swept"} else None,
+                "fallback_plants": int((~ok).sum())
+                if r.name in {"swept_zn", "jev_head_swept"} else 0,
             }
         )
 
@@ -258,6 +291,7 @@ def main():
         "n_plants": plants.n,
         "families": sorted(set(plants.family)),
         "evaluation": tag,
+        "evaluation_role": "frozen_test" if args.family in TEST_FAMILIES else "validation",
         "heldout": bool(args.heldout and not args.family),
         "budget_per_plant": args.budget,
         "ref_budget": args.ref_budget,
@@ -270,6 +304,8 @@ def main():
         "sweep_recovered": int(ok.sum()),
         "sweep_sims_per_plant": int(sweep_sims),
         "matlab_available": bool(matlab_available()),
+        "manifest": provenance,
+        "calibration_evidence": json.loads((Path(args.models)/"calibration.json").read_text(encoding="utf-8")),
         "rows": rows,
     }
 
@@ -297,9 +333,15 @@ def _markdown(payload: dict, args) -> str:
     lines = [
         "# Benchmark: head vs baselines at one common budget",
         "",
+        "> [English](#english) · [简体中文](#简体中文)",
+        "",
+        "## English",
+        "",
         f"Generated by `python scripts/03_evaluate.py --plants {payload['n_plants']} "
-        f"--budget {payload['budget_per_plant']}` on {date.today().isoformat()}.",
-        "Every method spends the same number of closed-loop simulations per plant.",
+        f"--budget {payload['budget_per_plant']}"
+        f"{(' --family ' + args.family) if args.family else ''}` on {date.today().isoformat()}.",
+        "Iterative methods share a maximum budget; one-shot methods report their actual simulations.",
+        "Both head rows use temperature scaling plus split CP, without the legacy pmax threshold. CP label-set coverage is not a guarantee of closed-loop improvement or safety.",
         "",
         f"* plants: {payload['n_plants']}, families {payload['families']}, "
         f"heldout={payload['heldout']}",
@@ -338,12 +380,28 @@ def _markdown(payload: dict, args) -> str:
         lines += [
             f"**The Kp sweep only recovered Ku on {recovered} of "
             f"{payload['n_plants']} plants.** `jev_head_swept` falls back to the "
-            "analytic Ku/Tu for the rest, so on those plants it is the oracle "
-            "head minus seven experiments; `swept_zn` falls back to Ku = 1, which "
-            "is why its row is far worse than plain Z-N. Read both rows with "
-            "that in mind.",
+            "same Ku=Tu=1 fallback as `swept_zn` for the rest. Neither swept "
+            "row receives analytic Ku/Tu on failure. These rows include "
+            "identification failures rather than demonstrating a reliable identifier.",
             "",
         ]
+    lines += [
+        "## 简体中文", "",
+        f"由上面的命令生成。对象数{payload['n_plants']}，族{payload['families']}，"
+        f"角色为`{payload['evaluation_role']}`。迭代方法最多使用{payload['budget_per_plant']}次实验，"
+        "包含实际评估的共同起点；一次性方法按表中实际次数计费，不能说每种方法都恰好20次。",
+        "两个head行均使用温度缩放与Split CP，不叠加旧pmax阈值。CP标签集合覆盖不等于闭环改善或安全保证。",
+        "",
+        "表中的final J为最终返回增益对应的实测代价；success为达到参考目标的比例，"
+        "sims to target只对达到目标的对象统计。CMA/BO/simplex/hill/head的共同ZN初值使用"
+        "解析Ku/Tu，这是已知模型提供的特权信息；离线训练和缩小ZN先验选择成本单列。",
+        "",
+        f"两种swept方法均支付{payload['sweep_sims_per_plant']}次扫描成本；"
+        f"本次扫描成功{payload['sweep_recovered']}/{payload['n_plants']}株。失败时两者均使用"
+        "Ku=Tu=1，不回填解析真值。结果包含辨识失败，不能据此宣称扫描器可靠。"
+        "JSON的每个方法行记录oracle信息、初值和回退策略，manifest记录参数、源代码及权重hash。",
+        "",
+    ]
     return "\n".join(lines)
 
 
