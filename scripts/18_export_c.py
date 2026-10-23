@@ -217,12 +217,34 @@ def main():
     data_path = Path(args.data)
     if not data_path.is_absolute():
         data_path = ROOT / data_path
-    z = np.load(data_path)
-    feats_all, curves_all = z["feats"], z["curves"]
-    n = len(feats_all)
-    idx = np.linspace(0, n - 1, args.cases).round().astype(int)
-    feats = np.asarray(feats_all[idx], dtype=np.float32)
-    curves = np.asarray(curves_all[idx], dtype=np.float32)
+    prev_vectors = out / "test_vectors.json"
+    if data_path.is_file():
+        z = np.load(data_path)
+        feats_all, curves_all = z["feats"], z["curves"]
+        n = len(feats_all)
+        idx = np.linspace(0, n - 1, args.cases).round().astype(int)
+        feats = np.asarray(feats_all[idx], dtype=np.float32)
+        curves = np.asarray(curves_all[idx], dtype=np.float32)
+        source_rows = [int(i) for i in idx]
+    elif prev_vectors.is_file():
+        # CI does not carry data/expert_train.npz (it is 20 MB and generated).
+        # Reuse the inputs from the committed vectors so the parity check still
+        # runs against real states; the expected outputs are recomputed from the
+        # checkpoint, which is what makes this a check rather than a copy.
+        prev = json.loads(prev_vectors.read_text(encoding="utf-8"))
+        cases_in = prev["cases"][: args.cases]
+        feats = np.asarray([c["feats"] for c in cases_in], dtype=np.float32)
+        curves = np.asarray([c["curves"] for c in cases_in], dtype=np.float32)
+        source_rows = list(prev.get("source_rows", []))[: len(cases_in)]
+        print(
+            f"[c] dataset missing: reusing {len(cases_in)} inputs from {prev_vectors}"
+        )
+    else:
+        rng = np.random.default_rng(0)
+        feats = rng.standard_normal((args.cases, 20)).astype(np.float32)
+        curves = rng.standard_normal((args.cases, 2, 64)).astype(np.float32)
+        source_rows = []
+        print("[c] no dataset and no previous vectors: using random states")
 
     with torch.no_grad():
         logits = model(torch.as_tensor(feats), torch.as_tensor(curves))
@@ -269,7 +291,7 @@ def main():
     payload = {
         "generated_by": "scripts/18_export_c.py",
         "model": str(models / "jev_head.pt"),
-        "source_rows": [int(i) for i in idx],
+        "source_rows": source_rows,
         "temperature": [float(t) for t in temperature],
         "tolerance": {"logits": 5e-4, "probs": 1e-5, "step": 1e-5, "feats": 1e-5},
         "note": (
@@ -367,7 +389,7 @@ def main():
     (out / "test_features.h").write_text("\n".join(feat), encoding="utf-8")
 
     print(f"[c] wrote {out}/jev_head_weights.h, test_vectors.h, test_vectors.json")
-    print(f"[c] {len(cases)} cases from rows {idx[:5].tolist()}...")
+    print(f"[c] {len(cases)} cases from rows {source_rows[:5]}...")
     print(f"[c] temperature {np.round(temperature, 4)}")
 
     if args.verify:
