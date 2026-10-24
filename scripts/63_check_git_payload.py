@@ -37,11 +37,13 @@ def check(root):
     forbidden = []
     commits = git(root, 'rev-list', '--all').decode().splitlines()
     for revision in commits:
-        paths = git(root, 'ls-tree', '-rz', '--name-only', revision, '--', 'research/results').split(b'\0')
+        paths = git(root, 'ls-tree', '-rz', '--name-only', revision).split(b'\0')
         for value in paths:
             if value:
                 name = value.decode('utf-8')
-                if name not in FORMAL_NONPID:
+                if ((name.startswith('research/results/') and name not in FORMAL_NONPID)
+                        or Path(name).suffix.lower() in {'.slx','.mdl','.stl','.sldd','.slxc'}
+                        or name.startswith(('research/sim_batch_','research/sim_w'))):
                     forbidden.append({'commit': revision, 'path': name})
     if oversized or forbidden:
         raise ValueError(json.dumps({'oversized_blobs': oversized, 'release_only_history_paths': forbidden}, ensure_ascii=False))

@@ -157,17 +157,32 @@ def test_reproduction_claims_require_equal_nonindependent_report_and_surface_err
     (tmp_path/'scripts').mkdir(); (tmp_path/'research/results').mkdir(parents=True)
     monkeypatch.setattr(sys, 'path', list(sys.path))
     # Exercise the real historical worker's report validation through the new
-    # claims entry point. Archive construction/import isolation have their own
-    # subprocess tests; only those expensive setup steps are replaced here.
-    worker_path=Path(__file__).resolve().parents[1]/'scripts/44_verify_historical_research.py'
+    # claims entry point. Archive/import isolation and exact metadata provenance
+    # gates have separate tamper tests; this fixture replaces their setup only.
+    # The real worker still checks replay schema, equality and evidence scope.
+    root=Path(__file__).resolve().parents[1]
+    worker_path=root/'scripts/44_verify_historical_research.py'
+    # The real worker hashes its post-hoc sources even when setup is isolated.
+    (tmp_path/'scripts/42_release_practical.py').write_bytes(
+        (root/'scripts/42_release_practical.py').read_bytes())
     (tmp_path/'scripts/44_verify_historical_research.py').write_text(
         "import importlib.util\n"
         f"spec=importlib.util.spec_from_file_location('real_historical_worker',{str(worker_path)!r})\n"
         "worker=importlib.util.module_from_spec(spec); spec.loader.exec_module(worker)\n"
         "worker.verify_archives=lambda root: ({'baseline_commit':'fixture'}, {})\n"
         "worker.imported_sources=lambda root: {}\n"
+        "adapter_contexts=[]\n"
+        "def fixture_adapter_setup(root, module, context, receipts):\n"
+        "    assert context == 'trajectory_saved_replay'\n"
+        "    assert worker.Path(module.__file__).resolve() == root/'scripts/34_reproduce_trajectory_evaluation.py'\n"
+        "    adapter_contexts.append(context)\n"
+        "    return {'context':context, 'fixture_setup_only':True}\n"
+        "worker.install_metadata_predicate_adapter=fixture_adapter_setup\n"
         "def check(root):\n"
-        "    return worker.worker(root)\n")
+        "    adapter_contexts.clear()\n"
+        "    result=worker.worker(root)\n"
+        "    assert adapter_contexts == ['trajectory_saved_replay']\n"
+        "    return result\n")
     (tmp_path/'research/results/trajectory_risk.json').write_text('{}')
     script=tmp_path/'scripts/34_reproduce_trajectory_evaluation.py'
     script.write_text("import json\ndef check(*, result_path, report_path):\n"
@@ -180,7 +195,8 @@ def test_reproduction_claims_require_equal_nonindependent_report_and_surface_err
     def row(value):
         report_path.write_text(json.dumps(value))
         return next(r for r in module.trajectory_evidence() if r['id']=='evidence:trajectory_risk_reproduction.json')
-    assert row(valid)['ok'] is True
+    passed=row(valid)
+    assert passed['ok'] is True, passed['detail']
     assert row(dict(valid,schema_version=0))['ok'] is False
     assert row(dict(valid,equal=False))['ok'] is False
     assert row(dict(valid,additional_independent_evidence=True))['ok'] is False

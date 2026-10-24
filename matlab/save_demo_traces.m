@@ -4,7 +4,7 @@ function S = save_demo_traces(modelPath, resultPath, outputPath, workDir, config
 % horizon, output_variable (a logged timeseries or single-signal Dataset).
 % resultPath may be empty; otherwise load R.gain_sets from that external MAT.
 % Paths may be absolute or relative to the repository containing this file.
-% 显式提供模型、结果（可为空）、输出、工作目录和配置，不隐式读取基准文件。
+% 显式提供模型、结果（可为空）、输出、工作目录和配置，不隐式读取外部文件。
 if nargin < 5
     error('jev:helperInputs', 'Supply modelPath, resultPath, outputPath, workDir and config.');
 end

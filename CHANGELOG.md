@@ -12,7 +12,7 @@ file that produced them is named next to them.
 * Keep reusable source, tests, documentation and all formal weights in ordinary clones and source ZIPs. Strip only Release-bound experimental paths from Git history, preserving all existing commits, author/committer dates, messages and ordered merge parents. Preserve the unchanged original signed initial commit exactly; record rewritten commit/tag mappings.
 * Retain original experimental bytes and all historical data variants in hash-bound bundles. Restore selected original source objects without adding public old-history refs; keep full original backups local. Compliance/privacy history review is a separate approval stage.
 * Add safe, idempotent data restoration, offline packaging and a full-history reproduction bootstrap. Check real source archives and reject incomplete test/claims runs; retain scientific failures and their original verification boundaries.
-* Document partial-clone versus source-ZIP behavior and the privacy review boundary: synthetic raw scans found no listed benchmark or personal-record indicators, while original measurement provenance retains local environment paths.
+* Document partial-clone versus source-ZIP behavior and the privacy review boundary: synthetic raw scans found no listed personal-record indicators, while original measurement provenance retains local environment paths.
 
 ## [0.10.0] - 2026-10-24
 
@@ -20,7 +20,7 @@ file that produced them is named next to them.
 * Harden checked C99 inference and MATLAB numeric handling. Keep measured host parity, latency and resources distinct from target-board or physical-safety guarantees.
 * Preserve the strict cross-CPU temperature-refit and derived-comparison failures. Add independent, explicitly conditional Decimal audits of the original probabilities, calibration, full sets, actual action chains, terminal cache semantics, measured candidates and accounting, plus separately frozen post-incident runtime observations. Do not change the original checkers, tolerances or experiment results.
 * Rebuild negative tests for numerical envelopes, positive but incorrect temperatures, source and evidence mutations, cache termination, jointly altered feedback/costs and publication bindings.
-* Distribute the formal weights, source, original generated test models and pinned synthetic data. Remove personal-directory dependencies from helpers and examples, replace the discovery illustration with an original generated model, and document current-tree rights boundaries. Retain Git history as requested; do not distribute the original benchmark or geometry.
+* Distribute the formal weights, source, original generated test models and pinned synthetic data. Remove personal-directory dependencies from helpers and examples, replace the discovery illustration with an original generated model, and document current-tree rights boundaries. Historical distribution decisions are superseded by the final mapped source and evidence distribution.
 * Record failed and successful verification work separately from acquisition, retain source-bound receipts and publish bilingual evidence with checksum-verified release assets.
 
 ## [0.9.0] - 2026-10-24
@@ -241,7 +241,7 @@ some of them for the worse.
 
 ### Docs
 
-* The README's 15-second table quoted a motor-valve benchmark re-run (`11 experiments, 1.377 →
+* The README's 15-second table quoted a motor-valve re-run (`11 experiments, 1.377 →
   0.615`) beside the recorded run (`1.238 → 0.598`, best at experiment 5) and a
   GIF caption that said "five", so three numbers described one model. The table
   now quotes the recorded run only.
@@ -326,7 +326,7 @@ some of them for the worse.
   it counted mean crossings so a damped response qualified. It now auto-ranges,
   takes the first gain whose peaks stop decaying, and says when the value is a
   bound. Consequence documented in `docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong`:
-  on the motor-valve benchmark model the old start was an artifact, and from the corrected start
+  on the motor-valve model the old start was an artifact, and from the corrected start
   the head makes no further improvement.
 * A model whose step block is not called `Step` now still gets its reference: the
   search is by block type. If that fails, one probe run supplies the steady state
@@ -340,7 +340,7 @@ some of them for the worse.
 * The instrumentation never deletes a block that is not its own.
 * `status` and the pidtune baseline use the same MATLAB lookup as everything else
   instead of a hard-coded `C:\Program Files\MATLAB\R2024b`.
-* Repository hygiene: the local username path and benchmark/reference environment names are
+* Repository hygiene: local environment paths and identifying labels are
   gone from the tree (see the note in NOTICE.md).
 
 * `code` / `error` / `warnings` were written into pass-by-value copies of the
@@ -366,7 +366,7 @@ start) and the scale economics. See the release notes.
 * 普通克隆与源码ZIP保留可复用代码、测试、文档及全部正式权重；Git历史只剥离Release分发的实验路径，保留全部既有提交、作者/提交者原始日期、说明及有序合并父链。未受影响的原始签名初始提交逐字节保留，记录提交/tag的新旧映射。
 * 原始实验字节及全部历史数据变体保存在固定哈希附件中；按需恢复选定原始源码对象，不增加公开旧历史refs，完整原历史备份仅留本地。合规/隐私历史审查属于另行批准阶段。
 * 新增安全幂等的数据恢复、离线打包及完整历史复现入口。验证真实源码包，拒绝不完整的测试或claims结果；保留科学失败及原验证边界。
-* 说明部分克隆与源码ZIP的差异，以及隐私审查范围：合成原始数据未命中所列基准和个人记录标识，原测量来源元数据仍含本机环境路径。
+* 说明部分克隆与源码ZIP的差异，以及隐私审查范围：合成原始数据未命中所列个人记录标识，原测量来源元数据仍含本机环境路径。
 
 ## [0.10.0] - 2026-10-24
 
@@ -374,7 +374,7 @@ start) and the scale economics. See the release notes.
 * 加固C99检查入口和MATLAB数值处理，将宿主对齐、延迟和资源实测与目标板或物理安全保证严格区分。
 * 保留严格跨CPU温度重新拟合及派生比较失败，新增明确受条件限制的独立Decimal审计，核验原概率、校准、完整集合、实际动作链、终止缓存语义、实测候选和计账，并单独冻结事后运行观测。不修改原检查器、容差或实验结果。
 * 加固数值包络、有限正值错误温度、源码与证据篡改、缓存终止、反馈与成本联合伪造，以及发布绑定等负测。
-* 分发正式权重、源码、原创生成测试模型与固定合成数据；移除辅助程序和示例对个人目录的依赖，发现动画改用原创生成模型，说明当前公开树的权利边界。按用户要求保留Git历史，不分发原始基准模型或几何文件。
+* 分发正式权重、源码、原创生成测试模型与固定合成数据；移除辅助程序和示例对个人目录的依赖，发现动画改用原创生成模型，说明当前公开树的权利边界。历史分发决定以最终映射后的源码与证据分发方案为准。
 * 将失败及成功复核计算与前瞻采集分开计账，保留绑定源码的凭据，并分发中英文证据及经过校验和核对的发布附件。
 
 ## [0.9.0] - 2026-10-24

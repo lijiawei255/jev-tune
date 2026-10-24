@@ -11,7 +11,7 @@ Regenerate with a real model (MATLAB required, once):
     jev-tune discover --model path/Model.slx --json > discover.json
     python scripts/15_make_discovery_gif.py graph.json discover.json assets/discover.gif
 
-The default paths use the project's generated public demo model. benchmark
+The default paths use the project's generated public demo model. Private-model
 graphs and discovery exports are private inputs and are not release defaults.
 """
 

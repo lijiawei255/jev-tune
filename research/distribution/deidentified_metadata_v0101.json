@@ -1,0 +1,491 @@
+{
+  "schema_version": 1,
+  "scope": "Published metadata derivatives, not original-byte identity or new experiments",
+  "numeric_evidence": "Unchanged payload SHA-256 reused; changed JSON string-only structure/number proofs and model/figure equivalence are retained in the maintenance evidence attachment",
+  "original_backups": "Retained privately; not redistributed",
+  "emails": "Public author email addresses retained unchanged",
+  "objective_evaluations": 0,
+  "gradient_steps": 0,
+  "members": [
+    {
+      "group": "current",
+      "path": "NOTICE.md",
+      "original_sha256": "f0948bdaee4df599423608689b15ba6f986b946d5c7825616c5a9d7477c7fc65",
+      "sha256": "e48099b34853067c6fb416c907572e8d456cd3487356fea30405dd456701c420",
+      "original_oid": "d2eb8e2aeee00d20bb4f25890720d0b28f206b7e",
+      "public_oid": "9497a38b5a28607ef92317455a72abc3b1ebbc18",
+      "size_bytes": 8217,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "historical",
+      "path": "NOTICE.md",
+      "original_sha256": "f0948bdaee4df599423608689b15ba6f986b946d5c7825616c5a9d7477c7fc65",
+      "sha256": "e48099b34853067c6fb416c907572e8d456cd3487356fea30405dd456701c420",
+      "original_oid": "d2eb8e2aeee00d20bb4f25890720d0b28f206b7e",
+      "public_oid": "9497a38b5a28607ef92317455a72abc3b1ebbc18",
+      "size_bytes": 8217,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "NOTICE.md",
+      "original_sha256": "f0948bdaee4df599423608689b15ba6f986b946d5c7825616c5a9d7477c7fc65",
+      "sha256": "e48099b34853067c6fb416c907572e8d456cd3487356fea30405dd456701c420",
+      "original_oid": "d2eb8e2aeee00d20bb4f25890720d0b28f206b7e",
+      "public_oid": "9497a38b5a28607ef92317455a72abc3b1ebbc18",
+      "size_bytes": 8217,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_ci_failure_v0100.json",
+      "original_sha256": "ced809595bf3f431752159b81f225a0957b7dec8c8a56bcf9dbdada0eadd8973",
+      "sha256": "5bbefe2815d58a5dea4cffa89aac8f548c11e7193c650d4a1d90832d790960bd",
+      "original_oid": "db0538e4a1d6d5fddcf83c3169e10d42e92bddff",
+      "public_oid": "5e345ad8b06dda4c64a131521549d3a5406680d5",
+      "size_bytes": 1682,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_observations_v0100.json",
+      "original_sha256": "c1ce51fef88de50284a74b9645ca3be53965f741f133351b2790ddff1c374466",
+      "sha256": "7fb198f2df2a873e4f7dd71ec47ffdc7a500874b5c5e21483e5b0bbb4cd7eb0f",
+      "original_oid": "73528495ef49c4a7bb899bfff87774b4ce589f93",
+      "public_oid": "d2b922ea18ceb7eedfe3e97d1ceee24e9fa45322",
+      "size_bytes": 3806,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_observer_run_v0100.json",
+      "original_sha256": "88d32365c0d88c6843e24ab00a63e7a635f9301688cc30cbc0de3519cdb43351",
+      "sha256": "5be1edb4583a68d7939064794318a029e016a2268a3a4956e991d5a5c2ad7235",
+      "original_oid": "3fc803381ea6e0075224ce2896dbf464aa638257",
+      "public_oid": "3db26a6f48b1a1141eeb15db3b90b80b4454a8bf",
+      "size_bytes": 4032,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/calibration_runtime_root_default_v0100/diagnosis.json",
+      "original_sha256": "ed7ffa44959c4fdf13cbb8119c62b8226e9a51dbc9d64ba9f2b7b04a7f972d9b",
+      "sha256": "d842c7dc062e84e3e25fae9b6cb484d5803589840699e37bbb54fbbdee167d89",
+      "original_oid": "3e40b8b96e62119077a52635001599a5138d36e2",
+      "public_oid": "f03c0d3705d4f21ed33fe075f51f030703180633",
+      "size_bytes": 749395,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/calibration_runtime_root_default_v0100/environment.json",
+      "original_sha256": "ae1f0ee164bf22e6fc414d6ae7438325dd4884cd51341769215220efa7980215",
+      "sha256": "dcf3d42ab52f09bc48f55cff054dcc577675cbdec81b7674c870a793d7041c66",
+      "original_oid": "9d0cc493c89b9ff44d3550cb013ebe0c11721ffb",
+      "public_oid": "edf779074d1791727d40b778ff1ca3cfe1b5d512",
+      "size_bytes": 10029,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/calibration_runtime_root_default_v0100/summary.json",
+      "original_sha256": "b882e84c1025e3e6b5e13a91ac871610e49939e4fcd30050e405f788acf61217",
+      "sha256": "1bdf8aeda14225b08540433097e8ba04158e19986ecda474c92881925f2b63e5",
+      "original_oid": "55c598e5d2f59e1427c343afccbdfb619a3f3425",
+      "public_oid": "7f6d28578f2b223594d0108cf4af4a11b6f3cdd8",
+      "size_bytes": 365,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/comparison_hosted_v0100/actual_54_comparison.json",
+      "original_sha256": "018a6100945ac939aa4ba059ba04ff8b36d0cc8f4043c2dd26b1a18d18663284",
+      "sha256": "a53e5c9b5b5d557270f5a757db19f1264f3023436477cd1f6c47c84b1115c99b",
+      "original_oid": "4e48cb3b9383c5247063206ea38f28a02d56702f",
+      "public_oid": "5505c2efc530b0a1fb90127a50ec36d4155af809",
+      "size_bytes": 92589,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/comparison_hosted_v0100/observation.json",
+      "original_sha256": "02c352ee9386511ad8807e9ee860c269a24925c05f6f7ea3dadd440ab6a3ff8c",
+      "sha256": "46ac5c550dd19df6cc7aba6fd939682e512a73b0fe6a219ec903586a3c1a4606",
+      "original_oid": "7a7384df749577d7b96427a8d1d807f01928e6ab",
+      "public_oid": "c4d693dada0653bde69ba0bb7ecdacd1cac3efe8",
+      "size_bytes": 203201,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/comparison_original_v0100/actual_54_comparison.json",
+      "original_sha256": "2b019f31a64a94c22e7fc64840bcc93a6916820f82b3a7b67aa2a351c185333d",
+      "sha256": "b88eb9bd5a7a839d96da201a4b1cd5e3101bfcc8faafcb041cc93c5c90dfe8c7",
+      "original_oid": "28b457cfc599e063876d480f7f8af2e2c1d167df",
+      "public_oid": "9f9307d5e847d99453ae7488e235f1f985b9affe",
+      "size_bytes": 92592,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/comparison_original_v0100/environment.json",
+      "original_sha256": "3f58e52fa47b83b4661b14497b4646d391b2691d9a1eb6b57268ba128ff216be",
+      "sha256": "ce9baafd88a65142aeefe62a183c7be1459b95ca1413181181df639fd59fa4cb",
+      "original_oid": "c45483edb84f292a31c01427733eb0fa22070fb3",
+      "public_oid": "0d914acd0dc7db405822d2d91246248b4a4b6d6a",
+      "size_bytes": 10030,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/comparison_original_v0100/observation.json",
+      "original_sha256": "b9dc5f331b9fc490e06f338a61de4ff0e1bd4ac7e53f12a13a394520a58ae6b7",
+      "sha256": "1c5bce87fb4f268e6ec81e02809f80c59eff86a42f2dea5662235814b85bbcf4",
+      "original_oid": "31fe7fb6a161c5fcfc34d32020b19d9dcf1676fc",
+      "public_oid": "5fcfd1a75fa4528c305018f8145df7e65d7378b2",
+      "size_bytes": 203202,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/original_machine_arrays.json",
+      "original_sha256": "cb90538c7d2558060549289e80b110c1dea7e88854e49c76b4185d973cd2de26",
+      "sha256": "3d4e1e373084fb27aca6a28bfd54003ea57fc3322080cb5fb8934a53571280f6",
+      "original_oid": "ec585804f591fdf2f0c3f57498d1e1f161ce4cd6",
+      "public_oid": "3619a9c65713bf2f61f28918adf924e2eec2749d",
+      "size_bytes": 47861,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/original_machine_environment.json",
+      "original_sha256": "b0f5407c3dd3966081ab493451176679d3c64d01ba4d1a64ce1fabdcb98bfd5d",
+      "sha256": "eaf8e8455e45b919561c67b7dbc8d2996e49dbd811bc87c4cffc2c4a73b68bde",
+      "original_oid": "48dc6a672eefa7a6127312cb08ea8088d1c5e75f",
+      "public_oid": "f203b9e5b7d3ed6d9426a0b200003bbd307592c0",
+      "size_bytes": 7305,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/recorded_recalibration_receipt.json",
+      "original_sha256": "61a52bf3f29901acc13494203712e3d69fef60b9532efca3fbff63d7e60da120",
+      "sha256": "1c942dbca3b7e93bd9bf26589699cd8c50b052c564422e73f146e3d29956e52e",
+      "original_oid": "43627046e676d55ceec5022558b48c42fcee9c0a",
+      "public_oid": "c18e82b19357807df7081eb2c98772333c4f0dce",
+      "size_bytes": 300025,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/recorded_transfer_receipt.json",
+      "original_sha256": "4818bc50702b1de41f40bfce4a782b9d0fbd52d19860998dee04b0a93766bcd2",
+      "sha256": "242cdbacdeb76357262b41ccbf8b795abb151474cf2fb438d87e72721e798def",
+      "original_oid": "cd07f4c1bbc82be376d63f246ac1f601f1d0617e",
+      "public_oid": "9c98fae9b73f3b5e9a14fea2affac3c3a12a38f2",
+      "size_bytes": 1748051,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/root_vs_hosted_analysis.json",
+      "original_sha256": "2b019f31a64a94c22e7fc64840bcc93a6916820f82b3a7b67aa2a351c185333d",
+      "sha256": "b88eb9bd5a7a839d96da201a4b1cd5e3101bfcc8faafcb041cc93c5c90dfe8c7",
+      "original_oid": "28b457cfc599e063876d480f7f8af2e2c1d167df",
+      "public_oid": "9f9307d5e847d99453ae7488e235f1f985b9affe",
+      "size_bytes": 92592,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/calibration_runtime_sources/small_sample_arrays.json",
+      "original_sha256": "aa9af4a4c0ffa6a4db8d1b7a7e928be34a9ae45edb72ee4a5a19ec74f49bb09c",
+      "sha256": "0d741b2a43552125aadf8b3f26fa466aa9220c3ad83a407c9a5aa78375895433",
+      "original_oid": "ea59e3a192295fb12e84ad2d230cc4b5190c522f",
+      "public_oid": "7be575040836d3df6591ebcde489a34ce522e767",
+      "size_bytes": 14165,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/cohort_portability.json",
+      "original_sha256": "781856150dde7c4dd35efa7306121acdb854c9f348ca9f67ac00b4303e3fe6d7",
+      "sha256": "b33370590a475c834e666d14c746da2b188a1cd1099ce0a71c723404ee4c2a99",
+      "original_oid": "05a8a03c5e2a829295cc27bce6b318ecf5ed8d71",
+      "public_oid": "1db2ed26d1ac5bee5e5077d3da6ec538ead80745",
+      "size_bytes": 5110,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/cp_diagnosis.json",
+      "original_sha256": "b40586a8d88d8600c13f81727c8176496d8a43a9eaf12eb32a9c4c1b72ae279b",
+      "sha256": "18d881128288e315e91908a0ad6199835bb23f8d8c6c2dd74c6f684b1d9d22dc",
+      "original_oid": "3273c73a3f0eae8524d98408233e30cae70944b4",
+      "public_oid": "38e4bf042abc50aa8003884d56baa085fb481640",
+      "size_bytes": 35290,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/demo_discovery_graph_v0100.json",
+      "original_sha256": "0826b314070872f8a543db62193cdd888735c2bd8107fc63a44c8e1717a89511",
+      "sha256": "87f560fcf128b53839af2e8cf6441cdc4845ee423758fd17f6ab0dd1df6aa116",
+      "original_oid": "058a3d22d20e49192da3f7ecc38c53c078e7fc33",
+      "public_oid": "8aab5777066c6c81cb665685a71c2dc72f50320d",
+      "size_bytes": 1546,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/demo_discovery_v0100.json",
+      "original_sha256": "0d6ccadbbde9b9802be9719f3ced0dabc1ec70376f433debe3d5394ba53bd52c",
+      "sha256": "9c531ec08de2eb22601d7c1f9a7f03cc8c72b3d07a399ba79ce2723ef441bf38",
+      "original_oid": "3188f282660db7fcc033c80efacb7f2f90dfed08",
+      "public_oid": "94d185f06d4752a7c67143a9c673434db39af166",
+      "size_bytes": 2876,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/hardware.json",
+      "original_sha256": "5d1db2cad9312255939745665cbe1d05eacea213cc0b3690b1843dbc6bdb79d4",
+      "sha256": "b0089f89471d917576e980af10b929d5c6c7746468395915e431f965e8cef087",
+      "original_oid": "9f04fe4eb47b24670f498c211c87a3fc36dcd290",
+      "public_oid": "173e9201da31668fc6c7b6590d382cb7c729cc80",
+      "size_bytes": 13131,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/hardware_v0100.json",
+      "original_sha256": "ce4d1a8038e09034b9d45631189005791f9fa4672c22cdc8e1d4ba9be9159c0a",
+      "sha256": "df1a0e48f2863aa450e538ef99bfff12da4eeab2c015e193665d0df72b1da937",
+      "original_oid": "a0bb6cfeef14e0ebf192ae63108c3e22803c1755",
+      "public_oid": "ed5c5064a704d6f0a94e7ecea17b6dd6b000ed29",
+      "size_bytes": 16490,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/hardware_v090.json",
+      "original_sha256": "5d1db2cad9312255939745665cbe1d05eacea213cc0b3690b1843dbc6bdb79d4",
+      "sha256": "b0089f89471d917576e980af10b929d5c6c7746468395915e431f965e8cef087",
+      "original_oid": "9f04fe4eb47b24670f498c211c87a3fc36dcd290",
+      "public_oid": "173e9201da31668fc6c7b6590d382cb7c729cc80",
+      "size_bytes": 13131,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/joint_risk_reproduction.json",
+      "original_sha256": "85ff9de68b55bbea6fe00d0f62e4838f57662efa6ab0ea5bddf5ac1a94a504ee",
+      "sha256": "3eea1049833237278269d28e9cb6201acc7eddbc5b38dbd116b13335811aba6d",
+      "original_oid": "313552ece6fdc9537f99c3a061ef2e28d43677a4",
+      "public_oid": "1ba6d6596d1fcc1b268cc4eeb5816d408b20a962",
+      "size_bytes": 977,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/joint_risk_rollout.json",
+      "original_sha256": "9e85af2dfcfa0c0c70aecf2604dbd8af3feb279096c06cd6255473411bd3b854",
+      "sha256": "59ab333575b7ca93eecc32cb59f985fafab1445cde404fd7cab43eb39416d603",
+      "original_oid": "709d757cb1757a1a9d34cbb84a6454e023c0fac1",
+      "public_oid": "f149b54ed153140db79a6a8b4db83f25e7a8e348",
+      "size_bytes": 55752,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/matlab_runtime.json",
+      "original_sha256": "2d78b7b32f44ffb931f05e9116dd3b163a14488cd760cb9136c5331bc6ff223f",
+      "sha256": "f893e26c6716cc1be4bf4edf5d96dfac63e205a26bdbf43ad64a17d69cbb4a46",
+      "original_oid": "26d8b8bc3b2294e4dd2c7a5c448a06b229f88cbd",
+      "public_oid": "2b8ec2d0b8c96742d5156c63e6ff47ae4b56e66f",
+      "size_bytes": 11386,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/matlab_runtime_v080.json",
+      "original_sha256": "a07d2a58d1e66cc465d8be14d199d7b8c4889bd3ee87a6ad69d092bf052dfcf6",
+      "sha256": "23850e8b9b72e3cb7d769ffec7a46424886729170ba09b3bd6766e59676d7ba3",
+      "original_oid": "db8e3cd69bf5babba7e370d4635d89ed02cd6ee7",
+      "public_oid": "072778e091ac5e76b7b410a909ec7a80d741f9cd",
+      "size_bytes": 9832,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/matlab_runtime_v090.json",
+      "original_sha256": "3a52c62e51764456923ff51bce1ef8e02b793acf7cffb569da1e5555a9cae826",
+      "sha256": "39f93a7f841f00d54252635fc2d86cdb7f33c8b173e6de704900b9c81be39cbf",
+      "original_oid": "884765249eb4050f9d9dde6a6787cd8b67345612",
+      "public_oid": "963c983b862e5b9268488fded76394809e4ed8f7",
+      "size_bytes": 10816,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/model_adaptation.json",
+      "original_sha256": "90cd64c2827e45fa7b79c56b224c06ef43a6cc548e9ec09cc7201bd8e4d014bd",
+      "sha256": "3635775963ffe611c66766d76e6dd01f19a4bc4c5e4549d893a0cb4f52e8a10d",
+      "original_oid": "1381d6a21f4d90a4b2fcc7cdb6a64575fa9ee9cb",
+      "public_oid": "0ae1c25516adfb5403da80c083ca583c1a5a3b63",
+      "size_bytes": 17815,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/model_adaptation_v090.json",
+      "original_sha256": "0a7cca865b25339a3a6f38466db6dda8b64ebd822ffd50e87e496bf01275adef",
+      "sha256": "07c154c6b792f9e6fe319113a0c848f0da98dd797f7bd2206b7d8e49097d6b27",
+      "original_oid": "9c286c2e107e1210a54b459833ed96ce707db988",
+      "public_oid": "045044a6a0e3f4cf1bc5d2b7b93471cedc12dc17",
+      "size_bytes": 12922,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/open_source_inventory_v0100.json",
+      "original_sha256": "f4b2d2fd250a3e619b7fc2e3b7bdc08b7a707608b36beea72e6ddf5f55ed6ef7",
+      "sha256": "8af3a98772d078c4e8e9fd80763caf610fff41595c6503f75f494b9354c1d4ad",
+      "original_oid": "e0da743502f3d622a2b90577ea80a1869638a2af",
+      "public_oid": "06444060fe3157e512f00869161963b4c2dcfa5c",
+      "size_bytes": 9940,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/recorded_evidence_audit_v0100.json",
+      "original_sha256": "b720f6dd9ffb8a45d07cfe4d10106c981bced66ce8ad843e9bb33a1f572cdad6",
+      "sha256": "261b7e53d0980bbedc44306f18255797956ea3b7e8a1f18fb564c522a6895297",
+      "original_oid": "9916bf02c75900744594059f664a51df100cf9b4",
+      "public_oid": "bcf209863e03e6b3192d928336786b6aab8b1b5a",
+      "size_bytes": 4940,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/release_verification.json",
+      "original_sha256": "a4ccbe1810287d12189d52be81085b6128c51c5457beab9316b7cdb77f0b7e46",
+      "sha256": "6a8b91483032f76705703508161a78f11cc01b156a2b94788df5eaee1e177d50",
+      "original_oid": "7514259a13dde3f1182f32f8666aceeb59c1e1f9",
+      "public_oid": "4e187dd324b1d5ccb21d9062b0cc9587a2700804",
+      "size_bytes": 341698,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/release_verification_v070.json",
+      "original_sha256": "d9038f2dd15dff0bcc4589f795d8e2f8025a2660d37c8eaf9680be142e4362ca",
+      "sha256": "a9a8188b6ca423fab22d81733e367334b0baed0ff037ce191231c5c6196c2db1",
+      "original_oid": "ffdc02b2cb8b1598ff1cc3dcf3d085bf730f654b",
+      "public_oid": "707ea674679ba5a897bea9de286c1a1b8cf99690",
+      "size_bytes": 21906,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/release_verification_v080.json",
+      "original_sha256": "b16096494da143c9f779926d14abd2c7030d8446ff6ce3988da140516d20408b",
+      "sha256": "a70445bd964fb8a292b3d8d942f1b615c488cffb00516352b600807b901ac167",
+      "original_oid": "e62402449eb35784d025c1582e9b5a57b9620466",
+      "public_oid": "5df76cb4e2bbb97b45cd3e0a71dfa7f3dbffc9c9",
+      "size_bytes": 35879,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/release_verification_v090.json",
+      "original_sha256": "3eb7f1f6749ebad0620ce6d2f2c43f956f43b317c9132f10cb85315ee8c5fda5",
+      "sha256": "6dd9a9c32101a29d370f09babc7c0d18eae5e7df3e58a119e6d5f61f276879d5",
+      "original_oid": "6d3218ff42de561665638e35cee29bdea73b3735",
+      "public_oid": "bf79a65bc6caacb7119854ffef3deca4f97ea55e",
+      "size_bytes": 163284,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/reproduction.json",
+      "original_sha256": "9f398db3bc27aaaffc7357230cd2de30317e28e2c19cd17452b905b2cc8b7f86",
+      "sha256": "35c6a220fa48a8f19f02cb38d4467416d645904665c74d950d8112a4f4931c8b",
+      "original_oid": "bc54aa51419e56c6f44785b812dffb5668a75c8b",
+      "public_oid": "c77371676d33febd83b4565364da352020bd60e9",
+      "size_bytes": 5128,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/rollout_diagnosis.json",
+      "original_sha256": "9bb746e25eda73e25b19885c264fd0f70bc15bd2a48f135426524c5017e074a2",
+      "sha256": "819a5088003affd8d092d36b4a5bab3fb25c6346699beabae92524f6374c7803",
+      "original_oid": "33907e59d88efc1106bdbba1e9561145f90b2950",
+      "public_oid": "a61fb7e3cdadda6e22f5549eec3466d104625f90",
+      "size_bytes": 240813,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/selection_reproduction.json",
+      "original_sha256": "9778feb383d240dc8982f81e730628ebabcfbfb91b38b2514dc3d5cd60178782",
+      "sha256": "173abd21414cf94836e6f21cbec08798d05b6700c48f6d5f7e85051ba0f13fcf",
+      "original_oid": "5812ad8e5828834f4c256cec0a58e339dda0711d",
+      "public_oid": "c5272f5f3daceed7c78353a472a5e11f75c9cdbb",
+      "size_bytes": 844,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/trajectory_risk.json",
+      "original_sha256": "7f82aba5148586c028b7bff14b2c62733894e3e3088426c66f16e7205f7f70e3",
+      "sha256": "49e9e47758187a2df79eb449a5a22be305b56fc32f3553c2282170edf6505625",
+      "original_oid": "01e7ac786ac76e57b2cf97b4aae2d630911f02e1",
+      "public_oid": "99e64e2fe566bffd26e5fe39b645fdeedaf7dede",
+      "size_bytes": 6976732,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/trajectory_risk_pairing_diagnosis.json",
+      "original_sha256": "066a9b2c16b7b68b21116957047705b11b1b0d5217054b1fbf40822b9154eda5",
+      "sha256": "2c0476e913159b5915d7593aff37487c78acc7577c4cc2126b361efd2c6cbe5e",
+      "original_oid": "87dada2fb43174fe11de6c1b00360696873f0122",
+      "public_oid": "f64fd9e2a1d6d84530793901fe6c264d464f481f",
+      "size_bytes": 3649,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "evidence",
+      "path": "research/results/trajectory_risk_validity.json",
+      "original_sha256": "9d1101e477407d651df65370ab936ab85388483510283ca741d2bf09778cbdf0",
+      "sha256": "7435e1b757e9370f647635aabfed160427719716266543896d2223d7d07531f3",
+      "original_oid": "8aaee4e412cd5a25738c36fb310a32c483b07e34",
+      "public_oid": "c4fcc98223aa17708f241fc1ba799ed1799fd779",
+      "size_bytes": 2561,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "pid",
+      "path": "NOTICE.md",
+      "original_sha256": "6f4c1547f23ff2a5645aa93bcff976238ce44f21e97e0f79bf84e60fc842f096",
+      "sha256": "e48099b34853067c6fb416c907572e8d456cd3487356fea30405dd456701c420",
+      "original_oid": null,
+      "public_oid": "9497a38b5a28607ef92317455a72abc3b1ebbc18",
+      "size_bytes": 8217,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    },
+    {
+      "group": "pid",
+      "path": "research/results/open_source_inventory_v0100.json",
+      "original_sha256": "6c7f48c6ffdd09a970541d0c82344831a07b28aef609ec01efdf48ef8aaa07a7",
+      "sha256": "8af3a98772d078c4e8e9fd80763caf610fff41595c6503f75f494b9354c1d4ad",
+      "original_oid": null,
+      "public_oid": "06444060fe3157e512f00869161963b4c2dcfa5c",
+      "size_bytes": 9940,
+      "scope": "Metadata and identifier strings; original scientific numeric values retained"
+    }
+  ]
+}

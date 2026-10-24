@@ -28,8 +28,8 @@ VERSION = "0.10.1"
 REPOSITORY = "lijiawei255/jev-tune"
 RELEASE_BASE = "https://github.com/" + REPOSITORY + "/releases/download/"
 PID_ASSET = "pid_synthetic_data_v0.10.0.zip"
-PID_SHA256 = "1f3ab63ac8123228a8ac15b34caf7c4dbd489b4411b2c8bdb4c06dc6b9e7e667"
-PID_SIZE = 21048481
+PID_SHA256 = "64816b2c2267b5847c76201949714aae4c57c3161a07d6526b88e00eb7ee6f3d"
+PID_SIZE = 21047270
 PID_PATHS = {"data/expert_train.npz", "data/calibration/temperature_fit.npz",
              "data/calibration/cp_fit.npz", "data/calibration/empirical_eval.npz"}
 PID_INVENTORY = "research/results/open_source_inventory_v0100.json"
@@ -151,8 +151,12 @@ def validate_manifest(manifest):
                 require(source.get("kind") == "pinned_pid_release" and source.get("release") == "v0.10.0"
                         and source.get("archive_sha256") == archive["sha256"], "PID provenance differs")
             else:
-                require(source.get("kind") == "git_blob" and source.get("revision") == manifest["source_revision"]
+                require(source.get("kind") in {"git_blob", "deidentified_git_blob"} and source.get("revision") == manifest["source_revision"]
                         and re.fullmatch(r"[0-9a-f]{40}", source.get("oid", "")), "Committed Git blob provenance required")
+                if source["kind"] == "deidentified_git_blob":
+                    require(re.fullmatch(r"[0-9a-f]{40}", source.get("original_oid", "")) is not None
+                            and source.get("transformation") == "metadata_only_deidentification",
+                            "Deidentified member needs original identity and explicit transformation")
             if row["install"]:
                 require(_data_path(name, group) and name.casefold() not in all_installs, "Invalid/duplicate install path: " + name)
                 require((name in PID_PATHS) == (group == "pid"), "Data path/group mismatch: " + name)
@@ -228,6 +232,9 @@ def verify_archive(path, contract, stage=None):
         headers = _archive_headers(archive, contract)
         for row in contract["files"]:
             name, hasher, count = row["path"], hashlib.sha256(), 0
+            source=row.get("source",{})
+            git_hasher=(hashlib.sha1(b"blob "+str(row["size_bytes"]).encode("ascii")+b"\0")
+                        if source.get("kind") in {"git_blob","deidentified_git_blob"} else None)
             target = None if stage is None or not row["install"] else Path(stage) / name
             if target is not None:
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -238,9 +245,12 @@ def verify_archive(path, contract, stage=None):
                     count += len(block)
                     require(count <= row["size_bytes"], "Expanded member exceeds expected bytes: " + name)
                     hasher.update(block)
+                    if git_hasher is not None:git_hasher.update(block)
                     if writer is not None:
                         writer.write(block)
             require(count == row["size_bytes"] and hasher.hexdigest() == row["sha256"], "Member SHA-256 differs: " + name)
+            if git_hasher is not None:
+                require(git_hasher.hexdigest()==source["oid"],"Published Git blob identity differs: "+name)
             if target is not None:
                 staged[name] = target
     return staged

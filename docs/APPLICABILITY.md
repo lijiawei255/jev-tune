@@ -230,7 +230,7 @@ from supplying an accurate model. Earlier implementations could silently use
 analytic Z-N when MATLAB/design failed. Future runs report those failures and
 omit the method, and reject unsupported nonlinear/noisy probe physics. These
 repairs do not retroactively validate a historical row or relabel it as a new run.
-The benchmark hand-tuned result is not a `pidtune` result.
+The motor-valve hand-tuned result is not a `pidtune` result.
 
 **Practical choice.** With a suitable linear model, include `pidtune` as a
 baseline and verify its controller on the full model. With an expensive or
@@ -269,7 +269,7 @@ a bounded classical search. Nonlinearity alone is not evidence that this head wi
 其代价与预算应一起从[BENCHMARK](BENCHMARK.md)读取，它不等于直接提供准确模型。
 旧实现可能在MATLAB不可用或设计失败时静默换成解析ZN；新运行将明确报告并省略失败方法，
 同时拒绝线性探测器未实现的非线性/噪声条件。修复不追认旧行的有效性，也不把旧结果改称新运行。
-基准模型的人工整定结果不是`pidtune`结果。
+电机阀门模型的人工整定结果不是`pidtune`结果。
 
 **实际选择**：有合适线性模型时，将`pidtune`作为基线并回到完整模型验证。仿真昂贵或非线性时，
 按实际仿真次数比较head与有界传统搜索的改善。存在非线性本身不证明head更好。

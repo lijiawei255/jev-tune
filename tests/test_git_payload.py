@@ -77,6 +77,15 @@ def test_formal_nonpid_weights_are_allowed(tmp_path):
     assert guard.check(root)['ok']
 
 
+@pytest.mark.parametrize('name',['examples/plant.slx','geometry/part.stl','research/sim_w0/tune_result.mat'])
+def test_optional_benchmark_added_then_removed_still_fails(tmp_path,name):
+    root=setup(tmp_path)
+    path=root/name;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(b'optional model')
+    commit(root)
+    command(root,'rm',name);command(root,'commit','-qm','remove optional model')
+    with pytest.raises(ValueError,match=name):guard.check(root)
+
+
 def test_replace_refs_cannot_hide_real_large_history(tmp_path, monkeypatch):
     root = setup(tmp_path)
     clean = command(root, 'rev-parse', 'HEAD').decode().strip()

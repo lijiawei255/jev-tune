@@ -87,6 +87,14 @@ def restore(root,commit,destination,from_dir=None,*,index=None,data_manifest=Non
         member=row['member'];data.safe_path(member)
         matches=[entry for entry in contract['files'] if entry['path']==member]
         require(len(matches)==1 and matches[0]['size_bytes']==row['size_bytes'] and matches[0]['sha256']==row['sha256'],'Historical/current member pin differs')
+        if row['kind']=='research_data':
+            source=matches[0]['source']
+            original=source.get('original_oid') if source['kind']=='deidentified_git_blob' else source['oid']
+            require(original==identity and source['oid']==row.get('public_oid',identity),
+                    'Historical/public source identity binding differs')
+        elif 'public_oid' in row:
+            require(matches[0].get('original_oid')==identity and matches[0].get('public_oid')==row['public_oid'],
+                    'Legacy derivative source identity binding differs')
         contracts[group]=contract;selections.append((name,identity,row,group))
     require(selections,'Original commit has no removed experimental records')
     # Temporary sibling staging is private; destination appears only after all ZIPs and all selected OIDs pass.
@@ -105,14 +113,16 @@ def restore(root,commit,destination,from_dir=None,*,index=None,data_manifest=Non
                 for chunk in iter(lambda:source.read(data.CHUNK),b''):
                     size+=len(chunk);require(size<=row['size_bytes'],'Expanded original blob exceeds size')
                     hashed.update(chunk);git_hash.update(chunk);writer.write(chunk)
-            require(size==row['size_bytes'] and hashed.hexdigest()==row['sha256'] and git_hash.hexdigest()==identity,'Restored original Git blob identity differs: '+name)
-            records.append({'path':name,'oid':identity,'sha256':hashed.hexdigest(),'size_bytes':size})
+            published=row.get('public_oid',identity)
+            require(re.fullmatch('[0-9a-f]{40}',published) is not None,'Invalid public derivative OID')
+            require(size==row['size_bytes'] and hashed.hexdigest()==row['sha256'] and git_hash.hexdigest()==published,'Restored public Git blob identity differs: '+name)
+            records.append({'path':name,'oid':published,'original_oid':identity,'deidentified':published!=identity,'sha256':hashed.hexdigest(),'size_bytes':size})
         require(not destination.exists(),'Destination appeared during restore; refuse overwrite')
         output.rename(destination)
     return {'ok':True,'operation':'restore_historical_data','requested_commit':commit,'original_commit':revision,
             'destination':str(destination),'files':records,'file_count':len(records),'total_bytes':sum(row['size_bytes'] for row in records),
             'verified_archives':{contract['asset']:contract['sha256'] for contract in contracts.values()},'offline':from_dir is not None,
-            'objective_evaluations':0,'gradient_steps':0,'scope':'Original experimental files restored outside Git; no model execution, refs or Git object writes'}
+            'objective_evaluations':0,'gradient_steps':0,'scope':'Hash-bound experimental files restored outside Git; deidentified metadata is explicitly mapped to original OIDs; no model execution, refs or Git object writes'}
 
 
 if __name__=='__main__':

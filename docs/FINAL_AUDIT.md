@@ -34,9 +34,8 @@ training data, using the existing dependency environment.
 Current visual assets were regenerated: discovery uses the project's generated
 model and public graph records, while old response plots retain their historical
 scope. The new release inventory lists formal model artifacts and four pinned
-synthetic data files. It covers the current tree and new assets; at the user's
-explicit direction, Git history is not rewritten. The notices also distinguish
-benchmark feedback during development from an independent external test.
+synthetic data files. It covers the current tree and new assets; its historical scope predates the final mapped history transition. Development
+feedback is distinguished from an independent external test.
 
 The reviewer authorized the frozen implementation to proceed to full pytest and
 fresh claims verification, with no outstanding release blocker found in that
@@ -73,7 +72,7 @@ perception stack, board qualification or FPGA design.
 
 当前图像已重新生成：发现动图采用本项目自建模型及公开图记录，旧响应曲线仍标为
 历史。新发布清单列出正式模型产物与四份有pin的合成数据，范围为当前树与新附件；
-依用户明确要求未改写Git历史。声明也区分了基准开发反馈与独立外测。
+该历史范围早于最终映射后的历史切换。开发反馈与独立外测分别说明。
 
 审查者已同意冻结实现并进入完整pytest及全新claims检查，该轮未发现尚未解决的
 发布阻断。最终放行仍以[发布验证](RELEASE_VERIFICATION.md)记录的真实测试、

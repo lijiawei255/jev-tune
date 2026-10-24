@@ -66,7 +66,7 @@ def test_exact_release_archive_paths_and_bytes(repository):
         for name in expected: assert archive.read(name) == (root / name).read_bytes()
 
 
-@pytest.mark.parametrize("name", ["private.slx", "private.mdl", "geometry.stl", "lecture.pdf", "lecture.docx", "matlab/engine/__init__.py"])
+@pytest.mark.parametrize("name", ["private.slx", "private.mdl", "geometry.stl", "private.pdf", "private.docx", "matlab/engine/__init__.py"])
 def test_latest_tree_forbidden_files_rejected(repository, name):
     root, _ = repository
     path = root / name; path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(b"private")

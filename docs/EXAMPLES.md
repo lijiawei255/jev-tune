@@ -14,7 +14,7 @@ Nothing here is idealized: the numbers are what came out.
 
 ## 1. A loop you have never seen
 
-A benchmark lab's motor model: a Simscape plant, three gain blocks, four Scopes, and a
+A motor-valve benchmark model: a Simscape plant, three gain blocks, four Scopes, and a
 position signal that leaves `Motor_Drive` on **output port 3 of 4**.
 
 ### Ask why it might not work

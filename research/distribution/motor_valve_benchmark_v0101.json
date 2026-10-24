@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "version": "0.10.1",
+  "repository": "lijiawei255/jev-tune",
+  "hash_scope": "exact_bytes",
+  "default_destination": "benchmarks/motor_valve",
+  "archive": {
+    "asset": "motor_valve_benchmark_v0.10.1.zip",
+    "url": "https://github.com/lijiawei255/jev-tune/releases/download/v0.10.1/motor_valve_benchmark_v0.10.1.zip",
+    "size_bytes": 2667111,
+    "sha256": "7d82dcefee629af3981bf8304e7ceb27dfcab9e4b225a4340da749aa250fc103",
+    "files": [
+      {
+        "path": "motor_valve_benchmark/evidence/archive-equivalence.public.json",
+        "size_bytes": 14354,
+        "sha256": "cca4742e96bce0f75504c379ffda4c04c615672920f53850ae4ecb3422f61a6d",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/evidence/mxarray-inspection.public.json",
+        "size_bytes": 3157,
+        "sha256": "7deab2ec3dcc9cdbbdf411e2f1a5246b734de4266dda5b5cfac90875f935cd74",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/evidence/native-mat-inspection.public.json",
+        "size_bytes": 5087,
+        "sha256": "ef6068c8fcb96b137543a09cfcb3547dcb584a2a6c0b83627780a155cdeb40ef",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/evidence/numeric-equivalence.public.json",
+        "size_bytes": 3476,
+        "sha256": "9ce863cbcc12c11a1aada40be2d13ee740b980ff1318844564b7fbfbf16bf5b9",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/evidence/numeric-mat-preservation.public.json",
+        "size_bytes": 2530,
+        "sha256": "fd29f00a7c333913962058a56c3bda89e79cfe879ab0d7090582b1743d8a46ca",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/evidence/payload-privacy.public.json",
+        "size_bytes": 784,
+        "sha256": "0690e87dd3f449ae28a16bbb27225d9a5919833b5c01ca8ad420d41b19fae6b2",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/evidence/same-input-cost.public.json",
+        "size_bytes": 690,
+        "sha256": "f809e1a11557976abb1194793fa9befce6a5d37585bd09aa384c29f9201038df",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/images/80mm_Butterfly_valve.STL",
+        "size_bytes": 450884,
+        "sha256": "9cb56bc569a19f8d1ed17736a9c64260bde0fda17fad0236219d5af6dee7bdb1",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/images/valve_icon.jpg",
+        "size_bytes": 22911,
+        "sha256": "f908c3cf6cfe2a08f3c1616b867e66e9a038c21c96c54a3f050d7b69ea3e925f",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/jev_lab_model.slx",
+        "size_bytes": 81862,
+        "sha256": "458faf98c3d61777fa1db2d31f031989b706bf6f0409a735bb14a3ee9e74f2f5",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/MANIFEST.json",
+        "size_bytes": 3428,
+        "sha256": "dfc5e4bb007e986bc5ea38a7bcda13a092bf5baa6fb3531d7707e43755b03941",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/README.md",
+        "size_bytes": 2162,
+        "sha256": "0145b79db63c41ccddeeab42ebf970e2a4992e767e3c8c0023afd3faa04411c6",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/runs/run_01/tune_result.mat",
+        "size_bytes": 405479,
+        "sha256": "1d8786f81af2cd066a5f9332432f907d7b027450049e0d657d2ac95bad5524f8",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/runs/run_02/tune_result.mat",
+        "size_bytes": 405479,
+        "sha256": "21b79266115c5915edb5042434654cbd450be52b675f5f7b58ebf48d1bd5fa0e",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/runs/run_03/tune_result.mat",
+        "size_bytes": 405479,
+        "sha256": "25446677508ebc9a0562ce6f8e3d740ddd123735c9e3495c642763c0afacb44a",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/runs/run_04/tune_result.mat",
+        "size_bytes": 405479,
+        "sha256": "e912271afc58763a5f3962f43e435f97a4e019e3deb79e8a8f8f59376f62e7af",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/runs/run_05/tune_result.mat",
+        "size_bytes": 405479,
+        "sha256": "cb8f58a760ffb9061a7bb412cbe50c0f0185476f33b9b9bb87216a3ef943b819",
+        "install": true
+      },
+      {
+        "path": "motor_valve_benchmark/runs/run_06/tune_result.mat",
+        "size_bytes": 405479,
+        "sha256": "9edd5aba3e85ca3c67b5c908b083d9e8e5275490d32e2ed911554dca553b22f4",
+        "install": true
+      }
+    ]
+  }
+}

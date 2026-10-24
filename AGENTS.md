@@ -2,35 +2,36 @@
 
 ## Initial clone and optional evidence / 首次克隆与按需证据
 
-The local v0.10.1 candidate removes experimental payloads from reachable Git
-history. After an approved remote transition, ordinary clone needs no special
-flags and retains complete source, formal PID artifacts and six non-PID
-model/calibration JSON files:
+The v0.10.1 distribution separates experimental payloads from reachable Git
+history. An ordinary clone needs no special flags and retains complete source,
+formal PID artifacts and six non-PID model/calibration JSON files:
 
 ```sh
 git clone https://github.com/lijiawei255/jev-tune.git
 cd jev-tune
 ```
 
-Current scope is local phase 1: the remote/public tags/Releases are unchanged;
-the privacy scan follows phase 1; any cleanup awaits user approval. Do not claim today's remote is already small,
-rewrite an existing user's checkout, or publish this transition automatically.
 Runtime use needs no research records. Before pytest or scientific claims run
 `python scripts/59_research_data.py --fetch all`, followed by
 `python scripts/history_sources.py --root . --restore-pinned`; both accept `--from-dir`
 for pinned offline assets. Script 60 prepares a new checkout and performs complete
-verification. The source capsule supplies selected original source/tree objects,
-not complete old Git history. Script-42 maintenance commands are not promised to
-work directly; use the current script-44/16 frozen verifiers after restoration.
+verification. The source capsule supplies selected original scientific source/tree
+objects, not complete old Git history. Public manifests distinguish unchanged
+original objects from sanitized metadata derivatives. Script-42 maintenance commands
+are not promised to work directly; use the current script-44/16 frozen verifiers
+after restoration. Publication acceptance requires actual pinned assets and
+verification receipts; do not infer it from these instructions, rewrite an existing
+user's checkout, or publish a history transition without authorization.
 See [distribution and history boundaries](docs/DISTRIBUTION.md).
 
-本地v0.10.1候选从可达Git历史移出实验数据；经批准切换远端后，以上普通克隆无需特殊
-参数，保留完整源码、正式PID产物及六份非PID模型/校准JSON。当前仅本地阶段一，远端/
-公开tag/Release尚未改变，阶段一后自动扫描隐私，任何脱敏清理须另行批准；不能宣称当前远端已经缩小、重写用户
-既有检出或自动发布本次切换。运行使用不需要研究记录。pytest或科学claims前先执行59的
-`--fetch all`，再执行`history_sources.py --root . --restore-pinned`；两者均支持`--from-dir`离线附件。
-60脚本在新目录完成恢复与完整核验。源码胶囊只提供选定原源码/tree对象，并非完整旧Git
-历史；旧42维护命令不保证直接可用，恢复后使用当前44/16冻结核验入口。数据外置不等于匿名化。
+v0.10.1分发从可达Git历史移出实验载荷。以上普通克隆无需特殊参数，保留完整源码、
+正式PID产物及六份非PID模型/校准JSON。运行复用不需要研究记录。pytest或科学claims前
+先执行59的`--fetch all`，再执行`history_sources.py --root . --restore-pinned`；两者均
+支持`--from-dir`离线附件。60脚本在新目录完成恢复与完整核验。源码胶囊提供选定的原始
+科学源码/tree对象，并非完整旧Git历史；公开清单区分未改动的原对象与脱敏元数据派生件。
+旧42维护命令不保证直接可用，恢复后使用当前44/16冻结核验入口。发布验收以真实固定
+附件和核验收据为准，不能仅从本文推断；不要重写用户既有检出，或未经授权发布历史切换。
+详见[分发与历史边界](docs/DISTRIBUTION.md)。
 
 This file is for an automated assistant that a user pointed at this repository.
 It is written to be read top-to-bottom and executed without asking questions.

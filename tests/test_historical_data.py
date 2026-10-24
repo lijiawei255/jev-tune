@@ -102,3 +102,93 @@ def test_download_fixed_url_and_redirect_host_boundary(tmp_path):
     class BadOpener:
         def open(self,request,timeout):return BadResponse(payload)
     with pytest.raises(ValueError):history.download_legacy(index['asset'],tmp_path/'bad.zip',data,BadOpener())
+
+
+def metadata_derivative_fixture(tmp_path):
+    assets,manifest,index=fixture(tmp_path)
+    name='research/results/current.json';revision='1'*40
+    original=b'{"J":1.25,"input":[0,1,1],"gains":[2,3,4],"metadata":{"path":"C:/fixtures/plant.slx"}}\n'
+    published=original.replace(b'C:/fixtures/plant.slx',b'benchmark/plant.slx')
+    original_oid=history.blob_oid(original);public_oid=history.blob_oid(published)
+    old_key=index['commits'][revision][name];index['blobs'].pop(old_key)
+    contract=zip_contract(assets,'research_evidence_v0.10.1.zip',
+        {'LICENSE':b'license\n','NOTICE.md':b'notice\n',name:published})
+    member=next(row for row in contract['files'] if row['path']==name)
+    member['source'].update(kind='deidentified_git_blob',original_oid=original_oid,
+        transformation='metadata_only_deidentification')
+    manifest['groups']['evidence']=contract
+    index['commits'][revision][name]=original_oid
+    index['blobs'][original_oid]={'kind':'research_data','paths':[name],'group':'evidence','member':name,
+        'size_bytes':len(published),'sha256':hashlib.sha256(published).hexdigest(),'public_oid':public_oid}
+    return assets,manifest,index,name,original,published,original_oid,public_oid
+
+
+def test_historical_derivative_restores_new_metadata_bytes_and_reports_old_and_public_oids(tmp_path):
+    assets,manifest,index,name,original,published,original_oid,public_oid=metadata_derivative_fixture(tmp_path)
+    result=restore(tmp_path,assets,manifest,index)
+    assert (tmp_path/'restored'/name).read_bytes()==published
+    record=next(row for row in result['files'] if row['path']==name)
+    assert record['oid']==public_oid and record['original_oid']==original_oid and record['deidentified']
+    assert history.blob_oid(published)==public_oid != history.blob_oid(original)
+    left,right=json.loads(original),json.loads(published)
+    left.pop('metadata');right.pop('metadata')
+    assert left==right=={'J':1.25,'input':[0,1,1],'gains':[2,3,4]}
+    assert (tmp_path/'restored/research/results/old.json').read_bytes()==b'{"old":1}\n'
+
+
+@pytest.mark.parametrize('tamper',['public_oid','missing_public_oid','contract_public_oid','missing_original_oid','wrong_original_oid'])
+def test_historical_derivative_false_public_or_original_identity_leaves_no_output(tmp_path,tamper):
+    assets,manifest,index,name,_,_,original_oid,public_oid=metadata_derivative_fixture(tmp_path)
+    source=next(row for row in manifest['groups']['evidence']['files'] if row['path']==name)['source']
+    if tamper=='public_oid':index['blobs'][original_oid]['public_oid']='0'*40
+    elif tamper=='missing_public_oid':index['blobs'][original_oid].pop('public_oid')
+    elif tamper=='contract_public_oid':source['oid']='0'*40
+    elif tamper=='missing_original_oid':source.pop('original_oid')
+    else:
+        # Correct ZIP/member/public pins must not authorize a fabricated original tree identity.
+        index['commits']['1'*40][name]='0'*40
+        index['blobs']['0'*40]=index['blobs'].pop(original_oid)
+    with pytest.raises(ValueError):restore(tmp_path,assets,manifest,index)
+    assert not (tmp_path/'restored').exists()
+    assert not list(tmp_path.glob('.historical-data-stage-*'))
+
+
+def legacy_metadata_derivative_fixture(tmp_path):
+    assets,manifest,index=fixture(tmp_path)
+    name='research/results/old.json';revision='1'*40
+    original=b'{"J":1.25,"input":[0,1],"metadata":{"path":"C:/fixtures/legacy.slx"}}\n'
+    published=original.replace(b'C:/fixtures/legacy.slx',b'benchmark/legacy.slx')
+    original_oid=history.blob_oid(original);public_oid=history.blob_oid(published)
+    index['blobs'].pop(index['commits'][revision][name])
+    member='objects/'+original_oid
+    contract=zip_contract(assets,history.ASSET,{'LICENSE':b'license\n','NOTICE.md':b'notice\n',member:published},True)
+    binding=next(row for row in contract['files'] if row['path']==member)
+    binding.update(original_oid=original_oid,public_oid=public_oid)
+    index['asset']=contract;index['commits'][revision][name]=original_oid
+    index['blobs'][original_oid]={'kind':'legacy_archive','paths':[name],'member':member,
+        'size_bytes':len(published),'sha256':hashlib.sha256(published).hexdigest(),'public_oid':public_oid}
+    return assets,manifest,index,name,original,published,original_oid,public_oid,binding
+
+
+def test_legacy_metadata_derivative_has_explicit_original_and_public_binding(tmp_path):
+    assets,manifest,index,name,original,published,original_oid,public_oid,_=legacy_metadata_derivative_fixture(tmp_path)
+    result=restore(tmp_path,assets,manifest,index)
+    record=next(row for row in result['files'] if row['path']==name)
+    assert record['original_oid']==original_oid and record['oid']==public_oid and record['deidentified']
+    assert (tmp_path/'restored'/name).read_bytes()==published
+    left,right=json.loads(original),json.loads(published)
+    left.pop('metadata');right.pop('metadata')
+    assert left==right=={'J':1.25,'input':[0,1]}
+    assert (tmp_path/'restored/research/results/current.json').read_bytes()==b'{"current":2}\n'
+
+
+@pytest.mark.parametrize('tamper',['missing_original','wrong_original','wrong_public','missing_public'])
+def test_legacy_derivative_missing_or_false_member_binding_has_no_output(tmp_path,tamper):
+    assets,manifest,index,_,_,_,_,_,binding=legacy_metadata_derivative_fixture(tmp_path)
+    if tamper=='missing_original':binding.pop('original_oid')
+    elif tamper=='wrong_original':binding['original_oid']='0'*40
+    elif tamper=='missing_public':binding.pop('public_oid')
+    else:binding['public_oid']='0'*40
+    with pytest.raises(ValueError,match='binding differs'):restore(tmp_path,assets,manifest,index)
+    assert not (tmp_path/'restored').exists()
+    assert not list(tmp_path.glob('.historical-data-stage-*'))

@@ -48,7 +48,7 @@ def repository(tmp_path):
         "research/results/nonpid_transfer/raw.json.gz": gzip.compress(b'{"original":"current"}', mtime=0),
         "research/results/trajectory_risk_raw/train.json.gz": gzip.compress(b'{"original":"historical"}', mtime=0),
         "research/results/primary.json": b'{"result":"negative_stop"}\n',
-        "research/results/preserved.log": b"Original benchmark path C:/motor-valve benchmark/model.slx is log text, not a model payload.\n",
+        "research/results/preserved.log": b"Original benchmark path C:/bench/model.slx is log text, not a model payload.\n",
     }
     for name, payload in paths.items():
         target = root / name
@@ -419,3 +419,58 @@ def test_invalid_manifest_is_rejected_before_io(repository, mutation):
         next(row for row in group["files"] if not row["install"])["path"] = "private.slx"
     with pytest.raises(ValueError):
         data.fetch(root, bad, from_dir=packages)
+
+
+def metadata_derivative_fixture(repository):
+    """Real original Git blob, distinct metadata derivative, and fully repinned ZIP."""
+    root, _, _, _ = repository
+    name = "research/results/metadata_result.json"
+    original = b'{"J":1.25,"input":[0,1,1],"gains":[2,3,4],"metadata":{"path":"C:/fixtures/plant.slx"}}\n'
+    published = original.replace(b"C:/fixtures/plant.slx", b"benchmark/plant.slx")
+    (root / name).write_bytes(original)
+    git(root, "add", name)
+    git(root, "commit", "-qm", "Original fixture metadata and numeric record")
+    packages = root / ".local-audit/metadata-derivative-packages"
+    manifest = data.build_manifest(root, packages)
+    row = next(item for item in manifest["groups"]["evidence"]["files"] if item["path"] == name)
+    original_oid = row["source"]["oid"]
+    published_oid = hashlib.sha1(b"blob " + str(len(published)).encode() + b"\0" + published).hexdigest()
+    rewrite_archive(packages, manifest, "evidence", lambda entries: [
+        (entry, published if entry == name else payload, mode) for entry, payload, mode in entries])
+    row.update(size_bytes=len(published), sha256=hashlib.sha256(published).hexdigest())
+    row["source"].update(kind="deidentified_git_blob", oid=published_oid, original_oid=original_oid,
+                         transformation="metadata_only_deidentification")
+    return root, manifest, packages, name, original, published, original_oid, published_oid
+
+
+def test_metadata_derivative_restores_published_bytes_and_retains_authentic_origin(repository):
+    root, manifest, packages, name, original, published, original_oid, published_oid = metadata_derivative_fixture(repository)
+    assert original_oid != published_oid
+    assert git(root, "rev-parse", manifest["source_revision"] + ":" + name).decode().strip() == original_oid
+    assert git(root, "show", manifest["source_revision"] + ":" + name) == original
+    left, right = json.loads(original), json.loads(published)
+    left.pop("metadata"); right.pop("metadata")
+    assert left == right == {"J": 1.25, "input": [0, 1, 1], "gains": [2, 3, 4]}
+    remove_optional(root, manifest)
+    result = data.fetch(root, manifest, groups="evidence", from_dir=packages)
+    assert result["ok"] and (root / name).read_bytes() == published
+    row = next(item for item in manifest["groups"]["evidence"]["files"] if item["path"] == name)
+    assert row["source"]["original_oid"] == original_oid and row["source"]["oid"] == published_oid
+    assert git(root, "rev-parse", manifest["source_revision"] + ":" + name).decode().strip() == original_oid
+
+
+@pytest.mark.parametrize("tamper", ["public_oid", "missing_original_oid", "missing_transformation"])
+def test_metadata_derivative_false_provenance_never_installs(repository, tamper):
+    root, manifest, packages, name, _, _, _, _ = metadata_derivative_fixture(repository)
+    source = next(item for item in manifest["groups"]["evidence"]["files"] if item["path"] == name)["source"]
+    if tamper == "public_oid":
+        source["oid"] = "0" * 40  # Well-formed but unrelated to the pinned member bytes.
+    elif tamper == "missing_original_oid":
+        source.pop("original_oid")
+    else:
+        source.pop("transformation")
+    remove_optional(root, manifest)
+    with pytest.raises(ValueError):
+        data.fetch(root, manifest, groups="evidence", from_dir=packages)
+    assert all(not (root / row["path"]).exists() for row in installed_rows(manifest))
+    assert not list(root.glob(".jev-research-data-*"))

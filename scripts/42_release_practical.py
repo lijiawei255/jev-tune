@@ -16,7 +16,22 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 PRESERVED = "research/protocols/research_pause_v090.json"
 PRESERVATION_SHA256 = "90317aa1ada52ccd4aa61e107b83193377ea78bd0ed72829b034ae7f7e32ee8a"
+METADATA_PROOFS = "research/distribution/deidentified_source_proofs_v0101.json"
 EXECUTION = ".local-audit/v090_pytest_execution.json"
+ARCHIVED_REFERENCE_CONTEXTS = {
+    "trajectory_old_results": {
+        "path": "research/results/joint_risk_rollout.json",
+        "verifier": "scripts/32_verify_trajectory_risk.py", "predicate": "hash_matches",
+        "predicate_kwargs": {"text": True},
+        "reference_path": "research/protocols/trajectory_risk_v2.json",
+        "reference_keys": ("specification", "old_results", "preserve_byte_identical", "research/results/joint_risk_rollout.json")},
+    "trajectory_saved_replay": {
+        "path": "research/results/trajectory_risk.json",
+        "verifier": "scripts/34_reproduce_trajectory_evaluation.py", "predicate": "_matches",
+        "predicate_kwargs": {},
+        "reference_path": "research/results/trajectory_risk_reproduction.json",
+        "reference_keys": ("original_result", "sha256")},
+}
 
 
 def read(name):
@@ -28,6 +43,96 @@ def digest(path):
     if Path(path).suffix in {".py", ".json", ".md", ".m", ".txt"}:
         data = data.replace(b"\r\n", b"\n")
     return hashlib.sha256(data).hexdigest()
+
+
+def canonical_json_hash(payload):
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def numeric_projection_hash(payload):
+    """Bind every non-string leaf and list length, without treating identifiers as measurements."""
+    rows = []
+    def visit(value, path):
+        if isinstance(value, dict):
+            for key in sorted(value):
+                visit(value[key], path + [key])
+        elif isinstance(value, list):
+            rows.append([path, "list_length", len(value)])
+            for index, item in enumerate(value):
+                visit(item, path + [index])
+        elif not isinstance(value, str):
+            rows.append([path, type(value).__name__, value.hex() if isinstance(value, float) else value])
+    visit(payload, [])
+    return canonical_json_hash(rows)
+
+
+def published_metadata_binding(root, name, original, actual):
+    """Verify a specific published derivative; never return an original hash as an actual digest."""
+    proof_path = Path(root) / METADATA_PROOFS
+    assert proof_path.is_file(), f"Historical evidence changed: {name}; missing metadata proof"
+    ledger = json.loads(proof_path.read_text(encoding="utf-8"))
+    assert ledger["schema_version"] == 1
+    matches = [row for row in ledger["preservation_bindings"]
+               if row["path"] == name and row["original_lf_sha256"] == original
+               and row["preservation_manifest"] == PRESERVED]
+    assert len(matches) == 1, f"Historical evidence changed: {name}; unknown/ambiguous derivative"
+    proof = matches[0]
+    assert proof["scope"] == "published_metadata_derivative_of_archived_record"
+    assert proof["lf_sha256"] == actual, f"Historical evidence changed: {name}; derivative bytes differ"
+    path = Path(root) / name
+    raw = path.read_bytes().replace(b"\r\n", b"\n")
+    assert hashlib.sha256(raw).hexdigest() == actual, f"Historical evidence changed: {name}"
+    payload = json.loads(raw.decode("utf-8"))
+    assert canonical_json_hash(payload) == proof["canonical_json_sha256"], f"Historical evidence changed: {name}; JSON differs"
+    assert numeric_projection_hash(payload) == proof["original_numeric_projection_sha256"], f"Historical evidence changed: {name}; numeric observations differ"
+    return {"path": name, "original_lf_sha256": original, "published_lf_sha256": actual,
+            "canonical_json_sha256": proof["canonical_json_sha256"],
+            "original_numeric_projection_sha256": proof["original_numeric_projection_sha256"],
+            "scope": proof["scope"]}
+
+
+def archived_reference_contract(root, context):
+    """Bind an adapter to an unchanged verifier and unchanged reference holder."""
+    root = Path(root)
+    assert context in ARCHIVED_REFERENCE_CONTEXTS, "Unknown archived metadata context"
+    assert digest(root / PRESERVED) == PRESERVATION_SHA256, "Preservation manifest changed or lost entries"
+    preserved = json.loads((root / PRESERVED).read_text(encoding="utf-8"))
+    contract = ARCHIVED_REFERENCE_CONTEXTS[context]
+    for name in (contract["verifier"], contract["reference_path"]):
+        assert digest(root / name) == preserved["sha256"][name], "Frozen reference source changed: " + name
+    reference = json.loads((root / contract["reference_path"]).read_text(encoding="utf-8"))
+    if context == "trajectory_saved_replay":
+        assert reference["original_result"]["path"] == contract["path"], "Saved replay result path changed"
+    recorded = reference
+    for key in contract["reference_keys"]:
+        recorded = recorded[key]
+    return dict(contract, context=context, recorded_original_sha256=recorded,
+                original_lf_sha256=preserved["sha256"][contract["path"]],
+                verifier_lf_sha256=preserved["sha256"][contract["verifier"]],
+                reference_lf_sha256=preserved["sha256"][contract["reference_path"]])
+
+
+def archived_metadata_reference(root, name, recorded, *, context):
+    """Verify an approved derivative of one exact archived reference, returning identities, not a digest."""
+    root = Path(root)
+    contract = archived_reference_contract(root, context)
+    assert name == contract["path"] and recorded == contract["recorded_original_sha256"], "Unknown archived metadata reference"
+    ledger = json.loads((root / METADATA_PROOFS).read_text(encoding="utf-8"))
+    rows = [row for row in ledger.get("reference_bindings", []) if row["context"] == context]
+    assert len(rows) == 1, "Missing or ambiguous archived metadata reference"
+    proof = rows[0]
+    for key in ("path", "recorded_original_sha256", "original_lf_sha256", "reference_path", "reference_lf_sha256"):
+        assert proof[key] == contract[key], "Archived metadata identity differs: " + key
+    assert proof["scope"] == "metadata_derivative_of_exact_archived_reference"
+    originals = [row for row in ledger["preservation_bindings"] if row["path"] == name]
+    assert len(originals) == 1 and originals[0]["original_crlf_sha256"] == recorded, "Original text identity differs"
+    binding = published_metadata_binding(root, name, contract["original_lf_sha256"], digest(root / name))
+    return dict(binding, context=context, recorded_original_sha256=recorded,
+                original_text_normalization="CRLF reference; LF preservation identity",
+                reference_path=contract["reference_path"], reference_lf_sha256=contract["reference_lf_sha256"],
+                verifier=contract["verifier"], verifier_lf_sha256=contract["verifier_lf_sha256"],
+                preservation_manifest_sha256=PRESERVATION_SHA256)
 
 
 def prepare():
@@ -64,8 +169,15 @@ def check_preserved(root=ROOT):
     assert digest(root / PRESERVED) == PRESERVATION_SHA256, "Preservation manifest changed or lost entries"
     payload = json.loads((root / PRESERVED).read_text(encoding="utf-8"))
     assert payload["research_status"] == "paused" and payload["deployment_enabled"] is False
+    derivatives = []
     for name, expected in payload["sha256"].items():
-        assert digest(root / name) == expected, f"Historical evidence changed: {name}"
+        actual = digest(root / name)
+        if actual != expected:
+            derivatives.append(published_metadata_binding(root, name, expected, actual))
+    payload["published_metadata_verification"] = {
+        "archived_preservation_manifest_sha256": PRESERVATION_SHA256,
+        "scope": "Original manifest retained verbatim; specific published metadata derivatives independently verified",
+        "new_experiments": 0, "derivatives": derivatives}
     return payload
 
 

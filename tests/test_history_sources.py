@@ -102,3 +102,47 @@ def test_original_data_origin_oid_proof_needs_no_data_blob(tmp_path):
     with pytest.raises(ValueError):history.git(clean,'cat-file','blob',identity)
     manifest['groups']['evidence']['files'][0]['source']['oid']='0'*40
     with pytest.raises(ValueError,match='identity differs'):history.verify_origin_paths(clean,manifest)
+
+
+def metadata_origin_fixture(tmp_path):
+    original,clean,old,requirements,capsule,result=fixture(tmp_path)
+    path=clean/history.PINNED_MANIFEST;path.parent.mkdir(parents=True,exist_ok=True)
+    path.write_text(json.dumps({'schema_version':1,'asset':history.ASSET,'url':history.URL,
+        'size_bytes':capsule.stat().st_size,'sha256':result['sha256'],'requirements':requirements}))
+    history.restore(clean,capsule,expected_sha256=result['sha256'],requirements=requirements)
+    original_oid=history.git(original,'rev-parse',old+':research/results/private.slx').decode().strip()
+    published_oid=history.oid('blob',b'generic metadata derivative; dynamics unchanged')
+    source={'kind':'deidentified_git_blob','revision':old,'oid':published_oid,'original_oid':original_oid,
+        'transformation':'metadata_only_deidentification'}
+    manifest={'groups':{'evidence':{'files':[{'path':'research/results/private.slx','source':source}]}}}
+    return clean,old,original_oid,published_oid,manifest,source
+
+
+def test_derivative_origin_proof_uses_authentic_original_tree_and_keeps_public_oid_separate(tmp_path):
+    clean,old,original_oid,published_oid,manifest,source=metadata_origin_fixture(tmp_path)
+    before=(history.git(clean,'rev-parse','HEAD'),history.git(clean,'for-each-ref'))
+    assert original_oid != published_oid
+    assert history.verify_origin_paths(clean,manifest)['origin_paths']==1
+    assert history.git(clean,'ls-tree',old,'--','research/results/private.slx').decode().split()[2]==original_oid
+    assert source['oid']==published_oid and source['original_oid']==original_oid
+    for identity in (original_oid,published_oid):
+        with pytest.raises(ValueError):history.git(clean,'cat-file','blob',identity)
+    assert before==(history.git(clean,'rev-parse','HEAD'),history.git(clean,'for-each-ref'))
+    assert not (clean/'research/results/private.slx').exists()
+
+
+@pytest.mark.parametrize('tamper',['wrong_original','missing_original','fallback_to_original_as_public','plain_blob_override','malformed_public'])
+def test_derivative_origin_cannot_fall_back_or_override_authentic_tree_oid(tmp_path,tamper):
+    clean,_,original_oid,_,manifest,source=metadata_origin_fixture(tmp_path)
+    if tamper=='wrong_original':source['original_oid']='0'*40
+    elif tamper in {'missing_original','fallback_to_original_as_public'}:
+        source.pop('original_oid')
+        if tamper=='fallback_to_original_as_public':source['oid']=original_oid
+    elif tamper=='plain_blob_override':
+        source['kind']='git_blob';source['oid']='0'*40
+        source['original_oid']=original_oid  # A plain blob must be checked by oid, not this override.
+    else:source['oid']='invalid-public-identity'
+    before=(history.git(clean,'rev-parse','HEAD'),history.git(clean,'for-each-ref'))
+    with pytest.raises(ValueError):history.verify_origin_paths(clean,manifest)
+    assert before==(history.git(clean,'rev-parse','HEAD'),history.git(clean,'for-each-ref'))
+    assert not (clean/'research/results/private.slx').exists()

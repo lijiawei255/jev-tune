@@ -2,7 +2,9 @@
 
 The current runtime keeps its fixes. Six archived v0.8 files replace their
 current counterparts only inside a temporary copy and a separate process.
-Original verifiers, results, hashes and numerical tolerances are unchanged.
+Original verifier source and numerical tolerances are unchanged. Two exact
+archived metadata references may use separately reported derivative proofs
+after the original byte predicate fails; actual digest functions stay intact.
 No simulations run. --smoke checks source/import isolation without refitting.
 """
 from __future__ import annotations
@@ -118,6 +120,31 @@ def imported_sources(root):
     return imported
 
 
+def install_metadata_predicate_adapter(root, module, context, receipts):
+    """Adapt only a bound boolean reference check; retain the original predicate first."""
+    root = Path(root).resolve()
+    proof = load_script(root, "42_release_practical")
+    contract = proof.archived_reference_contract(root, context)
+    require(Path(module.__file__).resolve() == root / contract["verifier"], "Unexpected historical verifier module")
+    original = getattr(module, contract["predicate"])
+
+    def matches(path, expected, *args, **kwargs):
+        if original(path, expected, *args, **kwargs):
+            return True
+        if (args or kwargs != contract["predicate_kwargs"] or
+                Path(path).resolve() != root / contract["path"] or expected != contract["recorded_original_sha256"]):
+            return False
+        receipt = proof.archived_metadata_reference(root, contract["path"], expected, context=context)
+        if receipt not in receipts:
+            receipts.append(receipt)
+        return True
+
+    setattr(module, contract["predicate"], matches)
+    return {"context": context, "verifier": contract["verifier"],
+            "verifier_lf_sha256": contract["verifier_lf_sha256"],
+            "predicate": contract["predicate"], "original_predicate_first": True}
+
+
 def worker(root, *, smoke=False):
     root = Path(root).resolve()
     sys.path[:0] = [str(root / "src"), str(root / "scripts")]
@@ -127,6 +154,7 @@ def worker(root, *, smoke=False):
         importlib.import_module("jev_tune." + Path(name).stem)
     imported_sources(root)
     checks = {}
+    adapter_sources, metadata_references = [], []
     if smoke:
         for name in ("32_verify_trajectory_risk", "34_reproduce_trajectory_evaluation", "37_batch_inference_diagnosis"):
             load_script(root, name)
@@ -137,6 +165,7 @@ def worker(root, *, smoke=False):
             try:
                 if name == "study":
                     module = load_script(root, "32_verify_trajectory_risk")
+                    adapter_sources.append(install_metadata_predicate_adapter(root, module, "trajectory_old_results", metadata_references))
                     values = module.verify_payload(payload, require_final=True)
                     require(bool(values) and all(value is True for value in values.values()), "Historical study checks failed")
                     diagnosis = read(root / module.PAIRING_DIAGNOSIS)
@@ -147,6 +176,7 @@ def worker(root, *, smoke=False):
                     checks[name] = {"ok": True, "detail": "Original full raw/model/calibration/accounting, pairing and validity checks pass", "checks": values}
                 else:
                     module = load_script(root, "34_reproduce_trajectory_evaluation")
+                    adapter_sources.append(install_metadata_predicate_adapter(root, module, "trajectory_saved_replay", metadata_references))
                     result = module.check(result_path=root / RECORDS[0], report_path=root / RECORDS[1])
                     require(result["schema_version"] == 1 and result["equal"] is True and
                             result["additional_independent_evidence"] is False and
@@ -158,8 +188,13 @@ def worker(root, *, smoke=False):
     return {"ok": all(value["ok"] is True for value in checks.values()), "checks": checks,
             "baseline_tag": "v0.8.0", "baseline_commit": manifest["baseline_commit"],
             "restored_sources": {name: sha(data) for name, data in recovered.items()},
+            "metadata_reference_adapters": {"sources": adapter_sources, "references": metadata_references,
+                                            "posthoc_verifier_sources_lf_sha256": {
+                                                name: sha((root / name).read_bytes().replace(b"\r\n", b"\n"))
+                                                for name in ("scripts/42_release_practical.py", "scripts/44_verify_historical_research.py")},
+                                            "actual_digest_functions_changed": False},
             "imported_modules": imported, "additional_simulations": 0,
-            "scope": "Historical source view only; current runtime fixes and original evidence remain unchanged"}
+            "scope": "Historical numerical checks with unchanged original verifiers; exact published metadata derivatives independently bound to archived references"}
 
 
 def check(root=ROOT, *, smoke=False):

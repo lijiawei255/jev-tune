@@ -56,7 +56,6 @@ coverage. In particular these calibration states are initial states, not
 adaptive trajectories. Labels are a simulated expert's actions, not measured
 stability or clinical outcomes. See the [primary tutorial](https://arxiv.org/abs/2107.07511).
 
-
 ```bash
 python scripts/02_train.py --calibrate-only --alpha .10 --calibration-plants 512
 python scripts/17_ablation.py

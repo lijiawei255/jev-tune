@@ -10,16 +10,15 @@
 见[外壳与迁移边界](docs/SAFETY_SHELL.md)、[完整非PID证据](docs/NONPID_TRANSFER.md)、[少样本重标定](docs/RECALIBRATION.md)、[数值复现与证据边界](docs/NUMERICAL_REPRODUCIBILITY.md)、[事后观察与独立数值核验](docs/RUNTIME_OBSERVATIONS.md)、[宿主资源指标](docs/COMPUTE.md)。
 <!-- transfer-shell:zh:end -->
 
-**分发候选：**普通`git clone https://github.com/lijiawei255/jev-tune.git`保留完整代码、测试、
+**分发：**普通`git clone https://github.com/lijiawei255/jev-tune.git`保留完整代码、测试、
 文档、正式PID产物及六份非PID模型/校准JSON。研究记录按需从固定Release附件恢复，
-运行复用不需要研究数据；候选历史无需稀疏克隆参数。随后读取[`AGENTS.md`](AGENTS.md)。
-**当前仅本地阶段一，远端及公开tag/Release尚未改变。**上述克隆说明描述经批准切换后的
-目标方案，不表示当前远端下载已经变小。运行pytest或claims前，先执行
-`python scripts/59_research_data.py --fetch all`恢复数据，再执行
-`python scripts/history_sources.py --root . --restore-pinned`恢复历史源码。新目录完整验证使用60脚本，
-详见[分发、历史映射及复现](docs/DISTRIBUTION.md)。阶段一后自动扫描隐私，任何脱敏清理须另行批准；数据外置不等于匿名化。
-
-
+运行复用不需要研究数据，无需稀疏克隆参数。随后读取[`AGENTS.md`](AGENTS.md)。
+可选电机阀门模型与记录结果通过`python scripts/65_restore_benchmark.py`恢复，见
+[固定清单](research/distribution/motor_valve_benchmark_v0101.json)。
+运行pytest或claims前，先执行`python scripts/59_research_data.py --fetch all`恢复数据，
+再执行`python scripts/history_sources.py --root . --restore-pinned`恢复历史源码。公开清单
+区分未改动的原始科学对象与脱敏元数据派生件。新目录完整验证使用60脚本；发布验收以
+真实固定附件与核验收据为准。详见[分发、历史映射及复现](docs/DISTRIBUTION.md)。
 
 # jev-tune
 
@@ -88,7 +87,7 @@ solver      ...
 ![在不认识的模型上做自动发现](assets/discover.gif)
 
 *动图使用本项目自建模型及真实graph/discovery记录，展示误差汇合点、增益路径分类和
-确认扰动仿真；不含基准模型结构或界面截图。公开输入和重生成步骤见
+确认扰动仿真；图来自生成模型及其公开图记录。公开输入和重生成步骤见
 [`OPEN_SOURCE`](docs/OPEN_SOURCE.md)。*
 
 ## 从哪读起
@@ -129,7 +128,7 @@ solver      ...
 ![在真实 Simulink 直流电机上调参](assets/tuning.gif)
 
 *这是采用旧目标与旧扫描流程的历史运行，修正说明见
-[`STEP4_RESULTS`](docs/STEP4_RESULTS.md)。每一帧都是基准电机上的一次已记录闭环实验。调的是
+[`STEP4_RESULTS`](docs/STEP4_RESULTS.md)。每一帧都是电机阀门基准上的一次已记录闭环实验。调的是
 `Kp / Ki / Kd`，右边是它正在最小化的代价。最好的增益出现在第 5 次实验
 （约 0.55 秒仿真），停滞检测在第 9 次停下。*
 
@@ -483,14 +482,13 @@ assets/          README 用到的 GIF 和图片
 }
 ```
 
-## 边界与参考
+## 致谢与边界
 
 * **实验场不止一个。** 方法与出厂权重是在合成植物动物园（2 000 个对象、6 个族）
   上开发的，随后在 10 个分布外控制场景和一个小型生成模型
-  （`matlab/make_demo_model.m`）上验证。**基准实验里的那台电机模型**
-  只是其中**又一个实验场**：一个刚好在手的、比较真实的 Simulink 被控对象。它
-  公开训练代码使用合成仿真；基准观察影响了后续动物园设计，因此属于开发示例。
-  当前源码树和新发布不含基准原文件，保留的历史响应图是本项目自主绘制。
+  （`matlab/make_demo_model.m`）上验证。**电机阀门基准模型**
+  只是其中**又一个实验场**：一个刚好在手的、比较真实的 Simulink 被控对象。公开训练代码使用合成仿真；基准模型观察影响了后续动物园设计，因此属于开发示例。
+  当前源码树和新发布不含该外部模型原文件，保留的历史响应图是本项目自主绘制。
   其余实验场见 [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md)。
 * **Jev**（TypeSafe AI）与 **Laya**（Convai Innovations）启发了本项目实现的接口，
   与之无隶属、无背书关系。

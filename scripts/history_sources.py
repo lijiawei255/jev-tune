@@ -196,8 +196,15 @@ def verify_origin_paths(root,data_manifest):
     for group in data_manifest['groups'].values():
         for row in group['files']:
             source=row['source']
-            if source['kind']!='git_blob': continue
-            revision,name,expected=source['revision'],row['path'],source['oid']
+            if source['kind'] not in {'git_blob','deidentified_git_blob'}: continue
+            revision,name=source['revision'],row['path']
+            expected=source['oid']
+            if source['kind']=='deidentified_git_blob':
+                expected=source.get('original_oid','')
+                require(source.get('transformation')=='metadata_only_deidentification'
+                        and re.fullmatch('[0-9a-f]{40}',source['oid']) is not None
+                        and re.fullmatch('[0-9a-f]{40}',expected) is not None,
+                        'Missing published derivative identity')
             require(revision in contract['requirements'] and re.fullmatch('[0-9a-f]{40}',revision) is not None,
                     'Origin revision outside pinned source proof')
             parts=name.split('/')

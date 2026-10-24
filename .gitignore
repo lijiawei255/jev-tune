@@ -226,6 +226,10 @@ slprj/
 codegen/
 work/
 *.slxc
+*.mat
+*.zip
+*.gz
+*.7z
 *.slx.r20*
 *.mdl.r*
 *.slx.autosave
@@ -292,3 +296,12 @@ research/demo_model/
 !/research/results/nonpid_transfer/calibration_101.json
 !/research/results/nonpid_transfer/calibration_202.json
 !/research/results/nonpid_transfer/calibration_303.json
+
+# Optional restored motor/valve benchmark / 可选恢复的电机阀门基准。
+/benchmarks/
+# Optional benchmark bundles and simulation intermediates belong in Releases.
+*.slx
+*.mdl
+*.stl
+*.sldd
+*.slxc

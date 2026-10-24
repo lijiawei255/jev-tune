@@ -10,19 +10,17 @@ Numerical replay scope: the original strict 46/48 checks passed on the original 
 See [shell and transfer boundaries](docs/SAFETY_SHELL.md), [complete non-PID evidence](docs/NONPID_TRANSFER.md), [small-sample recalibration](docs/RECALIBRATION.md), [numerical reproducibility and evidence boundaries](docs/NUMERICAL_REPRODUCIBILITY.md), [post-incident observation audit](docs/RUNTIME_OBSERVATIONS.md), and [host resources](docs/COMPUTE.md).
 <!-- transfer-shell:en:end -->
 
-**Distribution candidate:** ordinary `git clone https://github.com/lijiawei255/jev-tune.git`
+**Distribution:** ordinary `git clone https://github.com/lijiawei255/jev-tune.git`
 retains the complete implementation, tests, documentation, formal PID artifacts and six non-PID
 model/calibration JSON files. Research records are restored from pinned Release attachments only
-when needed; runtime reuse needs no research-data download. No sparse-clone flags are required
-for the candidate history. Then read [`AGENTS.md`](AGENTS.md).
-**Current status: local phase 1 only; the remote and public tags/Releases are unchanged.**
-These clone instructions describe the approved-transition target, not today's remote download size.
+when needed; runtime reuse needs no research-data download. No sparse-clone flags are required.
+Then read [`AGENTS.md`](AGENTS.md). The optional motor-valve model and recorded results are available
+through `python scripts/65_restore_benchmark.py`; see its [pinned manifest](research/distribution/motor_valve_benchmark_v0101.json).
 Before pytest or claims, restore data with `python scripts/59_research_data.py --fetch all`,
 then historical sources with `python scripts/history_sources.py --root . --restore-pinned`.
-For a new verification checkout use script 60; see [distribution, history mapping and reproduction](docs/DISTRIBUTION.md).
-The privacy scan follows phase 1; any cleanup needs user approval. Data externalization is not anonymization.
-
-
+Public manifests distinguish unchanged original scientific objects from sanitized metadata
+derivatives. For a new verification checkout use script 60; publication acceptance requires the
+actual pinned assets and verification receipts. See [distribution, history mapping and reproduction](docs/DISTRIBUTION.md).
 
 # jev-tune
 
@@ -110,7 +108,7 @@ a cascade and reporting success would be worse than saying so. See
 
 *The animation uses this project's generated model and actual graph/discovery
 records. It shows the error junction, gain-path classification and confirming
-perturbation simulations. It contains no benchmark structure or screenshot.
+perturbation simulations. The diagram uses the generated model and its public graph records.
 The public inputs and regeneration recipe are listed in
 [`OPEN_SOURCE`](docs/OPEN_SOURCE.md).
 Regenerate with `scripts/15_make_discovery_gif.py`.*
@@ -578,7 +576,7 @@ Good first issues are labelled on GitHub.
 
 There is also a [`CITATION.cff`](CITATION.cff) if your tool reads it.
 
-## Scope and references
+## Acknowledgements and scope
 
 * **Several test benches, not one.** The method and the shipped head were
   developed on a synthetic plant zoo (2 000 plants across six families) and

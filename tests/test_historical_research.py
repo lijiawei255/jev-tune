@@ -147,3 +147,105 @@ def test_claims_run_one_isolated_audit_and_keep_independent_failures(monkeypatch
     assert len(calls) == 1
     assert [row["ok"] for row in rows] == [True, False, True]
     assert "Original raw hash differs" in rows[1]["detail"]
+
+
+@pytest.fixture(params=["trajectory_old_results", "trajectory_saved_replay"])
+def metadata_reference(tmp_path, request):
+    proof = load_script("42_release_practical")
+    context = request.param
+    contract = proof.ARCHIVED_REFERENCE_CONTEXTS[context]
+    names = {proof.PRESERVED, proof.METADATA_PROOFS, contract["path"],
+             contract["verifier"], contract["reference_path"], "scripts/42_release_practical.py"}
+    for name in names:
+        target = tmp_path / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / name, target)
+    identity = proof.archived_reference_contract(tmp_path, context)
+    return proof, tmp_path, context, identity
+
+
+def test_exact_archived_metadata_reference_has_separate_original_and_actual_identities(metadata_reference):
+    proof, root, context, contract = metadata_reference
+    actual = proof.digest(root / contract["path"])
+    receipt = proof.archived_metadata_reference(root, contract["path"],
+                                               contract["recorded_original_sha256"], context=context)
+    assert receipt["published_lf_sha256"] == actual
+    assert actual != receipt["original_lf_sha256"] != receipt["recorded_original_sha256"]
+    assert receipt["verifier_lf_sha256"] == proof.digest(root / contract["verifier"])
+    assert receipt["reference_lf_sha256"] == proof.digest(root / contract["reference_path"])
+    assert receipt["preservation_manifest_sha256"] == proof.PRESERVATION_SHA256
+
+
+@pytest.mark.parametrize("mutation", ["manifest", "verifier", "reference", "recorded", "original_lf", "duplicate", "missing", "bytes", "canonical", "numeric_repin"])
+def test_archived_metadata_reference_rejects_tampering(metadata_reference, mutation):
+    proof, root, context, contract = metadata_reference
+    ledger_path = root / proof.METADATA_PROOFS
+    ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
+    reference = next(row for row in ledger["reference_bindings"] if row["context"] == context)
+    binding = next(row for row in ledger["preservation_bindings"] if row["path"] == contract["path"])
+    if mutation in {"manifest", "verifier", "reference", "bytes"}:
+        name = {"manifest": proof.PRESERVED, "verifier": contract["verifier"],
+                "reference": contract["reference_path"], "bytes": contract["path"]}[mutation]
+        path = root / name
+        path.write_bytes(path.read_bytes() + b"\n ")
+    elif mutation == "recorded":
+        reference["recorded_original_sha256"] = "0" * 64
+    elif mutation == "original_lf":
+        reference["original_lf_sha256"] = "0" * 64
+        binding["original_lf_sha256"] = "0" * 64
+    elif mutation == "duplicate":
+        ledger["reference_bindings"].append(dict(reference))
+    elif mutation == "missing":
+        ledger["reference_bindings"] = []
+    elif mutation == "canonical":
+        binding["canonical_json_sha256"] = "0" * 64
+    else:
+        path = root / contract["path"]
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload["injected_numeric_observation"] = 1.25
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        binding["lf_sha256"] = proof.digest(path)
+        binding["canonical_json_sha256"] = proof.canonical_json_hash(payload)
+    ledger_path.write_text(json.dumps(ledger), encoding="utf-8")
+    with pytest.raises(AssertionError):
+        proof.archived_metadata_reference(root, contract["path"], contract["recorded_original_sha256"], context=context)
+
+
+def test_predicate_adapter_calls_original_first_and_restricts_fallback(metadata_reference):
+    proof, root, context, contract = metadata_reference
+    calls, receipts = [], []
+    original_result = [False]
+
+    def original(path, expected, **kwargs):
+        calls.append((path, expected, kwargs))
+        return original_result[0]
+
+    module = SimpleNamespace(__file__=str(root / contract["verifier"]))
+    setattr(module, contract["predicate"], original)
+    source_before = (root / contract["verifier"]).read_bytes()
+    source_receipt = audit.install_metadata_predicate_adapter(root, module, context, receipts)
+    adapted = getattr(module, contract["predicate"])
+    path, recorded = root / contract["path"], contract["recorded_original_sha256"]
+    kwargs = contract["predicate_kwargs"]
+    assert adapted(path, recorded, **kwargs) is True
+    assert len(calls) == 1 and len(receipts) == 1
+    assert source_receipt["original_predicate_first"] is True
+    assert (root / contract["verifier"]).read_bytes() == source_before
+    assert adapted(path, "0" * 64, **kwargs) is False
+    assert adapted(root / "unknown.json", recorded, **kwargs) is False
+    if context == "trajectory_old_results":
+        assert adapted(path, recorded, text=False) is False
+    assert len(receipts) == 1
+    # A true original byte check does not read or need a metadata ledger.
+    (root / proof.METADATA_PROOFS).unlink()
+    original_result[0] = True
+    assert adapted(path, recorded, **kwargs) is True
+    assert len(receipts) == 1
+
+
+def test_adapter_rejects_a_different_module_file(metadata_reference):
+    _, root, context, contract = metadata_reference
+    module = SimpleNamespace(__file__=str(root / "scripts/other.py"))
+    setattr(module, contract["predicate"], lambda *args, **kwargs: False)
+    with pytest.raises(ValueError, match="Unexpected historical verifier"):
+        audit.install_metadata_predicate_adapter(root, module, context, [])

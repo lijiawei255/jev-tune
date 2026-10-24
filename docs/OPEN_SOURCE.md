@@ -4,11 +4,11 @@
 
 ## English
 
-The unchanged v0.10.0 machine inventory binds its original artifacts, not the later history transition. A normal clone includes the formal trained weights, complete implementation and tests. The ignored synthetic PID datasets are distributed separately; the data ZIP includes LICENSE, NOTICE.md and the machine inventory. Without these NPZ files, --check still validates pins and any locally present files. Packaging requires all four exact files.
+The v0.10.0 artifact inventory records the model and data bindings; current distribution manifests identify sanitized metadata derivatives. A normal clone includes the formal trained weights, complete implementation and tests. The ignored synthetic PID datasets are distributed separately; the data ZIP includes LICENSE, NOTICE.md and the machine inventory. Without these NPZ files, --check still validates pins and any locally present files. Packaging requires all four exact files.
 
-The local v0.10.1 candidate moves experimental payloads out of reachable Git history, so after approved publication an ordinary clone needs no sparse/partial flags. Complete source and formal weights, including the six non-PID JSON artifacts, remain in Git and source ZIPs. The latest 449 research files and four PID files are recoverable from pinned Release attachments without changing existing archive/member hashes; earlier blob versions have a separate historical-data index. The [history mapping](../research/distribution/history_rewrite_v0101.json) records the preserved original commit metadata and parent graph; changed trees have new commit identities, while the initial signed commit retains its original identity and signature. Current scope is local phase 1: the remote and public tags/Releases are unchanged, and the privacy scan follows phase 1; any cleanup needs user approval. Data externalization does not anonymize original records.
+The v0.10.1 distribution keeps complete source and formal weights, including the six non-PID JSON artifacts, in Git and source ZIPs. An ordinary clone needs no sparse/partial flags; experimental records and earlier data versions are restored from pinned Release attachments. Public manifests bind the distributed bytes and distinguish unchanged original scientific objects from sanitized metadata derivatives. The [history mapping](../research/distribution/history_rewrite_v0101.json) describes the history transition; original commit identities and signatures are not a blanket guarantee. Publication and reproduction acceptance require the actual pinned assets and verification receipts described in [DISTRIBUTION](DISTRIBUTION.md).
 
-Runtime reuse needs no research-data download. Before pytest or claims, run `python scripts/59_research_data.py --fetch all`, then `python scripts/history_sources.py --root . --restore-pinned`; both support `--from-dir` for offline pinned assets. The source capsule imports selected original source/tree objects without changing refs, not the complete old history. Old script-42 maintenance commands are not promised to work directly; current script-44/16 frozen verification uses the required restored evidence. Use script 60 for a new verification checkout. See [distribution, reproduction and privacy boundaries](DISTRIBUTION.md).
+Runtime reuse needs no research-data download. Before pytest or claims, run `python scripts/59_research_data.py --fetch all`, then `python scripts/history_sources.py --root . --restore-pinned`; both support `--from-dir` for offline pinned assets. The source capsule imports selected original scientific source/tree objects without changing refs, not the complete old history. Old script-42 maintenance commands are not promised to work directly; current script-44/16 frozen verification uses the required restored evidence. Use script 60 for a new verification checkout. See [distribution, reproduction and privacy boundaries](DISTRIBUTION.md).
 
 | Component / 内容 | Distribution / 分发 |
 | :--- | :--- |
@@ -16,7 +16,7 @@ Runtime reuse needs no research-data download. Before pytest or claims, run `pyt
 | Generated demo model | `matlab/make_demo_model.m`; generate locally, no private SLX included |
 | Complete implementation and tests | `src/`, `matlab/`, `scripts/`, `tests/` |
 | Research records and earlier versions | Pinned Release data bundles; [latest-data manifest](../research/distribution/research_data_v0101.json) and [historical-data index](../research/distribution/historical_data_v0101.json) |
-| Selected original producer sources | [Historical source capsule](../research/distribution/historical_sources_v0101.json); source/tree objects, not complete old history |
+| Selected producer sources | [Historical source capsule](../research/distribution/historical_sources_v0101.json); source/tree objects, not complete old history |
 | Pinned synthetic PID data | Release-only [pid_synthetic_data_v0.10.0.zip](https://github.com/lijiawei255/jev-tune/releases/download/v0.10.0/pid_synthetic_data_v0.10.0.zip); four relative NPZ paths |
 
 | Data / 数据 | Bytes / 字节 | SHA-256 |
@@ -28,18 +28,18 @@ Runtime reuse needs no research-data download. Before pytest or claims, run `pyt
 
 ### Obtain the synthetic PID data
 
-Download [pid_synthetic_data_v0.10.0.zip](https://github.com/lijiawei255/jev-tune/releases/download/v0.10.0/pid_synthetic_data_v0.10.0.zip). From the matching v0.10.0 repository root, extract it there, preserving the archived `data/...` paths; do not flatten the archive into one directory.
+Download [pid_synthetic_data_v0.10.0.zip](https://github.com/lijiawei255/jev-tune/releases/download/v0.10.0/pid_synthetic_data_v0.10.0.zip). From the repository root, extract it there, preserving the archived `data/...` paths; do not flatten the archive into one directory.
 
 ```sh
 python -m zipfile -e pid_synthetic_data_v0.10.0.zip .
 python scripts/50_open_source_inventory.py --check
 ```
 
-Final NPZ hashes establish final-file identity, not causal proof of the training process or a complete original per-evaluation acquisition log. benchmark development feedback influenced zoo design and is not independent external evaluation. No new acquisition-cost numbers are inferred. Risk parameters remain in public research JSON. Ignored value_net/specialized weights without provenance bindings are excluded; private models/geometry/lecture documents and vendored MathWorks engines are prohibited in the latest source tree.
+Final NPZ hashes establish final-file identity, not causal proof of the training process or a complete original per-evaluation acquisition log. Benchmark development feedback influenced zoo design and is not independent external evaluation. No new acquisition-cost numbers are inferred. Risk parameters remain in public research JSON. Ignored value_net/specialized weights without provenance bindings are excluded; private models/geometry/private documents and vendored MathWorks engines are prohibited in the latest source tree.
 
 ### Regenerate the public discovery animation
 
-The current `assets/discover.gif` is a graph of the project's generated gains demo, not a redraw of a benchmark. Run the MATLAB block from the repository root to build that model and obtain fresh graph/discovery JSON, then run the Python renderer from the same root. This executes discovery probes and records their actual evidence. It uses project source and standard MATLAB/Simulink blocks under the user's MathWorks licence; no benchmark, geometry or handout is required or redistributed.
+The current `assets/discover.gif` is a graph of the project's generated gains demo. Run the MATLAB block from the repository root to build that model and obtain fresh graph/discovery JSON, then run the Python renderer from the same root. This executes discovery probes and records their actual evidence. It uses project source and standard MATLAB/Simulink blocks under the user's MathWorks licence; reproduction uses the generated model and requires no external benchmark files.
 
 ```matlab
 addpath('matlab');
@@ -65,15 +65,15 @@ fclose(fid);
 python scripts/15_make_discovery_gif.py
 ```
 
-The historical response figures (`tuning.gif`, `before_after.png`, `convergence.png`) are the project's own plots of earlier benchmark measurements, not original benchmark artwork or the current discovery model. Their historical objective and timing caveats still apply; regenerating an image does not rerun or validate that experiment.
+The historical response figures (`tuning.gif`, `before_after.png`, `convergence.png`) are the project's own plots of earlier motor-valve benchmark measurements; they use a different model from the current discovery animation. Their historical objective and timing caveats still apply; regenerating an image does not rerun or validate that experiment.
 
 ## 简体中文
 
-未改动的v0.10.0机器清单绑定原产物，不是后续历史切换的证明。普通clone包含正式训练权重、完整实现与测试；被忽略的合成PID数据通过独立附件提供，ZIP内含LICENSE、NOTICE.md与机器清单。缺少NPZ时仍可运行--check，核对校准pin，存在本地文件则额外校验；打包必须四文件全部逐字节匹配。
+v0.10.0产物清单记录模型和数据绑定，当前分发清单标明脱敏元数据派生件。普通clone包含正式训练权重、完整实现与测试；被忽略的合成PID数据通过独立附件提供，ZIP内含LICENSE、NOTICE.md与机器清单。缺少NPZ时仍可运行--check，核对校准pin，存在本地文件则额外校验；打包必须四文件全部逐字节匹配。
 
-本地v0.10.1候选从可达Git历史移出实验载荷，经批准发布后普通克隆无需稀疏/部分克隆参数；完整源码与正式权重（含六份非PID模型/校准JSON）继续保留在Git及源码ZIP。最新449份研究文件和四份PID文件按固定Release附件恢复，既有整包/成员哈希不变，更早blob版本由独立历史数据索引覆盖。[历史映射](../research/distribution/history_rewrite_v0101.json)记录保留的原提交元数据及父节点关系；树变化的提交获得新身份，初始签名提交保留原SHA及签名。当前仅本地阶段一，远端及公开tag/Release尚未改变，阶段一后自动扫描隐私，任何脱敏清理须另行批准；数据外置不等于匿名化。
+v0.10.1分发在Git和源码ZIP中保留完整源码及正式权重（含六份非PID模型/校准JSON）。普通克隆无需稀疏/部分克隆参数，实验记录及更早数据版本按需从固定Release附件恢复。公开清单绑定分发字节，区分未改动的原始科学对象与脱敏元数据派生件。[历史映射](../research/distribution/history_rewrite_v0101.json)说明历史切换，不笼统承诺保留原提交身份或签名。发布与复现验收以[DISTRIBUTION](DISTRIBUTION.md)所述的真实固定附件和核验收据为准。
 
-运行复用无需研究数据。pytest或claims前先运行`python scripts/59_research_data.py --fetch all`，再运行`python scripts/history_sources.py --root . --restore-pinned`；两者均支持`--from-dir`离线固定附件。源码胶囊导入选定原源码/tree对象，不改变refs，也不等于完整旧历史；旧42维护命令不保证直接可用，当前44/16冻结核验使用恢复后的所需证据。新目录完整核验使用60脚本，详见[分发、复现与隐私边界](DISTRIBUTION.md)。
+运行复用无需研究数据。pytest或claims前先运行`python scripts/59_research_data.py --fetch all`，再运行`python scripts/history_sources.py --root . --restore-pinned`；两者均支持`--from-dir`离线固定附件。源码胶囊导入选定原始科学源码/tree对象，不改变refs，也不等于完整旧历史；旧42维护命令不保证直接可用，当前44/16冻结核验使用恢复后的所需证据。新目录完整核验使用60脚本，详见[分发、复现与隐私边界](DISTRIBUTION.md)。
 
 | 内容 | 分发方式 |
 | :--- | :--- |
@@ -81,7 +81,7 @@ The historical response figures (`tuning.gif`, `before_after.png`, `convergence.
 | 生成的演示模型 | 本地运行matlab/make_demo_model.m，不附私有SLX |
 | 完整实现与测试 | src/、matlab/、scripts/、tests/ |
 | 研究记录及更早版本 | 固定Release数据附件；[最新数据清单](../research/distribution/research_data_v0101.json)与[历史数据索引](../research/distribution/historical_data_v0101.json) |
-| 选定原生产源码 | [历史源码胶囊](../research/distribution/historical_sources_v0101.json)，提供源码/tree对象，不等于完整旧历史 |
+| 选定生产源码 | [历史源码胶囊](../research/distribution/historical_sources_v0101.json)，提供源码/tree对象，不等于完整旧历史 |
 | 已固定hash的合成PID数据 | Release附件[pid_synthetic_data_v0.10.0.zip](https://github.com/lijiawei255/jev-tune/releases/download/v0.10.0/pid_synthetic_data_v0.10.0.zip)，含4份保持相对路径的NPZ |
 
 | Data / 数据 | Bytes / 字节 | SHA-256 |
@@ -93,18 +93,18 @@ The historical response figures (`tuning.gif`, `before_after.png`, `convergence.
 
 ### 获取合成PID数据
 
-下载[pid_synthetic_data_v0.10.0.zip](https://github.com/lijiawei255/jev-tune/releases/download/v0.10.0/pid_synthetic_data_v0.10.0.zip)后，在对应v0.10.0源码仓库根目录执行解压，保留附件中的`data/...`相对目录，不要将所有文件平铺到同一目录。
+下载[pid_synthetic_data_v0.10.0.zip](https://github.com/lijiawei255/jev-tune/releases/download/v0.10.0/pid_synthetic_data_v0.10.0.zip)后，在源码仓库根目录执行解压，保留附件中的`data/...`相对目录，不要将所有文件平铺到同一目录。
 
 ```sh
 python -m zipfile -e pid_synthetic_data_v0.10.0.zip .
 python scripts/50_open_source_inventory.py --check
 ```
 
-NPZ最终hash只证明文件身份，不证明训练过程因果关系或完整原始逐次采集日志。基准开发反馈影响了zoo设计，不属于独立外部测试；不推断新的采集成本。风险参数保留在公开研究JSON中。缺来源绑定的ignored value_net/specialized权重不发布；当前源码树禁止私有模型、几何、讲义文档与第三方MathWorks engine源码。
+NPZ最终hash只证明文件身份，不证明训练过程因果关系或完整原始逐次采集日志。基准模型开发反馈影响了zoo设计，不属于独立外部测试；不推断新的采集成本。风险参数保留在公开研究JSON中。缺来源绑定的ignored value_net/specialized权重不发布；当前源码树禁止私有模型、几何、私有文档与第三方MathWorks engine源码。
 
 ### 再生成公开发现动画
 
-当前`assets/discover.gif`展示本项目自主生成的gains演示模型图，不是基准模型结构的重绘。从仓库根目录在MATLAB执行下面代码生成模型及新的graph/discovery JSON，再从同一根目录运行Python绘图脚本。这一过程会执行发现探测并记录真实证据；只使用项目源码及用户MathWorks许可证下的标准MATLAB/Simulink模块，不需要或分发基准原模型、几何或讲义。
+当前`assets/discover.gif`展示本项目自主生成的gains演示模型图。从仓库根目录在MATLAB执行下面代码生成模型及新的graph/discovery JSON，再从同一根目录运行Python绘图脚本。这一过程会执行发现探测并记录真实证据；只使用项目源码及用户MathWorks许可证下的标准MATLAB/Simulink模块，复现使用生成模型，无需外部基准模型文件。
 
 ```matlab
 addpath('matlab');
@@ -130,4 +130,4 @@ fclose(fid);
 python scripts/15_make_discovery_gif.py
 ```
 
-历史响应图（`tuning.gif`、`before_after.png`、`convergence.png`）是本项目对早期基准验证床测量结果的自主绘图，并非基准原图，也不是当前发现动画所用模型。其历史目标函数与计时范围限制继续有效；重新生成图片不等于重跑或验收旧实验。
+历史响应图（`tuning.gif`、`before_after.png`、`convergence.png`）是本项目对早期电机阀门验证床测量结果的自主绘图，它与当前发现动画使用不同模型。其历史目标函数与计时范围限制继续有效；重新生成图片不等于重跑或验收旧实验。

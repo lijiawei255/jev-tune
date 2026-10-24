@@ -1,5 +1,7 @@
 """Saved adapter evidence must fail closed when its source or log changes."""
 import importlib.util
+import copy
+import hashlib
 import json
 from pathlib import Path
 import shutil
@@ -79,6 +81,16 @@ def test_research_preservation_accepts_only_newline_changes_in_text_log(tmp_path
     manifest_path = tmp_path / module.PRESERVED
     manifest_path.parent.mkdir(parents=True)
     shutil.copyfile(ROOT / module.PRESERVED, manifest_path)
+    # Published derivatives are independent, explicitly pinned metadata views.
+    # Keep their real bytes and proof ledger in this otherwise virtual fixture.
+    proof_path = tmp_path / module.METADATA_PROOFS
+    proof_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(ROOT / module.METADATA_PROOFS, proof_path)
+    proof = json.loads(proof_path.read_text(encoding="utf-8"))
+    for row in proof["preservation_bindings"]:
+        dest = tmp_path / row["path"]
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(ROOT / row["path"], dest)
     original_digest = module.digest
 
     def view_digest(path):
@@ -117,3 +129,86 @@ def test_binary_preservation_hashes_do_not_normalize_newlines(tmp_path, suffix):
     before = module.digest(path)
     path.write_bytes(b"\x00binary\r\ncontent\x00")
     assert module.digest(path) != before
+
+
+def metadata_preservation_fixture(tmp_path):
+    module = load_script("42_release_practical")
+    name = "research/results/fixture_metadata.json"
+    original = {"J": 1.25, "inputs": [0, 1, 1], "deployment_enabled": False,
+                "metadata": {"path": "C:/fixtures/plant.slx"}}
+    published = copy.deepcopy(original)
+    published["metadata"]["path"] = "benchmark/plant.slx"
+    old = json.dumps(original).encode()
+    raw = json.dumps(published).encode()
+    target = tmp_path / name
+    target.parent.mkdir(parents=True)
+    target.write_bytes(raw)
+    expected = hashlib.sha256(old).hexdigest()
+    actual = module.digest(target)
+    row = {"path": name, "preservation_manifest": module.PRESERVED,
+           "original_lf_sha256": expected, "lf_sha256": actual,
+           "canonical_json_sha256": module.canonical_json_hash(published),
+           "original_numeric_projection_sha256": module.numeric_projection_hash(original),
+           "scope": "published_metadata_derivative_of_archived_record"}
+    ledger = {"schema_version": 1, "preservation_bindings": [row]}
+    proof_path = tmp_path / module.METADATA_PROOFS
+    proof_path.parent.mkdir(parents=True, exist_ok=True)
+    proof_path.write_text(json.dumps(ledger), encoding="utf-8")
+    return module, name, expected, actual, target, proof_path, ledger
+
+
+def test_metadata_preservation_reports_actual_and_original_hashes_separately(tmp_path):
+    module, name, original, actual, target, _, _ = metadata_preservation_fixture(tmp_path)
+    binding = module.published_metadata_binding(tmp_path, name, original, actual)
+    assert original != actual == module.digest(target)
+    assert binding["original_lf_sha256"] == original
+    assert binding["published_lf_sha256"] == actual
+    assert module.PRESERVATION_SHA256 == "90317aa1ada52ccd4aa61e107b83193377ea78bd0ed72829b034ae7f7e32ee8a"
+
+
+@pytest.mark.parametrize("mutation", ["bytes", "canonical", "origin", "missing", "duplicate", "numeric_repin", "unknown_path"])
+def test_metadata_preservation_rejects_unregistered_or_tampered_derivatives(tmp_path, mutation):
+    module, name, original, actual, target, proof_path, ledger = metadata_preservation_fixture(tmp_path)
+    row = ledger["preservation_bindings"][0]
+    if mutation == "bytes":
+        target.write_bytes(target.read_bytes() + b" ")
+        actual = module.digest(target)
+    elif mutation == "canonical":
+        row["canonical_json_sha256"] = "0" * 64
+    elif mutation == "origin":
+        row["original_lf_sha256"] = "0" * 64
+    elif mutation == "missing":
+        ledger["preservation_bindings"] = []
+    elif mutation == "duplicate":
+        ledger["preservation_bindings"].append(copy.deepcopy(row))
+    elif mutation == "unknown_path":
+        name = "research/results/unregistered.json"
+    else:
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        payload["J"] = 0.5
+        target.write_text(json.dumps(payload), encoding="utf-8")
+        actual = module.digest(target)
+        row["lf_sha256"] = actual
+        row["canonical_json_sha256"] = module.canonical_json_hash(payload)
+        # A repinned public serialization still must retain original observations.
+    proof_path.write_text(json.dumps(ledger), encoding="utf-8")
+    with pytest.raises(AssertionError, match="Historical evidence changed"):
+        module.published_metadata_binding(tmp_path, name, original, actual)
+
+
+def test_comment_only_adapter_source_binding_keeps_archived_execution_identity():
+    module = load_script("40_verify_model_adaptation")
+    report = module.check()
+    metadata = report["published_source_metadata"]
+    assert metadata["new_matlab_runs"] == 0
+    assert metadata["original_generated_utc"] == report["generated_utc"]
+    old = report["original_source_hashes"]
+    current = report["source_hashes"]
+    assert old.keys() == current.keys()
+    assert {name for name in old if old[name] != current[name]} == {"matlab/save_demo_traces.m"}
+    binding, = metadata["source_derivatives"]
+    assert binding["original_lf_sha256"] == old[binding["path"]]
+    assert binding["lf_sha256"] == current[binding["path"]] == module.digest(ROOT / binding["path"])
+    raw = (ROOT / binding["path"]).read_bytes().replace(b"\r\n", b"\n")
+    non_comments = b"\n".join(line for line in raw.splitlines() if not line.lstrip().startswith(b"%"))
+    assert hashlib.sha256(non_comments).hexdigest() == binding["non_comment_lines_sha256"]

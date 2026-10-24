@@ -300,7 +300,7 @@ state ──► [L1 粗调] choice×3 (Kp,Ki,Kd 倍率)  ──┐   1 次前向
                                                      └──────────────────────────┘
 ```
 
-**为什么保留 Track B**：它是**今天就能跑通**的零样本基线；也是 Track A 的教师（用 Laya 的 JSON 状态判定为合成数据做伪标签/基准学习）；还能吃"文本型状态"（如"电机有异响、电流纹波增大"这类只能文本描述的现象）。
+**为什么保留 Track B**：它是**今天就能跑通**的零样本基线；也是 Track A 的教师（用 Laya 的 JSON 状态判定为合成数据做伪标签/分阶段学习）；还能吃"文本型状态"（如"电机有异响、电流纹波增大"这类只能文本描述的现象）。
 
 ### 6.2 一次迭代的数据流
 
@@ -476,12 +476,12 @@ pip install "C:\Program Files\MATLAB\R2024b\extern\engines\python"  # matlab.eng
 
 ## 附录 B：本机 benchmark 复现
 
-This historical benchmark used a private benchmark, which is not distributed.
+This historical benchmark used a private motor-valve benchmark model, which is not distributed.
 The command must be run from the repository root with your own permitted model;
 the private model's original timing is not reproducible from this public checkout
 alone. MATLAB is discovered through `PATH`; no developer checkout path is needed.
 
-历史测试使用未分发的私有基准模型。请在仓库根目录运行，并自行提供有权使用的模型；
+历史测试使用未分发的私有电机阀门基准模型。请在仓库根目录运行，并自行提供有权使用的模型；
 仅凭本公开仓库不能复现该私有模型的原始计时。MATLAB通过`PATH`发现，不依赖开发者目录。
 
 ```powershell
