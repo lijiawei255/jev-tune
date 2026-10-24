@@ -51,7 +51,7 @@ def _n_actions(models_dir: Path) -> int:
 def _matlab_found() -> bool:
     """Any MATLAB the runner can find: PATH, MATLAB_EXE, Program Files, registry."""
     try:
-        from .matlab_runner import find_matlab
+        from .domains.pid.matlab_runner import find_matlab
 
         return find_matlab().ok
     except Exception:
@@ -142,7 +142,7 @@ def cmd_demo(args) -> int:
     ku, tu = ultimate_gain(plants)
     gzn = np.column_stack([0.6 * ku, 1.2 * ku / tu, 0.075 * ku * tu])
 
-    from .decision import load_backend
+    from .domains.pid.decision import load_backend
 
     head = load_backend(weights.parent)
     zn = run_zn(plants)
@@ -185,7 +185,7 @@ def cmd_demo(args) -> int:
 
 def cmd_discover(args) -> int:
     """Find the PID gains, the measured signal and the reference in a model."""
-    from .matlab_runner import run_discover
+    from .domains.pid.matlab_runner import run_discover
 
     if not args.model:
         print("--model is required", file=sys.stderr)
@@ -234,7 +234,7 @@ def cmd_discover(args) -> int:
 
 def cmd_doctor(args) -> int:
     """Say why a model can or cannot be tuned, one check per line."""
-    from .matlab_runner import run_doctor
+    from .domains.pid.matlab_runner import run_doctor
 
     if not args.model:
         print("--model is required", file=sys.stderr)
@@ -338,7 +338,7 @@ def _matlab_config(args) -> dict:
 
 def cmd_matlab(args) -> int:
     """Run one Simulink tuning job (or probe MATLAB) and print JSON."""
-    from .matlab_runner import probe, run_job
+    from .domains.pid.matlab_runner import probe, run_job
 
     cfg: dict = {}
     if not args.probe and args.model:
@@ -354,7 +354,7 @@ def cmd_matlab(args) -> int:
         if not args.model:
             print("--model is required with --all-loops", file=sys.stderr)
             return 2
-        from .matlab_runner import run_all_loops
+        from .domains.pid.matlab_runner import run_all_loops
 
         if getattr(args, "plot", None):
             result = {"ok": False, "code": "unsupported_option",
@@ -394,11 +394,11 @@ def cmd_matlab(args) -> int:
         if result.get("ok"):
             result["config"] = {k: v for k, v in cfg.items() if k != "model"}
             if getattr(args, "plot", None):
-                from .plot import save_before_after
+                from .domains.pid.plot import save_before_after
 
                 result["plot"] = str(save_before_after(result, args.plot))
             if getattr(args, "write_back", False):
-                from .matlab_runner import run_writeback
+                from .domains.pid.matlab_runner import run_writeback
 
                 blocks = {
                     "kp_block": cfg.get("kp_block"),
@@ -491,9 +491,9 @@ def cmd_loop(args) -> int:
     a different way to run an experiment.  It exists so a user without MATLAB can
     see the loop work, and so CI exercises the decision path on every push.
     """
-    from .evaluate import evaluate_head
-    from .model import JevHead
-    from .plants import make_plant, ultimate_gain
+    from .domains.pid.evaluate import evaluate_head
+    from .domains.pid.model import JevHead
+    from .domains.pid.plants import make_plant, ultimate_gain
 
     import numpy as np
 
@@ -518,7 +518,7 @@ def cmd_loop(args) -> int:
     ku, tu = ultimate_gain(plant)
     gzn = np.array([[0.6 * ku[0], 1.2 * ku[0] / tu[0], 0.075 * ku[0] * tu[0]]])
 
-    from .decision import load_backend
+    from .domains.pid.decision import load_backend
 
     head = load_backend(weights.parent)
     result = evaluate_head(
@@ -580,7 +580,7 @@ def cmd_batch(args) -> int:
     """Run a queue of tuning jobs, optionally across several MATLAB workers."""
     from concurrent.futures import ThreadPoolExecutor
 
-    from .matlab_runner import run_batch
+    from .domains.pid.matlab_runner import run_batch
 
     jobs = json.loads(Path(args.jobs).read_text(encoding="utf-8-sig"))
     if isinstance(jobs, dict):
@@ -590,7 +590,7 @@ def cmd_batch(args) -> int:
         job.setdefault("step_gain", args.step_gain)
 
     if args.workers and args.workers > 1:
-        from .matlab_worker import MatlabWorker
+        from .domains.pid.matlab_worker import MatlabWorker
 
         n = min(int(args.workers), len(jobs))
         workers = [MatlabWorker(timeout=args.timeout) for _ in range(n)]

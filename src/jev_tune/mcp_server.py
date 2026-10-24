@@ -201,7 +201,7 @@ def _status() -> dict:
         "matlab": None,
     }
     try:
-        from .matlab_runner import find_matlab
+        from .domains.pid.matlab_runner import find_matlab
 
         m = find_matlab()
         info["matlab"] = str(m.executable) if m.ok else None
@@ -219,14 +219,14 @@ def _status() -> dict:
 
 
 def _probe() -> dict:
-    from .matlab_runner import probe
+    from .domains.pid.matlab_runner import probe
 
     return probe()
 
 
 def _tune_simulink(args: dict) -> dict:
     # Reuse the MATLAB process; each request rebuilds its own model and ledger.
-    from .matlab_worker import tune_with_worker
+    from .domains.pid.matlab_worker import tune_with_worker
 
     model = args.get("model")
     if not model:
@@ -260,14 +260,14 @@ def _tune_simulink(args: dict) -> dict:
 
 
 def _tune_doctor(args: dict) -> dict:
-    from .matlab_runner import run_doctor
+    from .domains.pid.matlab_runner import run_doctor
 
     return run_doctor(args["model"], discover=bool(args.get("discover", True)),
                       timeout=float(args.get("timeout", 600)))
 
 
 def _tune_discover(args: dict) -> dict:
-    from .matlab_runner import run_discover
+    from .domains.pid.matlab_runner import run_discover
 
     return run_discover(
         args["model"],
@@ -278,7 +278,7 @@ def _tune_discover(args: dict) -> dict:
 
 
 def _tune_apply_gains(args: dict) -> dict:
-    from .matlab_runner import run_writeback
+    from .domains.pid.matlab_runner import run_writeback
 
     gains = [float(g) for g in args.get("gains") or []]
     if len(gains) != 3:

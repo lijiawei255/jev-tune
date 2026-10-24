@@ -5,11 +5,11 @@ Runtime contract: every decision is expressed as one of three Jev primitives --
 yes/no).  There is no parallel "regress the gain directly" pathway.
 """
 
-from .plants import PlantSet, sample_plants, simulate, gains_to_params, METRIC_NAMES
-from .metrics import cost_from_metrics, is_failed
-from .state import build_state, FEATURE_NAMES, N_FEATURES
-from .primitives import Choice, Score, Noul, Answer, softmax
-from .decode import ActionSpace, decode_choice, apply_step
+from .domains.pid.plants import PlantSet, sample_plants, simulate, gains_to_params, METRIC_NAMES
+from .domains.pid.metrics import cost_from_metrics, is_failed
+from .domains.pid.state import build_state, FEATURE_NAMES, N_FEATURES
+from .core.primitives import Choice, Score, Noul, Answer, softmax
+from .domains.pid.action import ActionSpace, decode_choice, apply_step
 
 __all__ = [
     "PlantSet",
