@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "study_id": "nonpid_denoise_transfer_v0100",
+  "status": "frozen_before_training_and_testing",
+  "purpose": "One prospective, low-cost, non-PID transfer demonstration and a bounded empirical test of learned-policy value. No architecture or hyperparameter selection from its test results.",
+  "task": {
+    "name": "offline_reference_denoising_calibration",
+    "length": 192,
+    "generator": "Independent SeedSequence([split_seed, object_index]); amplitude U(.5,1.5), f1 U(.005,.03), f2 U(.03,.09), phases U(0,2*pi), drift U(-.3,.3), step U(-.5,.5), step index integer[48,144), Gaussian sigma U(.05,.4), impulse probability U(.005,.04), impulse amplitude U(1,4). Draw in that order; then Gaussian noise, impulse mask and independent +/- signs. clean=amplitude*(sin(2*pi*f1*t+phase1)+.35*sin(2*pi*f2*t+phase2))+drift*t/191+step*(t>=step_index).",
+    "parameters": {"normalized_bounds": [0.0, 1.0], "start": [0.5, 0.5], "physical_mapping": ["winsor_k=1+5*theta[0]", "cutoff_cycles_per_sample=.02*(.35/.02)**theta[1]"]},
+    "algorithm": "Local median size9 reflect; scale=max(1.4826*median_filter(abs(noisy-localmedian),size9,reflect),.02); winsorize noisy to median +/- k*scale; scipy.signal.butter(order=2,Wn=2*cutoff,output=sos), then sosfiltfilt defaults.",
+    "objective": "Mean squared error against the immutable clean reference; lower is better; every candidate evaluation is a full fresh filter execution. Same fixed noisy/reference pair for all arms on each object.",
+    "observation": "16 features: theta[0:2],log1p(current_J),previous_change_in_log1p_J; noisy mean/std/difference_std/lag1_correlation; output same four; residual(noisy-output) mean/std/abs_p90/lag1_correlation. No clean samples or latent generator parameters. Baselines have the same observation API.",
+    "scope": "Synthetic offline reference calibration, not blind denoising, an external dataset, a hardware controller, or evidence that PID weights transfer. Noncausal filtering is deliberate."
+  },
+  "splits": {
+    "train": {"seed": 101001, "n": 256, "teacher_stages": 4},
+    "temperature": {"seed": 101002, "n": 128, "teacher_stages": 1},
+    "conformal": {"seed": 101003, "n": 256, "teacher_stages": 1},
+    "test": {"seed": 101004, "n": 256, "teacher_stages": 1}
+  },
+  "teacher": {
+    "vocabulary": [-0.2, -0.05, 0.0, 0.05, 0.2],
+    "candidate_rule": "Full 5x5 joint additive grid around the current theta, clipped to bounds. Exact clipped-coordinate duplicates reuse only measurements from the same object/ledger. Choose minimum measured J, breaking ties by smallest nominal squared step then lexicographic option indices. Both labels come from that joint action. Train trajectories move to this measured best; held states reuse their current observation.",
+    "test_label_use": "Independent initial-state CP diagnostic only, acquired after models and calibrations are frozen; never fed to operating arms or parameter fitting."
+  },
+  "training": {
+    "seeds": [101, 202, 303],
+    "architecture": [16, 32, 32, 10],
+    "activation": "Tanh",
+    "dtype": "float64 CPU",
+    "epochs": 100,
+    "batch_size": 128,
+    "optimizer": "Adam",
+    "learning_rate": 0.001,
+    "loss": "Mean cross entropy over the two five-option axes",
+    "normalization": "Training-feature mean and population standard deviation, standard deviation floored at 1e-8; shared fixed dataset across seeds.",
+    "selection": "Final epoch for all three seeds. No early stopping, development search, seed selection, checkpoint selection or test-driven rerun. Record SGD steps, CPU and wall time separately from objective evaluations."
+  },
+  "calibration": {
+    "temperature": "Reuse calibrate_temperature separately per axis, using only the independent temperature split after weight fitting.",
+    "conformal": "Reuse fit_split_conformal after temperatures freeze, alpha=.10, complete sets; monitor mode only.",
+    "scope": "Per-axis joint-grid-teacher-label marginal coverage on independent initial-state signals under this fixed generator and canonical inference mapping. Not joint-axis, reached-state, accepted-action, closed-loop safety or performance coverage. Empirical coverage is descriptive, not a test-driven threshold."
+  },
+  "operating": {
+    "budgets": [8, 20],
+    "primary_budget": 20,
+    "methods": ["typed_seed_101", "typed_seed_202", "typed_seed_303", "coordinate_search", "space_filling", "simplex"],
+    "independent_run_per_budget": true,
+    "initial_measurement_in_budget": true,
+    "typed": "Single object shape (1,16) on every inference, unchanged Choice/Option/Answer/Noul and decide; space=None, max_step=.2, shrinkage=1, abstain=None, CP monitor. Noul means finite observation validity, not a trained harmful-action probability. Clip additive theta; act on current actual observation; return best actually measured. Stop on exact repeated theta or budget. No PID fallback.",
+    "coordinate_search": "Probe +/- coordinate directions around measured best, using step schedule [.2,.1,.05,.025], cycle directions in fixed axis/sign order, repeat last scale after schedule; cached duplicates cost zero. Return best measured.",
+    "space_filling": "Shared start then unscrambled two-dimensional Halton points from index1 onward. No hidden task parameters; return best measured.",
+    "simplex": "scipy.optimize.minimize Nelder-Mead from shared start; explicit initial simplex [[.5,.5],[.7,.5],[.5,.7]], bounded [0,1], xatol=fatol=0, maxiter=maxfev=4*budget. Budget wrapper rejects excess fresh evaluations before running the objective; duplicates reuse same-ledger observations. Return best measured.",
+    "proposal_cap": "4*budget requests per operating run; exhaustion stops, never fabricates measurements. No-action/cache events are recorded separately."
+  },
+  "accounting": {
+    "maximum_objective_evaluations": 83840,
+    "training_label_maximum": 24832,
+    "temperature_label_maximum": 3200,
+    "conformal_label_maximum": 6400,
+    "test_label_diagnostic_maximum": 6400,
+    "operating_maximum": 43008,
+    "formula": "256*(1+4*24) + (128+256+256)*25 + 256*6*(8+20)",
+    "rules": "Actual unique fresh evaluations in each ledger, including failures; no cache shared across splits, objects or operating arms/budgets. Shared teacher dataset acquisition is charged once physically and in full to each deployable model's standalone cost. Three optimizer seeds are correlated model replicates, not extra independent test objects. Report aggregate study spend, standalone training+T+CP cost, offline test diagnostic cost, per-task operating spend and cost-versus-task-count; no finite amortization break-even claim when learned operating calls do not improve on a comparator. No uncharged final/reference search."
+  },
+  "acceptance": {
+    "framework_transfer": "Unchanged source hashes for primitives.py and decode.py; trained non-PID checkpoint used in complete measured loops; valid additive actions, exact ledger budget accounting, measured-best return, independent split identities, reproducible raw evidence and generated bilingual docs.",
+    "stable_empirical_policy_benefit": "At the sole primary budget20, EVERY one of the three trained seeds must have mean final MSE <= .95 times EACH of the three fixed baselines' mean, and p90 MSE <= EACH baseline's p90. All source/data integrity and budget checks must pass. This is a preregistered empirical stability rule, not a statistical confidence or universal-superiority guarantee.",
+    "failure_action": "Report negative_stop, preserve checkpoints/calibrations/raw failures and reproduction. Stop policy/risk deepening; no new head, threshold, budget, seed, task variant or acceptance adjustment using this test. Generic Python/C/MATLAB PID deployment stays unchanged.",
+    "pass_scope": "Only this synthetic offline task, fixed generator, normalized bounds, reference availability, operating budget and three trained artifacts. No automatic enabling on external tasks.",
+    "secondary": "Budget8, per-seed variation, initial-state CP empirical coverage/set size, trial cost increases, runtime and amortization are descriptive. No bootstrap interval or multiple-comparison significance claim."
+  },
+  "reuse": {
+    "unchanged": ["src/jev_tune/primitives.py", "src/jev_tune/decode.py"],
+    "reused": ["Choice/Option/Answer/Noul", "softmax", "calibrate_temperature", "fit_split_conformal", "decide with numeric payloads and CP monitor"],
+    "new_domain_owned": ["signal generator and reference evaluator", "16-feature observation", "two-axis MLP and labels", "normalized additive actuation", "objective ledger and budget loop", "baselines and task-specific acceptance"],
+    "not_reused": ["PID checkpoint/features/three-axis schema", "PID multiplicative apply_step", "PID objective and rollback", "Score (optional primitive unused here)", "complex joint risk heads"]
+  },
+  "reproduction": "One primary execution after protocol and implementation commits are pushed. Existing outputs cannot be overwritten; any replay writes to a separate output root. The original protocol, raw evidence and negative conclusions are immutable."
+}
