@@ -11,7 +11,8 @@ Regenerate with a real model (MATLAB required, once):
     jev-tune discover --model path/Model.slx --json > discover.json
     python scripts/15_make_discovery_gif.py graph.json discover.json assets/discover.gif
 
-The default paths point at lab model used in docs/STEP4_RESULTS.md.
+The default paths use the project's generated public demo model. benchmark
+graphs and discovery exports are private inputs and are not release defaults.
 """
 
 from __future__ import annotations
@@ -415,8 +416,8 @@ def frame(fig, graph, disc, pos, fb, depth, scopes, drawn, t, total):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("graph", nargs="?", default="research/_graph_benchmark.json")
-    ap.add_argument("discover", nargs="?", default="research/_disc_benchmark.json")
+    ap.add_argument("graph", nargs="?", default="research/results/demo_discovery_graph_v0100.json")
+    ap.add_argument("discover", nargs="?", default="research/results/demo_discovery_v0100.json")
     ap.add_argument("out", nargs="?", default="assets/discover.gif")
     ap.add_argument("--seconds", type=float, default=7.5)
     args = ap.parse_args()

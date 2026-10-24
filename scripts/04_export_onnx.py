@@ -7,7 +7,7 @@ Two numbers matter and they are not the same:
   the ``Choice``/``Score``/``Noul`` objects and the gain step.  This is what the
   loop actually pays per iteration.
 
-Both are written to ``research/results/latency.json`` so ``docs/claims.json``
+Both are written to ``research/results/latency_v0100.json`` so ``docs/claims.json``
 can re-read them instead of trusting prose.
 """
 
@@ -50,7 +50,7 @@ def main():
     ap.add_argument("--out", default="models/jev_head.onnx")
     ap.add_argument("--weights", default="jev_head.pt", help="checkpoint file name")
     ap.add_argument("--reps", type=int, default=2000)
-    ap.add_argument("--json-out", default="research/results/latency.json")
+    ap.add_argument("--json-out", default="research/results/latency_v0100.json")
     args = ap.parse_args()
     if args.reps < 1:
         ap.error("--reps must be positive")

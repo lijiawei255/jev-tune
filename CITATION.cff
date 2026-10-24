@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "jev-tune: a Jev-inspired typed-decision model for PID autotuning"
+title: "jev-tune: a calibrated decision and safety-shell reference with a PID testbed"
 message: "If you use this software, please cite this version (and, once a DOI is minted, the archived release it points to)."
 type: software
 authors:
@@ -9,7 +9,8 @@ license: MIT
 repository-code: "https://github.com/lijiawei255/jev-tune"
 url: "https://github.com/lijiawei255/jev-tune"
 abstract: >-
-  A CPU-only PID autotuner in which each decision is a typed judgement
+  A decomposable calibrated decision and safety-shell reference with PID
+  and non-PID simulation testbeds. Each decision is a typed judgement
   (choice / score / noul) produced by a small numeric head,
   instead of an autoregressive language-model call. The project borrows Jev's
   interface (TypeSafe AI) and none of its weights, text encoder or API; it is
@@ -26,5 +27,5 @@ keywords:
   - Jev-inspired
   - ONNX
   - CPU inference
-version: 0.5.0
+version: 0.10.0
 date-released: "2026-10-24"

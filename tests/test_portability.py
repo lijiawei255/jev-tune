@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_matlab_report_binds_the_exported_inputs_and_implementation():
-    report = json.loads((ROOT / "research/results/matlab_parity.json").read_text())
+    report = json.loads((ROOT / "research/results/matlab_parity_v0100.json").read_text())
     assert report["ok"] and report["cases"] == 24 and report["policy_cases"] >= 27
     assert report["schema_version"] == 3 and report["configuration"]["conformal"]["enabled"]
     assert report["configuration"]["conformal"]["mode"] == "monitor"

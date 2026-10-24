@@ -1,3 +1,13 @@
+[English](README.md) · [简体中文](README.zh-CN.md)
+
+<!-- transfer-shell:zh:start -->
+**定位：以PID为验证床的可拆解 Calibrated Decision & Safety Shell。** 新增非PID离线去噪标定完成三个模型的真实训练与独立测试，策略收益验收为`negative_stop`；预算20时三模型平均MSE为0.01555577–0.01582834，simplex为0.01423997，没有稳定收益，停止本轮策略深化。前瞻采集实际76683次，单模型离线训练/校准标注成本27345次；原始负结果、冻结协议和复现入口保留，复杂风险研究仍暂停。
+
+每个独立温度/CP分区分别16、32、64个标注状态（合计32、64、128）时，九项组合的宿主纯拟合中位耗时范围为4.601500–5.744300 ms。标签采集、推理、通信和设备执行不在该拟合计时内；这不证明跨天、VLA、临床或目标板有效性。非PID研究没有替换PID模型或默认策略；本版本另外加固了C/MATLAB输入与数值处理。C99 checked入口拒绝非法状态/温度/策略及数值失败，清空旧动作并全轴保持。默认CP仍为完整集合monitor，显式hard_hold可事前否决；测后rollback是领域恢复提案，并非物理安全证明。
+
+见[外壳与迁移边界](docs/SAFETY_SHELL.md)、[完整非PID证据](docs/NONPID_TRANSFER.md)、[少样本重标定](docs/RECALIBRATION.md)、[宿主资源指标](docs/COMPUTE.md)。
+<!-- transfer-shell:zh:end -->
+
 # jev-tune
 
 <!-- practical-mainline:zh:start -->
@@ -64,10 +74,9 @@ solver      ...
 
 ![在不认识的模型上做自动发现](assets/discover.gif)
 
-*这是 `discover` 在一台实验课电机上的全过程，**逐帧都来自模型本身**：误差汇合点由一次
-仿真确认（参考值与稳态输出是同一个物理量），每个增益按"它和汇合点之间有什么"分类，
-再用扰动仿真确认"把它翻倍是否真的改变响应"。上面这些块名**没有参与任何判断**——
-`Gain_Kp` 改叫 `alpha` 结果完全一样。重新生成用 `scripts/15_make_discovery_gif.py`。*
+*动图使用本项目自建模型及真实graph/discovery记录，展示误差汇合点、增益路径分类和
+确认扰动仿真；不含基准模型结构或界面截图。公开输入和重生成步骤见
+[`OPEN_SOURCE`](docs/OPEN_SOURCE.md)。*
 
 ## 从哪读起
 
@@ -106,7 +115,8 @@ solver      ...
 
 ![在真实 Simulink 直流电机上调参](assets/tuning.gif)
 
-*上面每一帧都是基准实验里那台直流电机模型上的一次真实闭环实验。调的是
+*这是采用旧目标与旧扫描流程的历史运行，修正说明见
+[`STEP4_RESULTS`](docs/STEP4_RESULTS.md)。每一帧都是基准电机上的一次已记录闭环实验。调的是
 `Kp / Ki / Kd`，右边是它正在最小化的代价。最好的增益出现在第 5 次实验
 （约 0.55 秒仿真），停滞检测在第 9 次停下。*
 
@@ -139,7 +149,7 @@ solver      ...
 | | |
 | :--- | :--- |
 | **做什么** | 看刚测到的响应，决定下一步把 PID 增益乘多少 |
-| **多快** | ONNX前向中位<!-- claim:decision_ms -->0.024<!-- /claim --> ms；Python默认类型化/弃权路径中位<!-- claim:typed_decision_ms -->0.313<!-- /claim --> ms、p99 <!-- claim:typed_decision_p99_ms -->0.709<!-- /claim --> ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |
+| **多快** | ONNX前向中位<!-- claim:decision_ms -->0.022<!-- /claim --> ms；Python默认类型化/弃权路径中位<!-- claim:typed_decision_ms -->0.375<!-- /claim --> ms、p99 <!-- claim:typed_decision_p99_ms -->1.230<!-- /claim --> ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |
 | **历史MATLAB运行** | v0.2实验课电机的**5次实验**将记录代价从**1.238降至0.598**。这是旧目标下的历史测量，不是当前重跑；之前的扫描修复和v0.9时间网格积分修正都没有更新这些数字。见[STEP4_RESULTS](docs/STEP4_RESULTS.md)。 |
 | **多能泛化** | 历史验证族中位0.482；冻结热工族中位1.833，对应基线与oracle先验见下表；独立的v0.9固定起点评测见[PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md)。 |
 
@@ -466,12 +476,14 @@ assets/          README 用到的 GIF 和图片
   上开发的，随后在 10 个分布外控制场景和一个小型生成模型
   （`matlab/make_demo_model.m`）上验证。**基准实验里的那台电机模型**
   只是其中**又一个实验场**：一个刚好在手的、比较真实的 Simulink 被控对象。它
-  *不* 参与训练出厂权重，仓库里也不包含该模型——演示图只展示我们自己绘制的曲线。
+  公开训练代码使用合成仿真；基准观察影响了后续动物园设计，因此属于开发示例。
+  当前源码树和新发布不含基准原文件，保留的历史响应图是本项目自主绘制。
   其余实验场见 [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md)。
 * **Jev**（TypeSafe AI）与 **Laya**（Convai Innovations）启发了本项目实现的接口，
   与之无隶属、无背书关系。
 * **MATLAB** / **Simulink** 是 The MathWorks, Inc. 的商标。
 * 用了哪些第三方代码、哪些刻意没有放进来、各自的许可证：[`NOTICE.md`](NOTICE.md)。
+* 完整源码、模型、数据的分发及排除清单：[`OPEN_SOURCE`](docs/OPEN_SOURCE.md)。
 
 ## 许可证
 

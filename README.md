@@ -1,3 +1,13 @@
+[English](README.md) · [简体中文](README.zh-CN.md)
+
+<!-- transfer-shell:en:start -->
+**Scope: a decomposable Calibrated Decision & Safety Shell with a PID testbed.** A new non-PID offline denoising task includes three genuinely trained models and independent testing; policy-benefit acceptance is `negative_stop`. At budget20, learned mean MSE spans 0.01555577–0.01582834, versus simplex 0.01423997. Stable benefit was not established; this policy investigation stops. Prospective acquisition used 76683 objective calls; standalone training/calibration labels cost 27345 per model. Negative raw evidence, frozen protocols and reproduction remain available; complex risk research stays paused.
+
+Using 16, 32 or 64 labeled states in EACH independent temperature/CP split (32, 64 or 128 total), the nine host fit-time medians span 4.601500–5.744300 ms. Label acquisition, inference, communication and device execution are excluded. This does not validate cross-day, VLA, clinical or target-board operation. The non-PID study did not replace the PID model or default policy; this release separately hardens C/MATLAB input and numeric handling. The C99 checked entry rejects invalid states/temperatures/policies and numeric failures, clears stale actions and holds every axis. Default CP retains complete monitor sets; explicit hard_hold can veto before actuation. Post-measurement rollback is domain-owned recovery, not a physical-safety proof.
+
+See [shell and transfer boundaries](docs/SAFETY_SHELL.md), [complete non-PID evidence](docs/NONPID_TRANSFER.md), [small-sample recalibration](docs/RECALIBRATION.md), and [host resources](docs/COMPUTE.md).
+<!-- transfer-shell:en:end -->
+
 # jev-tune
 
 <!-- practical-mainline:en:start -->
@@ -82,12 +92,11 @@ a cascade and reporting success would be worse than saying so. See
 
 ![discovery on an unseen model](assets/discover.gif)
 
-*What `discover` does on a lab motor, **step by step and from the model
-itself**: the error junction is confirmed by one run (the reference and the
-steady-state output are the same quantity), each gain is classified by what sits
-between it and that junction, and perturbation simulations check whether doubling it
-actually moves the response. The block names above are never used to decide
-anything — `Gain_Kp` could be called `alpha` and the result would be identical.
+*The animation uses this project's generated model and actual graph/discovery
+records. It shows the error junction, gain-path classification and confirming
+perturbation simulations. It contains no benchmark structure or screenshot.
+The public inputs and regeneration recipe are listed in
+[`OPEN_SOURCE`](docs/OPEN_SOURCE.md).
 Regenerate with `scripts/15_make_discovery_gif.py`.*
 
 ## Where to read next
@@ -123,7 +132,8 @@ produces a single gain set after hours, not a series of experiments.*
 
 ![tuning a real Simulink DC motor](assets/tuning.gif)
 
-*Every frame above is one real closed-loop experiment on the lab
+*Historical run under the earlier objective and sweep; see the corrections in
+[`STEP4_RESULTS`](docs/STEP4_RESULTS.md). Every frame is one recorded closed-loop experiment on the lab
 DC-motor model in Simulink. The tuner is choosing `Kp`, `Ki`, `Kd` itself; the
 right panel is the cost it is minimising. The best gains appeared after five
 experiments (~0.55 s of simulation); the stall detector stopped the loop at nine.*
@@ -157,7 +167,7 @@ Pairing fixes initial plants and observations; it does not require bitwise-ident
 | | |
 | :--- | :--- |
 | **What it does** | picks the next PID gain step from the measured response and records probability/set diagnostics |
-| **How fast** | ONNX forward <!-- claim:decision_ms -->0.024<!-- /claim --> ms median; Python default typed/abstention path <!-- claim:typed_decision_ms -->0.313<!-- /claim --> ms median, <!-- claim:typed_decision_p99_ms -->0.709<!-- /claim --> ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |
+| **How fast** | ONNX forward <!-- claim:decision_ms -->0.022<!-- /claim --> ms median; Python default typed/abstention path <!-- claim:typed_decision_ms -->0.375<!-- /claim --> ms median, <!-- claim:typed_decision_p99_ms -->1.230<!-- /claim --> ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |
 | **Historical MATLAB run** | **5 experiments** on the lab motor cut the recorded cost from **1.238 to 0.598** in v0.2. These are historical measurements under the old objective, not a current rerun; neither the earlier sweep repair nor the v0.9 time-grid correction updates those numbers. See [STEP4_RESULTS](docs/STEP4_RESULTS.md). |
 | **How it generalises** | Historical validation median 0.482; frozen thermal median 1.833. Their baselines and oracle priors are shown below; the separate v0.9 fixed-start comparison is in [PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md). |
 
@@ -559,14 +569,17 @@ There is also a [`CITATION.cff`](CITATION.cff) if your tool reads it.
   checked on ten out-of-distribution control scenarios plus a small generated
   model (`matlab/make_demo_model.m`). The **lab motor model** is
   simply one more bench: a realistic Simulink plant that happened to be at hand.
-  It is *not* used to train the shipped head, and the repository does not contain
-  it — the demo figures show our own plotted output only. See
+  The published training code uses synthetic simulations; benchmark observations
+  influenced later zoo design, so this is a development example. The current
+  source tree and new release omit its original files; historical response plots
+  are our own rendering. See
   [`docs/GENERALIZATION.md`](docs/GENERALIZATION.md) for the other benches.
 * **Jev** (TypeSafe AI) and **Laya** (Convai Innovations) inspired the interface
   this project implements. There is no affiliation, endorsement or sponsorship.
 * **MATLAB** / **Simulink** are trademarks of The MathWorks, Inc.
 * Which third-party code is used, what is deliberately absent, and under which
   licences: [`NOTICE.md`](NOTICE.md).
+* Complete source/model/data distribution and exclusions: [`OPEN_SOURCE`](docs/OPEN_SOURCE.md).
 
 ## Licence
 

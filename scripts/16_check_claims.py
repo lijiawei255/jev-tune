@@ -143,7 +143,7 @@ def generated_documents() -> list[dict]:
         return render(payload).strip()==(ROOT/'docs'/doc).read_text(encoding='utf-8').strip()
     for number, artifact, doc in [("17_ablation","ablation.json","ABLATION.md"),
                                   ("20_abstention","abstention.json","ABSTENTION.md"),
-                                  ("21_hardware","hardware.json","COMPUTE.md"),
+                                  ("21_hardware","hardware_v0100.json","COMPUTE.md"),
                                   ("22_calibrate_only","calibrate_only.json","CALIBRATE_ONLY.md"),
                                   ("25_joint_risk","joint_risk.json","JOINT_RISK.md"),
                                   ("26_cp_diagnosis","cp_diagnosis.json","CP_DIAGNOSIS.md"),
@@ -514,6 +514,31 @@ def practical_evidence() -> list[dict]:
     return rows
 
 
+def transfer_shell_evidence() -> list[dict]:
+    """Independently audit the new domain and preserve negative acceptance."""
+    rows = []
+    for name, source in (
+        ('46_verify_nonpid_transfer', 'research/results/nonpid_transfer/report.json'),
+        ('48_recalibration_benchmark', 'research/results/recalibration_benchmark.json'),
+        ('49_sync_shell_docs', 'docs/SAFETY_SHELL.md'),
+        ('50_open_source_inventory', 'research/results/open_source_inventory_v0100.json'),
+    ):
+        try:
+            spec = importlib.util.spec_from_file_location(name, ROOT/'scripts'/(name+'.py'))
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[name] = module
+            spec.loader.exec_module(module)
+            result = module.check(root=ROOT)
+            assert result and result['ok'] is True
+            extra = result.get('additional_verification_objective_evaluations', 0)
+            ok, detail = True, f'independent evidence verified; additional_verification_objective_evaluations={extra}'
+        except Exception as exc:
+            ok, detail = False, f'{type(exc).__name__}: {exc}'
+        rows.append({'id':'shell:'+name, 'text':'Calibrated shell and measured non-PID transfer',
+                     'ok':ok, 'value':None, 'source':source, 'detail':detail})
+    return rows
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
@@ -542,7 +567,7 @@ def main() -> int:
                 "source": claim["source"],
             }
         )
-    for checker in (benchmark_tables,generated_documents,decision_evidence,rollout_evidence,performance_diagnosis_evidence,trajectory_evidence,cohort_portability_evidence,practical_evidence):
+    for checker in (benchmark_tables,generated_documents,decision_evidence,rollout_evidence,performance_diagnosis_evidence,trajectory_evidence,cohort_portability_evidence,practical_evidence,transfer_shell_evidence):
         try:
             checked_rows=checker()
         except Exception as exc:

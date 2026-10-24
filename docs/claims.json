@@ -4,9 +4,9 @@
     {
       "id": "decision_ms",
       "text": "Current registered decision_ms; see artifact and protocol",
-      "source": "research/results/latency.json",
+      "source": "research/results/latency_v0100.json",
       "path": "onnx_forward_ms",
-      "value": 0.02370000584051013,
+      "value": 0.022300000637187622,
       "tol": 1e-09,
       "reproduce": "python scripts/04_export_onnx.py",
       "documents": [
@@ -27,9 +27,9 @@
     {
       "id": "typed_decision_ms",
       "text": "Current registered typed_decision_ms; see artifact and protocol",
-      "source": "research/results/latency.json",
+      "source": "research/results/latency_v0100.json",
       "path": "typed_decision_ms",
-      "value": 0.3125000002910383,
+      "value": 0.3745500007426017,
       "tol": 1e-09,
       "reproduce": "python scripts/04_export_onnx.py",
       "documents": [
@@ -50,9 +50,9 @@
     {
       "id": "typed_decision_p99_ms",
       "text": "Current registered typed_decision_p99_ms; see artifact and protocol",
-      "source": "research/results/hardware.json",
+      "source": "research/results/hardware_v0100.json",
       "path": "typed_decision_p99_ms",
-      "value": 0.7086099969455972,
+      "value": 1.2298160001591896,
       "tol": 1e-09,
       "reproduce": "python scripts/21_hardware.py",
       "documents": [
@@ -439,7 +439,7 @@
     {
       "id": "params_decision_path",
       "text": "Current registered params_decision_path; see artifact and protocol",
-      "source": "research/results/hardware.json",
+      "source": "research/results/hardware_v0100.json",
       "path": "params.decision_path",
       "value": 40683.0,
       "tol": 1e-09,
@@ -454,7 +454,7 @@
     {
       "id": "macs_per_decision",
       "text": "Current registered macs_per_decision; see artifact and protocol",
-      "source": "research/results/hardware.json",
+      "source": "research/results/hardware_v0100.json",
       "path": "macs.total",
       "value": 83584.0,
       "tol": 1e-09,
@@ -469,9 +469,9 @@
     {
       "id": "c_static_flash",
       "text": "Current registered c_static_flash; see artifact and protocol",
-      "source": "research/results/hardware.json",
+      "source": "research/results/hardware_v0100.json",
       "path": "c_flash_bytes",
-      "value": 169248.0,
+      "value": 171264.0,
       "tol": 1e-09,
       "reproduce": "same",
       "documents": [
@@ -484,7 +484,7 @@
     {
       "id": "c_static_ram",
       "text": "Current registered c_static_ram; see artifact and protocol",
-      "source": "research/results/hardware.json",
+      "source": "research/results/hardware_v0100.json",
       "path": "c_ram_bytes",
       "value": 0.0,
       "tol": 1e-09,
@@ -499,7 +499,7 @@
     {
       "id": "int8_per_channel_argmax",
       "text": "Current registered int8_per_channel_argmax; see artifact and protocol",
-      "source": "research/results/hardware.json",
+      "source": "research/results/hardware_v0100.json",
       "path": "int8.per_channel.argmax_agreement",
       "value": 0.97265625,
       "tol": 1e-09,
@@ -514,7 +514,7 @@
     {
       "id": "int8_per_channel_step",
       "text": "Current registered int8_per_channel_step; see artifact and protocol",
-      "source": "research/results/hardware.json",
+      "source": "research/results/hardware_v0100.json",
       "path": "int8.per_channel.steps_within_1e-3",
       "value": 0.5052083333333334,
       "tol": 1e-09,
@@ -559,10 +559,10 @@
     {
       "id": "matlab_parity",
       "text": "MATLAB maximum Choice logit error over 24 vectors / MATLAB 24向量最大logit误差",
-      "source": "research/results/matlab_parity.json",
+      "source": "research/results/matlab_parity_v0100.json",
       "value": 5.7220459e-06,
       "tol": 1e-09,
-      "reproduce": "matlab -batch \"addpath('matlab'); test_portability('research/results/matlab_parity.json')\"",
+      "reproduce": "matlab -batch \"addpath('matlab'); test_portability('research/results/matlab_parity_v0100.json')\"",
       "path": "max_errors.choice_logits",
       "label": "MATLAB maximum Choice logit error over 24 vectors / MATLAB 24向量最大logit误差",
       "documents": [
@@ -1780,6 +1780,51 @@
         {
           "file": "docs/CLAIMS.md",
           "format": ".6f"
+        }
+      ]
+    },
+    {
+      "id": "nonpid_actual_evaluations",
+      "text": "Prospective non-PID objective evaluations / 非PID前瞻目标评价次数",
+      "source": "research/results/nonpid_transfer/report.json",
+      "path": "accounting.actual_objective_evaluations",
+      "value": 76683.0,
+      "tol": 0,
+      "reproduce": "python scripts/45_nonpid_transfer.py --run",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".0f"
+        }
+      ]
+    },
+    {
+      "id": "nonpid_offline_per_model",
+      "text": "Standalone model training and calibration label cost / 单模型训练与校准标注成本",
+      "source": "research/results/nonpid_transfer/report.json",
+      "path": "accounting.standalone_offline_per_model",
+      "value": 27345.0,
+      "tol": 0,
+      "reproduce": "python scripts/45_nonpid_transfer.py --run",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".0f"
+        }
+      ]
+    },
+    {
+      "id": "nonpid_stable_benefit",
+      "text": "All preregistered non-PID policy benefit criteria pass, 1=yes / 非PID策略收益验收，1为通过",
+      "source": "research/results/nonpid_transfer/report.json",
+      "path": "acceptance.stable_empirical_policy_benefit",
+      "value": 0.0,
+      "tol": 0,
+      "reproduce": "python scripts/45_nonpid_transfer.py --run",
+      "documents": [
+        {
+          "file": "docs/CLAIMS.md",
+          "format": ".0f"
         }
       ]
     }

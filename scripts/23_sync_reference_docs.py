@@ -236,7 +236,7 @@ def evidence_documents():
         return f"<!-- claim:{key} -->{value:.3f}<!-- /claim -->"
     def read(name):
         return json.loads((ROOT / "research/results" / name).read_text(encoding="utf-8-sig"))
-    latency = read("latency.json")
+    latency = read("latency_v0100.json")
     validation, thermal = read("eval_heldout_120.json"), read("eval_thermal_deadtime_120.json")
     def method(blob, name):
         return next(r for r in blob["rows"] if r["method"] == name)
@@ -326,6 +326,14 @@ def evidence_documents():
 def main():
     path = ROOT / "docs/claims.json"
     registry = json.loads(path.read_text(encoding="utf-8"))
+    # Current measurements are versioned; canonical files remain historical.
+    for claim in registry["claims"]:
+        for stem in ("hardware", "latency", "matlab_parity"):
+            if claim["source"] == f"research/results/{stem}.json":
+                claim["source"] = f"research/results/{stem}_v0100.json"
+            if "reproduce" in claim:
+                claim["reproduce"] = claim["reproduce"].replace(
+                    f"research/results/{stem}.json", f"research/results/{stem}_v0100.json")
     # The separate v2 generator owns complete prose blocks, not claim markers
     # inside them. Keep the original v1 failure section and registry intact.
     trajectory_spec = importlib.util.spec_from_file_location(
@@ -402,7 +410,7 @@ versioned records; see BENCHMARK, ABLATION, ABSTENTION and CALIBRATE_ONLY for cu
 
 """ + header + "\n".join(en) + """
 
-Unmeasured work includes training-seed replication, full data learning curves,
+Unmeasured work includes PID training-seed replication, full data learning curves,
 many-question scaling, broad hosted-model comparisons, mid-run domain shifts,
 and physical robot/medical/MCU/FPGA validation. No success is inferred for them.
 
@@ -416,7 +424,7 @@ and physical robot/medical/MCU/FPGA validation. No success is inferred for them.
 
 """ + header + "\n".join(zh) + """
 
-未测项目包括训练种子重复、完整数据学习曲线、多问题扩展、广泛托管模型对比、
+未测项目包括PID模型的训练种子重复、完整数据学习曲线、多问题扩展、广泛托管模型对比、
 运行中域变化及机器人、医疗、MCU/FPGA实物验证；不推断这些项目已成功。
 """
     (ROOT / "docs/CLAIMS.md").write_text(text, encoding="utf-8")

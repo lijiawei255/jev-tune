@@ -90,12 +90,22 @@ def test_stale_renderer_is_structured_failure_in_json_mode(tmp_path, monkeypatch
     assert row['ok'] is False and 'ValueError: stale harm schema' in row['detail']
     assert len(rows)==13 and all(r['ok'] is False for r in rows)
     monkeypatch.setattr(module,'generated_documents',lambda:rows)
-    for name in ('benchmark_tables','decision_evidence','rollout_evidence','performance_diagnosis_evidence','trajectory_evidence','cohort_portability_evidence','practical_evidence'):
+    for name in ('benchmark_tables','decision_evidence','rollout_evidence','performance_diagnosis_evidence','trajectory_evidence','cohort_portability_evidence','practical_evidence','transfer_shell_evidence'):
         monkeypatch.setattr(module,name,lambda:[])
     monkeypatch.setattr(sys,'argv',['check_claims','--json'])
     assert module.main()==1
     parsed=json.loads(capsys.readouterr().out)
     assert parsed==rows
+
+
+def test_new_shell_checker_reports_missing_evidence_as_failure(tmp_path, monkeypatch):
+    monkeypatch.setattr(module, 'ROOT', tmp_path)
+    rows = module.transfer_shell_evidence()
+    assert len(rows) == 4 and all(row['ok'] is False for row in rows)
+    assert {r['id'] for r in rows} == {'shell:46_verify_nonpid_transfer',
+        'shell:48_recalibration_benchmark', 'shell:49_sync_shell_docs',
+        'shell:50_open_source_inventory'}
+    assert all('FileNotFoundError' in row['detail'] for row in rows)
 
 
 def test_performance_diagnosis_recomputes_counts_and_requires_v2_sources(tmp_path, monkeypatch, capsys):

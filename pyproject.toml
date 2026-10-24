@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jev-tune"
-version = "0.9.0"
-description = "Jev-inspired typed-decision PID autotuning with measured budgets and explicit abstention; not affiliated with TypeSafe AI"
+version = "0.10.0"
+description = "Calibrated typed decision and safety-shell reference with PID and non-PID testbeds; Jev-inspired, not affiliated with TypeSafe AI"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

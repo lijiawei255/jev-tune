@@ -27,7 +27,7 @@ NaN/Inf variants and requires failure. `--verify` runs three standalone C harnes
 With MATLAB available, pytest also exercises the actual decoder and a temporary
 Simulink model's first-iteration rollback and cumulative escalation history.
 Regenerate the versioned MATLAB parity report with
-`test_portability('research/results/matlab_parity.json')` after adding `matlab/`
+`test_portability('research/results/matlab_parity_v0100.json')` after adding `matlab/`
 to the MATLAB path. It records all 24 actual outputs, per-head error maxima and
 checkpoint, configuration, source-vector and exported-weight hashes.
 
@@ -139,7 +139,7 @@ hash and whether hardware was tested. There are no registered community ports.
 
 有MATLAB时，pytest还验证实际解码器，以及临时Simulink模型首轮回滚与累计升级历史。
 将`matlab/`加入MATLAB路径后，运行
-`test_portability('research/results/matlab_parity.json')`可再生版本化对齐报告，
+`test_portability('research/results/matlab_parity_v0100.json')`可再生版本化对齐报告，
 其中包含24个实际输出、各头最大误差及checkpoint、配置、输入向量、导出权重的hash。
 
 | 文件 | 内容 |

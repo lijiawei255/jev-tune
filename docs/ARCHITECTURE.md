@@ -4,6 +4,14 @@
 
 ## English
 
+<!-- transfer-shell:en:start -->
+**Scope: a decomposable Calibrated Decision & Safety Shell with a PID testbed.** A new non-PID offline denoising task includes three genuinely trained models and independent testing; policy-benefit acceptance is `negative_stop`. At budget20, learned mean MSE spans 0.01555577–0.01582834, versus simplex 0.01423997. Stable benefit was not established; this policy investigation stops. Prospective acquisition used 76683 objective calls; standalone training/calibration labels cost 27345 per model. Negative raw evidence, frozen protocols and reproduction remain available; complex risk research stays paused.
+
+Using 16, 32 or 64 labeled states in EACH independent temperature/CP split (32, 64 or 128 total), the nine host fit-time medians span 4.601500–5.744300 ms. Label acquisition, inference, communication and device execution are excluded. This does not validate cross-day, VLA, clinical or target-board operation. The non-PID study did not replace the PID model or default policy; this release separately hardens C/MATLAB input and numeric handling. The C99 checked entry rejects invalid states/temperatures/policies and numeric failures, clears stale actions and holds every axis. Default CP retains complete monitor sets; explicit hard_hold can veto before actuation. Post-measurement rollback is domain-owned recovery, not a physical-safety proof.
+
+See [shell and transfer boundaries](SAFETY_SHELL.md), [complete non-PID evidence](NONPID_TRANSFER.md), [small-sample recalibration](RECALIBRATION.md), and [host resources](COMPUTE.md).
+<!-- transfer-shell:en:end -->
+
 <!-- practical-mainline:en:start -->
 **Current mainline: real-model adaptation, applicability boundaries and simulation-budget value.**
 Deeper joint-risk research is paused. Its failed acceptance, raw trajectories, frozen protocols and reproduction scripts remain available; the risk head stays in research mode and is not enabled in production. Complete CP sets and their existing coverage boundaries remain unchanged.
@@ -124,6 +132,14 @@ repairs. It is not a prospective or untouched-after-publication study. See
 [COMPUTE](COMPUTE.md), [CLAIMS](CLAIMS.md) for current generated evidence.
 
 ## 简体中文
+
+<!-- transfer-shell:zh:start -->
+**定位：以PID为验证床的可拆解 Calibrated Decision & Safety Shell。** 新增非PID离线去噪标定完成三个模型的真实训练与独立测试，策略收益验收为`negative_stop`；预算20时三模型平均MSE为0.01555577–0.01582834，simplex为0.01423997，没有稳定收益，停止本轮策略深化。前瞻采集实际76683次，单模型离线训练/校准标注成本27345次；原始负结果、冻结协议和复现入口保留，复杂风险研究仍暂停。
+
+每个独立温度/CP分区分别16、32、64个标注状态（合计32、64、128）时，九项组合的宿主纯拟合中位耗时范围为4.601500–5.744300 ms。标签采集、推理、通信和设备执行不在该拟合计时内；这不证明跨天、VLA、临床或目标板有效性。非PID研究没有替换PID模型或默认策略；本版本另外加固了C/MATLAB输入与数值处理。C99 checked入口拒绝非法状态/温度/策略及数值失败，清空旧动作并全轴保持。默认CP仍为完整集合monitor，显式hard_hold可事前否决；测后rollback是领域恢复提案，并非物理安全证明。
+
+见[外壳与迁移边界](SAFETY_SHELL.md)、[完整非PID证据](NONPID_TRANSFER.md)、[少样本重标定](RECALIBRATION.md)、[宿主资源指标](COMPUTE.md)。
+<!-- transfer-shell:zh:end -->
 
 <!-- practical-mainline:zh:start -->
 **当前主线：真实模型适配、适用边界与仿真预算收益。**
