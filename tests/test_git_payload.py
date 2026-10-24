@@ -105,10 +105,11 @@ def test_project_ignore_rules_keep_only_formal_artifacts(tmp_path):
     (tmp_path/'.gitignore').write_bytes((ROOT/'.gitignore').read_bytes())
     excluded = ['research/results/new.json', 'research/results/nonpid_transfer/raw.json.gz',
                 'research/results/new_folder/data.npz', '.local-audit/receipt.json',
-                'data/expert_train.npz', 'models/unbound.pt', 'models/specialized/head.pt']
-    included = sorted(guard.FORMAL_NONPID) + ['src/jev_tune/primitives.py', 'scripts/59_research_data.py',
-        'models/jev_head.pt', 'models/jev_head.onnx', 'models/jev_head_weights.mat',
-        'models/meta.json', 'models/calibration.json', 'models/ablation_a0.pt', 'models/ablation_a0.manifest.json']
+                'data/expert_train.npz', 'models/unbound.pt', 'models/specialized/head.pt',
+                *sorted(guard.FORMAL_NONPID), '.archive/v0.10.2-archive/README.md']
+    included = ['src/jev_tune/core/primitives.py', 'src/jev_tune/domains/light/vla_mask.py',
+        'scripts/archive.py', 'models/jev_head.pt', 'models/jev_head.onnx',
+        'models/jev_head_weights.mat', 'models/meta.json', 'models/calibration.json']
     for name in excluded + included:
         result = subprocess.run(['git', '-C', str(tmp_path), 'check-ignore', '--no-index', '--quiet', name])
         assert result.returncode == (0 if name in excluded else 1), name

@@ -37,7 +37,7 @@ Invoke-SetupPython -m pip install --quiet --upgrade pip
 
 # torch CPU wheel first: the default index would pull ~2.5 GB of CUDA libs
 Invoke-SetupPython -m pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
-Invoke-SetupPython -m pip install --quiet numpy scipy scikit-learn pytest pyyaml matplotlib pillow onnx onnxruntime
+Invoke-SetupPython -m pip install --quiet numpy scipy scikit-learn pytest matplotlib onnx onnxruntime
 Invoke-SetupPython -m pip install --quiet --no-deps -e $repo
 
 Write-Host "[setup] python: $py"

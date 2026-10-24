@@ -27,7 +27,7 @@ fi
 echo "[setup] installing dependencies (CPU only)"
 "$py" -m pip install --quiet --upgrade pip
 "$py" -m pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
-"$py" -m pip install --quiet numpy scipy scikit-learn pytest pyyaml matplotlib pillow onnx onnxruntime
+"$py" -m pip install --quiet numpy scipy scikit-learn pytest matplotlib onnx onnxruntime
 "$py" -m pip install --quiet --no-deps -e "$repo"
 
 echo "[setup] python: $py"

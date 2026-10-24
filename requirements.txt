@@ -1,20 +1,18 @@
-# Core
+# Runtime (jev_tune.core needs numpy only)
 numpy>=1.26
 scipy>=1.11
-pandas>=2.1
-matplotlib>=3.8
-scikit-learn>=1.4
-pyyaml>=6.0
+onnxruntime>=1.18
 
-# Model / runtime
+# Training / fine-tuning and checkpoint export
 torch>=2.4            # CPU wheel: pip install torch --index-url https://download.pytorch.org/whl/cpu
 onnx>=1.16
-onnxruntime>=1.18
+
+# Optional
+scikit-learn>=1.4     # Bayesian-optimisation baseline only
+matplotlib>=3.8       # --plot
 
 # Dev
 pytest>=8.0
 
-# Optional (Step 4): MATLAB bridge, must match the local MATLAB release
-#   pip install "C:\Program Files\MATLAB\R2024b\extern\engines\python"
-# Optional (Track B): Laya / Jev-compatible backend
-#   pip install "laya[onnx]"
+# MATLAB bridge: install the engine that ships with your MATLAB release
+#   pip install "<matlabroot>/extern/engines/python"

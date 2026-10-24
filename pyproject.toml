@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jev-tune"
-version = "0.10.2"
-description = "Calibrated typed decision and safety-shell reference with PID and non-PID testbeds; Jev-inspired, not affiliated with TypeSafe AI"
+version = "0.11.0"
+description = "Jev-inspired calibrated decision & safety shell for typed PID autotuning (temperature + conformal abstention) with C99/MATLAB ports. Not affiliated with TypeSafe AI."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -19,6 +19,9 @@ keywords = [
   "selective prediction",
   "ONNX",
   "CPU inference",
+  "conformal-prediction",
+  "selective-prediction",
+  "safety-critical",
 ]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -28,16 +31,20 @@ classifiers = [
   "Topic :: Scientific/Engineering :: Mathematics",
   "Topic :: System :: Hardware",
 ]
+# jev_tune.core needs numpy only; the PID testbed adds scipy and runs the
+# shipped head through onnxruntime. torch is needed only to train or fine-tune.
 dependencies = [
   "numpy>=1.26",
   "scipy>=1.11",
-  "scikit-learn>=1.4",
-  "torch>=2.4",
+  "onnxruntime>=1.18",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-cov>=5.0", "pandas>=2.1", "matplotlib>=3.8", "pillow>=10.0"]
-onnx = ["onnx>=1.16", "onnxruntime>=1.18"]
+torch = ["torch>=2.4"]
+baselines = ["scikit-learn>=1.4"]
+plot = ["matplotlib>=3.8"]
+export = ["onnx>=1.16"]
+dev = ["pytest>=8.0", "pytest-cov>=5.0", "matplotlib>=3.8"]
 
 [project.scripts]
 jev-tune = "jev_tune.cli:main"

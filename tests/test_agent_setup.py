@@ -134,7 +134,7 @@ def assert_install(calls, selected, repo):
     assert pip[-1]["args"][:6] == ["-m", "pip", "install", "--quiet", "--no-deps", "-e"]
     assert len(pip[-1]["args"]) == 7 and Path(pip[-1]["args"][6]).resolve() == repo.resolve()
     assert pip[1]["args"][-2:] == ["--index-url", "https://download.pytorch.org/whl/cpu"]
-    assert pip[2]["args"][4:] == ["numpy", "scipy", "scikit-learn", "pytest", "pyyaml", "matplotlib", "pillow", "onnx", "onnxruntime"]
+    assert pip[2]["args"][4:] == ["numpy", "scipy", "scikit-learn", "pytest", "matplotlib", "onnx", "onnxruntime"]
     assert all(row["pythonpath"] is None for row in calls)
 
 

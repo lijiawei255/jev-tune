@@ -2,3 +2,5 @@
 *.o
 test_forward
 test_features
+test_policy
+test_checked

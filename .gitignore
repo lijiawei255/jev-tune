@@ -247,61 +247,21 @@ sdi/
 *.mldatx
 
 # --------------------------------------------------------------------------- #
-# jev-tune artefacts (datasets, weights, generated figures, local logs)
+# jev-tune artefacts: datasets, local outputs, archive worktrees
 # --------------------------------------------------------------------------- #
-data/*
-!data/.gitkeep
+/data/
+/research/
+/.archive/
+/.local-audit/
+/benchmarks/
 models/*
-!models/.gitkeep
-# the shipped head is small (~600 KB) and makes a fresh clone runnable
+!models/meta.json
+!models/calibration.json
 !models/jev_head.pt
 !models/jev_head.onnx
 !models/jev_head_weights.mat
-!models/meta.json
-!models/calibration.json
-# the ablation's regression control (A0); committed so `17_ablation.py` does not
-# have to retrain it for four minutes before reproducing the table
-!models/ablation_a0.pt
-!models/ablation_a0.manifest.json
-# specialists are per-project artefacts, not part of the release
-models/specialized/
-research/bench/_tmp/
-research/**/*.log
 *.npz
-# trained artefacts elsewhere stay local; the shipped head is whitelisted above
-/models/specialized/*.pt
-
-
-# MATLAB engine sources (MathWorks proprietary, never commit)
-research/_matlabengine*/
-models_smoke/
-
-# scratch used to run the Simulink bridge (regenerated on demand)
-research/sim_tune/
-research/sim_json/
-research/sim_batch_*/
-research/sim_w*/
-research/sim_reuse/
-research/demo_model/
-
-# Release-only experimental evidence and local verification work.
-# 正式权重以外的实验记录只通过固定哈希的Release附件分发。
-/.local-audit/
-/research/results/**
-!/research/results/nonpid_transfer/
-/research/results/nonpid_transfer/*
-!/research/results/nonpid_transfer/model_101.json
-!/research/results/nonpid_transfer/model_202.json
-!/research/results/nonpid_transfer/model_303.json
-!/research/results/nonpid_transfer/calibration_101.json
-!/research/results/nonpid_transfer/calibration_202.json
-!/research/results/nonpid_transfer/calibration_303.json
-
-# Optional restored motor/valve benchmark / 可选恢复的电机阀门基准。
-/benchmarks/
-# Optional benchmark bundles and simulation intermediates belong in Releases.
 *.slx
 *.mdl
 *.stl
 *.sldd
-*.slxc
