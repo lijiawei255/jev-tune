@@ -1,5 +1,7 @@
 [English](README.md) · [简体中文](README.zh-CN.md)
 
+**Agent checkout:** use the [lightweight Git clone commands](docs/DISTRIBUTION.md#reuse-the-framework)
+before the first clone, then read `AGENTS.md`. They retain all formal weights without downloading research records.
 **Download for reuse:** [v0.10.1 source ZIP](https://github.com/lijiawei255/jev-tune/archive/refs/tags/v0.10.1.zip)
 keeps the complete implementation, tests, documentation and formal weights.
 Experiment records are optional [Release attachments](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1),

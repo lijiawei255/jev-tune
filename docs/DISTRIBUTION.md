@@ -23,17 +23,20 @@ still downloads research data. A shallow clone alone still checks out the curren
 large records. For an editable framework checkout without fetching research blobs:
 
 ```sh
-git clone --filter=blob:none --sparse --branch v0.10.1 https://github.com/lijiawei255/jev-tune.git jev-tune-framework
-cd jev-tune-framework
-git sparse-checkout set .github assets c docs examples matlab models scripts src tests research/protocols research/distribution
-git sparse-checkout add research/results/nonpid_transfer
+git clone -c core.autocrlf=false --filter=blob:none --sparse --depth 1 --branch v0.10.1 https://github.com/lijiawei255/jev-tune.git
+cd jev-tune
+git sparse-checkout set --no-cone '/*' '!/research/results/**' '/research/results/nonpid_transfer/' '!/research/results/nonpid_transfer/*' '/research/results/nonpid_transfer/model_*.json' '/research/results/nonpid_transfer/calibration_*.json'
 ```
 
-The final `add` also fetches the non-PID raw/report files because cone-mode sparse
-checkout selects whole directories; omit it for the smallest clone and use the PID
-weights or your own model. The source ZIP is the recommended complete, small
-framework download with all formal weights. Partial-clone size depends on Git and
-server behavior, and is not the source-ZIP size guarantee. See the official
+These patterns retain all source and formal weights while excluding experimental
+records, including the non-PID raw/report files. Both partial clone and sparse
+checkout are required: filtering alone may fetch large data during checkout.
+Replace the version with `main` for current development. This is the recommended
+Agent checkout; give the Agent these commands before its first clone, then ask it
+to read `AGENTS.md`. Instructions inside a repository cannot retroactively speed
+up a completed ordinary clone. Plain full clones remain large; no repository-side
+setting can force all clients to use these options. Partial-clone size depends on
+Git/server behavior and is distinct from the source-ZIP budget. See the official
 [clone](https://git-scm.com/docs/git-clone) and
 [sparse checkout](https://git-scm.com/docs/git-sparse-checkout) documentation.
 
@@ -129,15 +132,16 @@ See [OPEN_SOURCE](OPEN_SOURCE.md) and [NOTICE](../NOTICE.md) for rights boundari
 框架检出且避免获取研究blob时，可以使用：
 
 ```sh
-git clone --filter=blob:none --sparse --branch v0.10.1 https://github.com/lijiawei255/jev-tune.git jev-tune-framework
-cd jev-tune-framework
-git sparse-checkout set .github assets c docs examples matlab models scripts src tests research/protocols research/distribution
-git sparse-checkout add research/results/nonpid_transfer
+git clone -c core.autocrlf=false --filter=blob:none --sparse --depth 1 --branch v0.10.1 https://github.com/lijiawei255/jev-tune.git
+cd jev-tune
+git sparse-checkout set --no-cone '/*' '!/research/results/**' '/research/results/nonpid_transfer/' '!/research/results/nonpid_transfer/*' '/research/results/nonpid_transfer/model_*.json' '/research/results/nonpid_transfer/calibration_*.json'
 ```
 
-最后一行因cone模式按整个目录选择，也会获取非PID raw/report；最小克隆可省略该行，使用
-PID权重或自己的模型。推荐源码ZIP：其中全部正式权重齐全且包小。部分克隆实际体积依赖
-Git与服务器行为，不属于源码ZIP体积保证。参见官方[clone](https://git-scm.com/docs/git-clone)
+这些规则保留全部源码与正式权重，排除包括非PID raw/report在内的实验记录。部分克隆和稀疏
+检出必须配合，仅过滤blob仍可能在检出时下载大数据。开发版可把版本改成`main`。推荐Agent
+采用这一入口：第一次克隆前就把命令交给Agent，再让它读取`AGENTS.md`。仓库内的说明不能
+追溯加速已经完成的普通克隆，服务端也不能强制所有客户端使用选项；普通全量克隆仍大。
+部分克隆实际体积依赖Git与服务器行为，不属于源码ZIP体积保证。参见官方[clone](https://git-scm.com/docs/git-clone)
 及[sparse checkout](https://git-scm.com/docs/git-sparse-checkout)说明。
 
 ### 按需获取实验记录

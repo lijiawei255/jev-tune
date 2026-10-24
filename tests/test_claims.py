@@ -82,6 +82,9 @@ def test_stale_renderer_is_structured_failure_in_json_mode(tmp_path, monkeypatch
     (tmp_path/'docs').mkdir()
     (tmp_path/'scripts/17_ablation.py').write_text("def _doc(payload):\n    raise ValueError('stale harm schema')\n")
     (tmp_path/'research/results/ablation.json').write_text('{}')
+    # This test exercises renderer failures after the independent missing-data
+    # preflight.  A separate contract test covers an un-restored source ZIP.
+    (tmp_path/'research/results/open_source_inventory_v0100.json').write_text('{}')
     (tmp_path/'docs/claims.json').write_text('{"claims":[]}')
     monkeypatch.setattr(module,'ROOT',tmp_path)
     monkeypatch.syspath_prepend(str(tmp_path/'scripts'))
@@ -95,16 +98,17 @@ def test_stale_renderer_is_structured_failure_in_json_mode(tmp_path, monkeypatch
     monkeypatch.setattr(sys,'argv',['check_claims','--json'])
     assert module.main()==1
     parsed=json.loads(capsys.readouterr().out)
-    assert parsed==rows
+    assert parsed[:-1]==rows
+    assert parsed[-1]['id']=='check:complete_roster' and parsed[-1]['ok'] is False
 
 
 def test_new_shell_checker_reports_missing_evidence_as_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(module, 'ROOT', tmp_path)
     rows = module.transfer_shell_evidence()
-    assert len(rows) == 6 and all(row['ok'] is False for row in rows)
+    assert len(rows) == 7 and all(row['ok'] is False for row in rows)
     assert {r['id'] for r in rows} == {'shell:recorded_transfer',
         'shell:recorded_recalibration', 'shell:runtime_boundary', 'shell:recorded_audit_summary', 'shell:49_sync_shell_docs',
-        'shell:50_open_source_inventory'}
+        'shell:50_open_source_inventory', 'shell:distribution'}
     assert all('FileNotFoundError' in row['detail'] for row in rows)
 
 

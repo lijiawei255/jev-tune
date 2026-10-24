@@ -1,5 +1,26 @@
 # Agent guide
 
+## Lightweight initial clone / 首次轻量克隆
+
+For a new framework checkout, run these commands before tuning. Do not change an
+existing user's checkout into sparse mode. A plain clone still retrieves the
+retained large research records/history; `--depth 1` alone is insufficient.
+Both blob filtering and the exact sparse selection are needed. This keeps all
+source and formal PID/non-PID weights. Use `v0.10.1` instead of `main` for that
+frozen release. Complete historical scientific verification intentionally uses
+the separate full-history `scripts/60_reproduce_release.py` entry point.
+
+首次获取框架时使用以下命令，不要擅自把用户既有检出改为稀疏模式。普通克隆仍获取大型
+研究记录/历史，仅`--depth 1`不够；需要同时过滤blob并精确稀疏选择，保留全部源码及正式
+PID/非PID权重。固定发布可把`main`改成`v0.10.1`。完整历史科学核验另用
+`scripts/60_reproduce_release.py`，有意获取完整历史和证据。详见[分发说明](docs/DISTRIBUTION.md)。
+
+```sh
+git clone -c core.autocrlf=false --filter=blob:none --sparse --depth 1 --branch main https://github.com/lijiawei255/jev-tune.git
+cd jev-tune
+git sparse-checkout set --no-cone '/*' '!/research/results/**' '/research/results/nonpid_transfer/' '!/research/results/nonpid_transfer/*' '/research/results/nonpid_transfer/model_*.json' '/research/results/nonpid_transfer/calibration_*.json'
+```
+
 This file is for an automated assistant that a user pointed at this repository.
 It is written to be read top-to-bottom and executed without asking questions.
 

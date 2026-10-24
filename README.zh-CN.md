@@ -1,5 +1,7 @@
 [English](README.md) · [简体中文](README.zh-CN.md)
 
+**Agent获取仓库：**第一次克隆前使用[轻量Git克隆命令](docs/DISTRIBUTION.md#复用框架)，再读取`AGENTS.md`；
+保留全部正式权重，避免下载研究记录。
 **下载复用框架：**[v0.10.1源码ZIP](https://github.com/lijiawei255/jev-tune/archive/refs/tags/v0.10.1.zip)
 保留完整代码、测试、文档和正式权重；实验记录通过[Release附件](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)
 按需下载，提供SHA-256校验与自动恢复。详见[分发与复现](docs/DISTRIBUTION.md)。
