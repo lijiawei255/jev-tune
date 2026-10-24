@@ -221,6 +221,31 @@ def conformal_prediction_set(probs: np.ndarray, qhat: np.ndarray | float) -> np.
     return (1.0 - p) <= q[..., None]
 
 
+def conformal_inclusion_threshold(qhat) -> np.ndarray:
+    """float32 ``p_min`` with ``p >= p_min`` exactly equal to ``(1 - p) <= qhat``.
+
+    Single-precision ports (c/jev_head.c) compare float32 probabilities
+    without double arithmetic. For every float32 ``p`` in [0, 1] the returned
+    threshold selects the same options as the float64 score-space rule above,
+    including the near-one quantiles that a plain ``float32(1 - qhat)`` breaks.
+    """
+    q = np.atleast_1d(np.asarray(qhat, dtype=np.float64))
+    if q.ndim != 1 or not np.isfinite(q).all() or (q < 0).any() or (q > 1).any():
+        raise ValueError("qhat must be finite values in [0, 1]")
+    down, up = np.float32(-1.0), np.float32(2.0)
+    out = np.empty(q.shape, dtype=np.float32)
+    for i, qi in enumerate(q):
+        x = np.float32(1.0 - qi)
+        if 1.0 - float(x) <= qi:
+            while x > 0 and 1.0 - float(np.nextafter(x, down)) <= qi:
+                x = np.nextafter(x, down)
+        else:
+            while 1.0 - float(x) > qi:
+                x = np.nextafter(x, up)
+        out[i] = max(x, np.float32(0.0))
+    return out
+
+
 @dataclass(frozen=True)
 class SplitConformal:
     """Split conformal model for marginal teacher-label coverage per axis.
@@ -294,6 +319,7 @@ __all__ = [
     "calibrate_temperature",
     "conformal_quantile",
     "conformal_prediction_set",
+    "conformal_inclusion_threshold",
     "SplitConformal",
     "fit_split_conformal",
 ]

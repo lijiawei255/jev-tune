@@ -104,3 +104,20 @@ def test_calibration_without_mode_defaults_to_monitor_and_explicit_mode_is_valid
         ConformalPolicy((.8,), mode="unknown")
     with pytest.raises(ValueError, match="mode"):
         read_conformal(tmp_path, mode="unknown")
+
+
+def test_float32_inclusion_threshold_matches_float64_score_rule():
+    from jev_tune.primitives import conformal_inclusion_threshold
+    rng = np.random.default_rng(7)
+    qs = np.r_[0.0, 1.0, 0.75, 1 - 2.0**-40, 0.9067908043575168, rng.random(64)]
+    t = conformal_inclusion_threshold(qs)
+    assert t.dtype == np.float32 and t.shape == qs.shape
+    for q, pmin in zip(qs, t):
+        near = (np.float32(1 - q) + np.arange(-64, 64, dtype=np.float32) * np.float32(1e-8))
+        p = np.r_[rng.random(4096), near, [0, 1, 2.0**-41, pmin,
+                  np.nextafter(pmin, np.float32(-1)), np.nextafter(pmin, np.float32(2))]]
+        p = p.astype(np.float32)
+        p = p[(p >= 0) & (p <= 1)]
+        np.testing.assert_array_equal(p >= pmin, (1.0 - p.astype(np.float64)) <= q)
+    with pytest.raises(ValueError):
+        conformal_inclusion_threshold([1.5])
