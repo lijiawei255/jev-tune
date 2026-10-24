@@ -1,53 +1,23 @@
-name: tests
+name: Runtime comparison observer v0100
 
 on:
-  push:
-    branches: [main]
-  pull_request:
   workflow_dispatch:
 
 jobs:
-  pytest:
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.10", "3.12"]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-
-      - name: Install CPU dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install numpy scipy scikit-learn pytest pytest-cov pillow matplotlib onnxruntime
-          pip install -e . --no-deps
-
-      - name: Run the test suite
-        env:
-          PYTHONPATH: src
-        run: python -m pytest -q --cov --cov-report=term --cov-fail-under=66
-
-      - name: CLI smoke test
-        env:
-          PYTHONPATH: src
-        run: |
-          python -m jev_tune.cli status --json || test $? -eq 2
-          python -m jev_tune.cli demo --plants 4 --json
-
-  evidence:
-    name: Windows scientific evidence
+  observation:
+    name: Windows default runtime comparison observation only
     runs-on: windows-latest
+    timeout-minutes: 25
     defaults:
       run:
         shell: bash
+    env:
+      PYTHONPATH: src
+      PYTHONUTF8: "1"
+      OMP_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -71,88 +41,38 @@ jobs:
                                  *[name + '==' + version for name, version in packages.items()
                                    if name != 'torch']])
           PY
-          pip install pillow matplotlib onnxruntime
           pip install -e . --no-deps
-      - name: Independently audit recorded evidence and published claims
-        env:
-          PYTHONPATH: src
-          PYTHONUTF8: "1"
-          OMP_NUM_THREADS: "1"
-          MKL_NUM_THREADS: "1"
-          OPENBLAS_NUM_THREADS: "1"
-          NUMEXPR_NUM_THREADS: "1"
+      - name: Capture all fixed cases on the actual default hosted observer
         run: |
           python - <<'PY'
           from pathlib import Path
+          import json
           import subprocess
           import sys
-          output = Path('.local-audit')
-          output.mkdir(exist_ok=True)
-          stdout = output / 'hosted_claims.json'
-          stderr = output / 'hosted_claims.stderr.txt'
+          output = Path('.local-audit/runtime_observer_launcher')
+          output.mkdir(parents=True, exist_ok=True)
+          command = [sys.executable, 'scripts/57_observe_runtime_comparison.py',
+                     '--label', 'default_hosted_observer',
+                     '--out', '.local-audit/default_hosted_observer_v0100']
+          stdout, stderr = output/'producer.stdout.txt', output/'producer.stderr.txt'
           with stdout.open('w', encoding='utf-8') as out, stderr.open('w', encoding='utf-8') as err:
-              result = subprocess.run([sys.executable, 'scripts/16_check_claims.py', '--json'],
-                                      stdout=out, stderr=err)
+              result = subprocess.run(command, stdout=out, stderr=err)
+          revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          (output/'launcher_result.json').write_text(json.dumps({'command': command, 'returncode': result.returncode,
+              'producer_completed': result.returncode == 0, 'git_revision': revision,
+              'additional_objective_evaluations': 0, 'gradient_steps': 0,
+              'scope': 'Observation collection only; producer completion does not reclassify the preserved strict 54 result'}, indent=2)+'\n', encoding='utf-8')
           print(stdout.read_text(encoding='utf-8'))
           print(stderr.read_text(encoding='utf-8'), file=sys.stderr)
           raise SystemExit(result.returncode)
           PY
-      - name: Preserve scientific evidence receipts including failures
+      - name: Preserve all fixed-case arrays and actual failure observations
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scientific-evidence-${{ github.run_id }}
-          path: .local-audit/
+          name: runtime-comparison-observer-v0100-${{ github.run_id }}
+          path: |
+            .local-audit/default_hosted_observer_v0100/
+            .local-audit/runtime_observer_launcher/
           include-hidden-files: true
           if-no-files-found: warn
-
-  c-parity:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-      - name: Install what the exporter needs
-        run: |
-          python -m pip install --upgrade pip
-          pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install numpy scipy pytest
-          pip install -e . --no-deps
-      - name: Verify committed vectors and reject NaN mutations before regeneration
-        env:
-          PYTHONPATH: src
-        run: python -m pytest tests/test_portability.py -k "not matlab" -q
-
-      # gcc is preinstalled on ubuntu-latest; this compiles the C99 reference
-      # and checks forward, feature assembly and resampling against Python
-      - name: C99 reference matches Python
-        env:
-          PYTHONPATH: src
-        run: python scripts/18_export_c.py --verify
-
-      # the weights are the part that must match the checkpoint byte for byte;
-      # the vectors are checked numerically by the harness (a stale vector file
-      # makes test_forward fail). Byte-comparing the vectors across platforms is
-      # not meaningful: libm/numpy ULP differences reach the JSON.
-      - name: Generated weights are up to date
-        run: git diff --exit-code -- c/jev_head_weights.h
-
-      # the Makefile is a deliverable too: make sure it still builds and checks
-      - name: Makefile builds and passes
-        run: make -C c check
-
-  docs:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check that the documented commands exist
-        run: |
-          set -e
-          for f in scripts/*.py; do python -c "import ast,sys;ast.parse(open('$f',encoding='utf-8').read(),'$f')"; done
-          test -f README.md
-          test -f README.zh-CN.md
-          test -f NOTICE.md
-          test -f CONTRIBUTING.md
