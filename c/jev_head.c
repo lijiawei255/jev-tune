@@ -9,6 +9,7 @@
 
 #include <math.h>
 #include <stddef.h>
+#include <string.h>
 
 #include "jev_head_weights.h"
 
@@ -166,7 +167,7 @@ void jev_answer(const jev_logits *logits, const float temperature[3],
         softmax(logits->choice[ax], JEV_K, temperature[ax], out->choice[ax]);
     softmax(logits->score, JEV_N_SCORE, 1.0f, out->score);
     out->noul = isfinite(logits->noul_logit) ?
-        1.0f / (1.0f + expf(-logits->noul_logit)) : NAN;
+        1.0f / (1.0f + expf(-logits->noul_logit)) : nanf("");
 }
 
 /* The Python vocabulary: multiplicative steps around 1.0, log-spaced. */
@@ -440,7 +441,7 @@ void jev_resample(const float *y, const float *u, int n, float *y_out,
 static int invalid_action(jev_action *out, int reason) {
     int ax;
     if (out != NULL) {
-        *out = (jev_action){0};
+        memset(out, 0, sizeof *out);
         out->held = 1;
         out->conformal_mode = JEV_CP_OFF;
         for (ax = 0; ax < 3; ++ax) {
