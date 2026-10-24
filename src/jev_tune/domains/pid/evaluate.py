@@ -27,6 +27,7 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
+from ...core.gate import SafetyGate
 from .decision import DecisionBackend, as_backend
 from ...core.policy import DEFAULT_ABSTAIN, AbstainPolicy, Decision, ConformalPolicy, apply_abstention, apply_conformal, decide
 from .action import ActionSpace, apply_step
@@ -261,7 +262,7 @@ def evaluate_head(
     use_value_filter: bool = False,
     early_stop: bool = False,
     stop_band: int = 0,
-    safety_gate: bool = True,
+    safety_gate: bool | SafetyGate = True,
     max_rollbacks: int = 4,
     objective: str = "step",
     sims_already_spent: int = 0,
@@ -322,6 +323,8 @@ def evaluate_head(
 
     space = space or ActionSpace()
     backend = as_backend(model, space=space)
+    gate = (safety_gate if isinstance(safety_gate, SafetyGate)
+            else SafetyGate(max_rollbacks=max_rollbacks) if safety_gate else None)
     if isinstance(conformal, str):
         mode = conformal
         if mode not in ("backend", "monitor", "hard_hold"):
@@ -428,15 +431,12 @@ def evaluate_head(
 
         # A rollback is an independent transition. It must not suppress normal
         # proposals for another plant in the same vectorised simulation batch.
-        blowing = np.zeros(active.size, dtype=bool)
-        if safety_gate:
-            blowing = (j > np.maximum(3.0 * best_cost[active] + 1.0, 8.0)) & (
-                rollbacks[active] < max_rollbacks
-            )
+        blowing = (gate.trips(j, best_cost[active], rollbacks[active])
+                   if gate is not None else np.zeros(active.size, dtype=bool))
         if blowing.any():
             rollback_idx = active[blowing]
             old = gains[rollback_idx].copy()
-            gains[rollback_idx] = np.maximum(best_gains[rollback_idx] * 0.6, 1e-4)
+            gains[rollback_idx] = np.maximum(gate.recover(best_gains[rollback_idx]), 1e-4)
             rollbacks[rollback_idx] += 1
             prev_action[rollback_idx] = 0.0
             prev_cost[rollback_idx] = j[blowing]

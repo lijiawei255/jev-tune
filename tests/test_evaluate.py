@@ -344,3 +344,16 @@ def test_decision_report_matches_a_hand_computed_ece():
 
 def test_decision_report_is_empty_when_nothing_was_recorded():
     assert _result_with(None).decision_report() == {}
+
+
+def test_safety_gate_matches_c_reference_vectors_and_evaluator_rule():
+    import json
+    from pathlib import Path
+    from jev_tune.core.gate import SafetyGate
+    cases = json.loads((Path(__file__).resolve().parents[1] / "c/test_vectors.json").read_text())["gate_cases"]
+    for c in cases:
+        gate = SafetyGate(max_rollbacks=int(c["max_rollbacks"]))
+        assert bool(gate.trips(c["cost"], c["best_cost"], c["rollbacks"])) == c["rollback"], c
+    np.testing.assert_allclose(SafetyGate().recover([1.0, 2.0]), [0.6, 1.2])
+    with pytest.raises(ValueError):
+        SafetyGate(rollback_factor=0)
