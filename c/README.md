@@ -53,8 +53,6 @@ prove correct handling of every possible fault or operating environment.
 #include "jev_head.h"
 #include "jev_config.h"
 /* Assemble a finite, validated state s and measured cost in the caller. */
-jev_logits logits;
-jev_probs probabilities;
 jev_action action;
 jev_policy policy = {JEV_DEFAULT_POLICY[0], JEV_DEFAULT_POLICY[1],
                      JEV_DEFAULT_POLICY[2]};
@@ -62,12 +60,25 @@ jev_conformal cp = {JEV_DEFAULT_CP_ENABLED,
                     {JEV_DEFAULT_CP_QHAT[0], JEV_DEFAULT_CP_QHAT[1],
                      JEV_DEFAULT_CP_QHAT[2]}, JEV_DEFAULT_CP_K_MAX, JEV_DEFAULT_CP_MODE};
 int escalations = 0;
-jev_forward(&s, &logits);
-jev_answer(&logits, JEV_DEFAULT_TEMPERATURE, &probabilities);
-jev_decode(&probabilities, &action);
-jev_abstain(&action, &probabilities, &policy, &escalations);
-jev_apply_conformal(&action, &probabilities, &cp, &escalations);
+int status = jev_decide_checked(&s, JEV_DEFAULT_TEMPERATURE, &policy, &cp, &action);
+/* On nonzero status all axes are held/escalated; notify the supervisor. */
+for (int ax = 0; ax < 3; ++ax) escalations += action.escalate[ax];
 ```
+
+The recommended `jev_decide_checked` validates all state channels, positive finite
+temperatures, enabled policy fields, every network layer and decision output.
+It returns 0 on success, -8 for invalid input, -9 for invalid policy, or -10 for
+non-finite computation. Every failure clears the complete action and holds and
+escalates every axis, with reason 8/9/10. No stale action survives. NULL policy/CP
+disables that policy; disabled CP fields are ignored. Inputs/output must not overlap.
+Low-level routines remain unchecked: callers own pointer/input validity. Forward
+emits all-NaN logits on non-finite intermediates; answer emits NaN for invalid
+rows/temperatures. Softmax centers before dividing and uses double intermediates;
+all positive finite float temperatures, including subnormals, are accepted without
+a floor. Do not compile with fast-math or finite-math-only, which defeat these checks.
+The core uses fixed-size arrays and no allocation. `test_checked.c` exercises
+faults and extreme temperatures; `tests/test_checked_shell.py` compiles all four
+harnesses while keeping existing fixture tolerances unchanged.
 
 `axis_held[a]` means the policy vetoed axis `a`; `held` is true only if all axes
 were vetoed. A confident ×1 choice has a zero step and is **not** abstention.
@@ -146,6 +157,16 @@ hash and whether hardware was tested. There are no registered community ports.
 增益更新用例。期望值或实测值非有限都会失败；通过这些用例仍不等于覆盖所有故障与工况。
 
 ### 调用语义
+
+推荐使用英文示例中的`jev_decide_checked`整链入口，检查全部状态通道、正有限温度、
+启用的策略参数、各网络层和决策输出。成功返回0，失败返回-8（输入无效）、-9（策略
+无效）、-10（计算非有限），完整清空动作并保持、升级所有轴，reason为8/9/10，旧动作
+不会残留。NULL策略表示关闭，关闭的CP字段忽略；输入输出内存不得重叠。
+底层函数仍由调用者负责指针和输入合法性。前向遇到非有限中间值时输出全部NaN，answer
+遇到无效温度或logits行时将该概率行置NaN。softmax先中心化再除温度，使用double中间量，
+接受所有正有限float温度（含次正规数），不设温度下限。不得启用fast-math或
+finite-math-only编译选项。核心只用定长数组，不分配内存。`test_checked.c`覆盖故障与
+极端温度；`tests/test_checked_shell.py`编译全部四个检查程序，原有向量容差不变。
 
 调用顺序见英文部分代码。`axis_held[a]`表示策略否决第a轴；`held`仅在所有轴均被否决
 时为真。高把握度主动选择×1时步长为0，但不是弃权。`reason`与Python一致：0执行、

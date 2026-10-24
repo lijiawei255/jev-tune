@@ -31,6 +31,9 @@
 #define JEV_CP_MONITOR 0
 #define JEV_CP_HARD_HOLD 1
 #define JEV_CP_OFF -1
+#define JEV_INVALID_INPUT 8
+#define JEV_INVALID_POLICY 9
+#define JEV_INVALID_NUMERIC 10
 
 /* one decision state: 20 features + 2 x 64 resampled trace samples */
 typedef struct {
@@ -61,7 +64,8 @@ typedef struct {
     int escalate[3];      /* held and below tau_esc */
     int reason[3];        /* 0 act, 1 low confidence, 2 escalate, 3 noul,
                             4 empty CP set, 5 oversized CP set, 6 mixed signs,
-                            7 invalid conformal policy (fail closed) */
+                            7 invalid conformal policy; 8 invalid input,
+                            9 invalid policy, 10 non-finite computation */
     int set_size[3];      /* conformal set size; zero when disabled */
     int conformal_set[3][JEV_K];
     int conformal_applied;
@@ -69,6 +73,10 @@ typedef struct {
     int conformal_would_hold[3]; /* diagnostic, even when monitor executes */
     int conformal_reason[3];     /* 0 none, 4 empty, 5 large, 6 mixed signs */
 } jev_action;
+
+/* Low-level routines are unchecked: callers own pointer and input validity.
+ * forward emits all-NaN logits on a non-finite intermediate. answer emits NaN
+ * for invalid rows/temperature, and never clamps a valid positive temperature. */
 
 /* forward pass: conv1d(2->16, k5, s2) -> conv1d(16->32, k5, s2) -> avgpool
  * -> mlp(20->64->64) -> concat -> trunk(96->128->128) -> heads */
@@ -115,6 +123,16 @@ typedef struct {
  * quantile or k_max holds all axes without claiming a valid prediction set. */
 int jev_apply_conformal(jev_action *act, const jev_probs *p,
                          const jev_conformal *cp, int *escalations);
+
+/* Recommended state -> forward -> probabilities -> decode -> policy entry.
+ * NULL policy/CP disables that policy. Disabled CP fields are ignored.
+ * Returns 0 on success, otherwise -JEV_INVALID_*. Every failure with a non-NULL
+ * out clears the complete action, holds/escalates all axes and sets reason.
+ * Inputs and out must not overlap; no stale action survives failure.
+ * No gain update or physical safety supervision is performed. */
+int jev_decide_checked(const jev_state *s, const float temperature[3],
+                       const jev_policy *pol, const jev_conformal *cp,
+                       jev_action *out);
 
 /* gains <- clip(gains * 10^step) */
 void jev_apply_step(float gains[3], const float step[3]);

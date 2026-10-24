@@ -18,7 +18,13 @@
 #define CV2_LEN 16 /* floor((32 + 2*2 - 5)/2) + 1 */
 #define HIDDEN 128
 
-static float relu(float x) { return x > 0.0f ? x : 0.0f; }
+static float relu(float x) { return !isfinite(x) ? x : (x > 0.0f ? x : 0.0f); }
+
+static int finite_array(const float *x, int n) {
+    int i;
+    for (i = 0; i < n; ++i) if (!isfinite(x[i])) return 0;
+    return 1;
+}
 
 static float clipf(float x, float lo, float hi) {
     return x < lo ? lo : (x > hi ? hi : x);
@@ -62,7 +68,7 @@ static void linear(const float *x, int n_in, const float *w, const float *b,
     }
 }
 
-void jev_forward(const jev_state *s, jev_logits *out) {
+static int forward_checked(const jev_state *s, jev_logits *out) {
     float c_in[2 * JEV_N_CURVE];
     float c1[CV1_OUT * CV1_LEN];
     float c2[CV2_OUT * CV2_LEN];
@@ -78,8 +84,10 @@ void jev_forward(const jev_state *s, jev_logits *out) {
     }
     conv1d(c_in, 2, JEV_N_CURVE, jev_w_cv1, jev_b_cv1, CV1_OUT, 5, 2, 2, c1,
            CV1_LEN);
+    if (!finite_array(c1, CV1_OUT * CV1_LEN)) return -1;
     conv1d(c1, CV1_OUT, CV1_LEN, jev_w_cv2, jev_b_cv2, CV2_OUT, 5, 2, 2, c2,
            CV2_LEN);
+    if (!finite_array(c2, CV2_OUT * CV2_LEN)) return -1;
 
     /* adaptive average pool over the remaining length -> one value per channel */
     for (ch = 0; ch < CV2_OUT; ++ch) {
@@ -90,8 +98,11 @@ void jev_forward(const jev_state *s, jev_logits *out) {
         pooled[ch] = acc / (float)CV2_LEN;
     }
 
+    if (!finite_array(pooled, CV2_OUT)) return -1;
     linear(s->feats, JEV_N_FEATS, jev_w_mlp1, jev_b_mlp1, 64, m1, 1);
+    if (!finite_array(m1, 64)) return -1;
     linear(m1, 64, jev_w_mlp2, jev_b_mlp2, 64, m2, 1);
+    if (!finite_array(m2, 64)) return -1;
 
     for (i = 0; i < CV2_OUT; ++i) {
         concat[i] = pooled[i];
@@ -100,7 +111,9 @@ void jev_forward(const jev_state *s, jev_logits *out) {
         concat[CV2_OUT + i] = m2[i];
     }
     linear(concat, CV2_OUT + 64, jev_w_tr1, jev_b_tr1, HIDDEN, t1, 1);
+    if (!finite_array(t1, HIDDEN)) return -1;
     linear(t1, HIDDEN, jev_w_tr2, jev_b_tr2, HIDDEN, t2, 1);
+    if (!finite_array(t2, HIDDEN)) return -1;
 
     for (ch = 0; ch < 3; ++ch) {
         switch (ch) {
@@ -117,36 +130,43 @@ void jev_forward(const jev_state *s, jev_logits *out) {
     }
     linear(t2, HIDDEN, jev_w_score, jev_b_score, JEV_N_SCORE, out->score, 0);
     linear(t2, HIDDEN, jev_w_noul, jev_b_noul, 1, &out->noul_logit, 0);
+    for (ch = 0; ch < 3; ++ch)
+        if (!finite_array(out->choice[ch], JEV_K)) return -1;
+    return finite_array(out->score, JEV_N_SCORE) && isfinite(out->noul_logit) ? 0 : -1;
 }
 
-static void softmax(const float *z, int n, float *p) {
-    float mx = z[0], sum = 0.0f;
+void jev_forward(const jev_state *s, jev_logits *out) {
+    int ax, i;
+    if (forward_checked(s, out) == 0) return;
+    for (ax = 0; ax < 3; ++ax)
+        for (i = 0; i < JEV_K; ++i) out->choice[ax][i] = NAN;
+    for (i = 0; i < JEV_N_SCORE; ++i) out->score[i] = NAN;
+    out->noul_logit = NAN;
+}
+
+static void softmax(const float *z, int n, double t, float *p) {
+    double mx = z[0], sum = 0.0, v[JEV_K];
     int i;
-    for (i = 1; i < n; ++i) {
-        if (z[i] > mx) mx = z[i];
+    if (!isfinite(t) || t <= 0 || !finite_array(z, n)) {
+        for (i = 0; i < n; ++i) p[i] = NAN;
+        return;
     }
+    for (i = 1; i < n; ++i) if (z[i] > mx) mx = z[i];
     for (i = 0; i < n; ++i) {
-        p[i] = expf(z[i] - mx);
-        sum += p[i];
+        v[i] = exp(((double)z[i] - mx) / t);
+        sum += v[i];
     }
-    for (i = 0; i < n; ++i) {
-        p[i] /= sum;
-    }
+    for (i = 0; i < n; ++i) p[i] = (float)(v[i] / sum);
 }
 
 void jev_answer(const jev_logits *logits, const float temperature[3],
                 jev_probs *out) {
-    float z[JEV_K];
-    int ax, i;
-    for (ax = 0; ax < 3; ++ax) {
-        float t = temperature[ax] > 1e-6f ? temperature[ax] : 1e-6f;
-        for (i = 0; i < JEV_K; ++i) {
-            z[i] = logits->choice[ax][i] / t;
-        }
-        softmax(z, JEV_K, out->choice[ax]);
-    }
-    softmax((const float *)logits->score, JEV_N_SCORE, out->score);
-    out->noul = 1.0f / (1.0f + expf(-logits->noul_logit));
+    int ax;
+    for (ax = 0; ax < 3; ++ax)
+        softmax(logits->choice[ax], JEV_K, temperature[ax], out->choice[ax]);
+    softmax(logits->score, JEV_N_SCORE, 1.0, out->score);
+    out->noul = isfinite(logits->noul_logit) ?
+        (float)(1.0 / (1.0 + exp(-(double)logits->noul_logit))) : NAN;
 }
 
 /* The Python vocabulary: multiplicative steps around 1.0, log-spaced. */
@@ -415,4 +435,63 @@ void jev_resample(const float *y, const float *u, int n, float *y_out,
         y_out[c] = y[idx];
         u_out[c] = u[idx];
     }
+}
+
+static int invalid_action(jev_action *out, int reason) {
+    int ax;
+    if (out != NULL) {
+        *out = (jev_action){0};
+        out->held = 1;
+        out->conformal_mode = JEV_CP_OFF;
+        for (ax = 0; ax < 3; ++ax) {
+            out->axis_held[ax] = out->escalate[ax] = 1;
+            out->reason[ax] = reason;
+        }
+    }
+    return -reason;
+}
+
+int jev_decide_checked(const jev_state *s, const float temperature[3],
+                       const jev_policy *pol, const jev_conformal *cp,
+                       jev_action *out) {
+    jev_logits logits;
+    jev_probs p;
+    int ax;
+    if (!out) return -JEV_INVALID_INPUT;
+    invalid_action(out, JEV_INVALID_INPUT);
+    if (!s || !temperature || !finite_array(s->feats, JEV_N_FEATS))
+        return -JEV_INVALID_INPUT;
+    for (ax = 0; ax < 2; ++ax)
+        if (!finite_array(s->curves[ax], JEV_N_CURVE)) return -JEV_INVALID_INPUT;
+    for (ax = 0; ax < 3; ++ax)
+        if (!isfinite(temperature[ax]) || temperature[ax] <= 0) return -JEV_INVALID_INPUT;
+    if (pol && (!isfinite(pol->tau_act) || !isfinite(pol->tau_esc) ||
+        !isfinite(pol->tau_noul) || pol->tau_act < 0 || pol->tau_act > 1 ||
+        pol->tau_esc < 0 || pol->tau_esc > pol->tau_act ||
+        pol->tau_noul < 0 || pol->tau_noul > 1))
+        return invalid_action(out, JEV_INVALID_POLICY);
+    if (cp) {
+        if (cp->enabled != 0 && cp->enabled != 1)
+            return invalid_action(out, JEV_INVALID_POLICY);
+        if (cp->enabled) {
+            if ((cp->mode != JEV_CP_MONITOR && cp->mode != JEV_CP_HARD_HOLD) || cp->k_max < 1)
+                return invalid_action(out, JEV_INVALID_POLICY);
+            for (ax = 0; ax < 3; ++ax)
+                if (!isfinite(cp->qhat[ax]) || cp->qhat[ax] < 0 || cp->qhat[ax] > 1)
+                    return invalid_action(out, JEV_INVALID_POLICY);
+        }
+    }
+    if (forward_checked(s, &logits)) return invalid_action(out, JEV_INVALID_NUMERIC);
+    jev_answer(&logits, temperature, &p);
+    for (ax = 0; ax < 3; ++ax)
+        if (!finite_array(p.choice[ax], JEV_K)) return invalid_action(out, JEV_INVALID_NUMERIC);
+    if (!finite_array(p.score, JEV_N_SCORE) || !isfinite(p.noul))
+        return invalid_action(out, JEV_INVALID_NUMERIC);
+    jev_decode(&p, out);
+    if (!finite_array(out->step, 3) || !finite_array(out->proposed, 3) ||
+        !finite_array(out->confidence, 3)) return invalid_action(out, JEV_INVALID_NUMERIC);
+    jev_abstain(out, &p, pol, NULL);
+    if (jev_apply_conformal(out, &p, cp, NULL)) return invalid_action(out, JEV_INVALID_POLICY);
+    if (!finite_array(out->step, 3)) return invalid_action(out, JEV_INVALID_NUMERIC);
+    return 0;
 }

@@ -4,6 +4,7 @@ function R = test_tune_history(workRoot)
 % P-only sweep and own gains run, the first Z-N candidate fails, and the final
 % own-gain rerun succeeds. This exercises the former undefined-counter path.
 if nargin < 1, workRoot = tempname; end
+numericContract = test_decode_contract();
 if ~isfolder(workRoot), mkdir(workRoot); end
 mdl = 'tc_history';
 make_demo_model(workRoot, 'second_order', struct('name', mdl));
@@ -93,7 +94,7 @@ assert(stopped.history(end).measurement_reused);
 assert(all(stopped.history(1).held) && all(stopped.history(1).conformal_would_hold));
 assert(stopped.final_J <= min(stopped.history(1).J, stopped.own_J));
 assert(stopped.n_total_simulations == sum(cell2mat(struct2cell(stopped.measurements))));
-R = struct('ok', true, 'first_iteration_rollbacks', failed.n_rollbacks, ...
+R = struct('ok', true, 'numeric_contract', numericContract, 'first_iteration_rollbacks', failed.n_rollbacks, ...
     'first_iteration_escalations', failed.n_escalations, ...
     'cumulative_escalations', held.n_escalations, 'history_escalations', count, ...
     'monitor_matches_CP_disabled', true, 'no_action_measurements', stopped.n_recorded_measurements, ...

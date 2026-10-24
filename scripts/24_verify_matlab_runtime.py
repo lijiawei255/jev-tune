@@ -19,7 +19,7 @@ from jev_tune.matlab_runner import find_matlab
 ROOT = Path(__file__).resolve().parents[1]
 MARKER = "JEV_RUNTIME_RESULT="
 SOURCES = (
-    "matlab/test_tune_history.m", "matlab/make_demo_model.m",
+    "matlab/test_tune_history.m", "matlab/test_decode_contract.m", "matlab/make_demo_model.m",
     "matlab/jev_tune_model.m", "matlab/jev_tune_json.m", "matlab/jev_decode.m",
     "matlab/jev_head_forward.m", "matlab/jev_state.m", "matlab/jev_metrics.m",
     "matlab/jev_assert_distinct_paths.m", "matlab/jev_read_signal.m",

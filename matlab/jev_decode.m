@@ -21,7 +21,9 @@ validateattributes(maxStep, {'numeric'}, {'scalar', 'finite', 'positive'});
 validateattributes(out.choice, {'numeric'}, {'size', [7 3], 'finite'});
 validateattributes(out.score, {'numeric'}, {'numel', 5, 'finite'});
 validateattributes(out.noul, {'numeric'}, {'scalar', 'finite'});
-p = exp(double(out.choice) ./ temp - max(double(out.choice) ./ temp, [], 1));
+% Center before division: finite logits and tiny positive T must stay valid.
+z = double(out.choice);
+p = exp((z - max(z, [], 1)) ./ temp);
 p = p ./ sum(p, 1);
 score = exp(double(out.score(:)) - max(double(out.score(:))));
 D.choice = p; D.score = score ./ sum(score);
