@@ -16,6 +16,7 @@ import re
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 import urllib.parse
@@ -558,4 +559,7 @@ def main():
 
 
 if __name__ == "__main__":
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8")
     raise SystemExit(main())

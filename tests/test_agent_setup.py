@@ -93,7 +93,14 @@ def setup_case(request, tmp_path, native_python):
     env.update(SETUP_REAL_PYTHON=sys.executable, SETUP_RECORDER=str(recorder),
                SETUP_LOG=str(tmp_path / "calls.jsonl"), SETUP_INSTALLED=str(tmp_path / "editable marker"), SETUP_REPO=str(repo))
     if shell == "bash":
-        env["PATH"] = bash_path(shims) + ":/usr/bin:/bin"
+        # Expose only the actual utilities this script needs. In particular,
+        # removing fake conda must never reveal a runner's /usr/bin/conda.
+        env["PATH"] = bash_path(shims)
+        for name in ("bash", "dirname", "grep"):
+            utility = shims / name
+            target = "/bin/bash" if name == "bash" else "/usr/bin/" + name
+            utility.write_text('#!/bin/bash\nexec ' + target + ' "$@"\n', encoding="utf-8")
+            utility.chmod(0o755)
         env["SETUP_FAKE_BASE"] = bash_path(base)
         selected = base / "envs/jev-tune/bin/python"
         shim = '#!/usr/bin/env bash\nexec "$SETUP_REAL_PYTHON" -I "$SETUP_RECORDER" --shell "$0" "$@"\n'
@@ -105,7 +112,7 @@ def setup_case(request, tmp_path, native_python):
         selected.parent.mkdir(parents=True); shutil.copyfile(bootstrap, selected); selected.chmod(0o755)
         command = [executable, "--noprofile", "--norc", bash_path(script)]
     else:
-        env["PATH"] = str(shims) + os.pathsep + str(Path(os.environ["SystemRoot"]) / "System32")
+        env["PATH"] = str(shims)
         env["SETUP_FAKE_BASE"] = str(base)
         selected = base / "envs/jev-tune/python.exe"
         conda = shims / "conda.cmd"
@@ -167,3 +174,14 @@ def test_setup_venv_fallback_installs_with_its_python_and_prints_activation(setu
     assert calls()[0]["args"][:2] == ["-m", "venv"]
     assert "[setup] activate:" in result.stdout
     assert ("/activate" if shell == "bash" else "Activate.ps1") in result.stdout
+
+
+@pytest.mark.parametrize("script", ["59_research_data.py", "history_sources.py", "65_restore_benchmark.py"])
+def test_restore_help_uses_utf8_without_pythonpath_under_legacy_encoding(script, tmp_path):
+    env = dict(os.environ, PYTHONIOENCODING="cp1252", PYTHONUTF8="0")
+    env.pop("PYTHONPATH", None)
+    result = subprocess.run([sys.executable, str(ROOT / "scripts" / script), "--help"], cwd=tmp_path,
+                            env=env, capture_output=True, timeout=30)
+    stdout, stderr = result.stdout.decode("utf-8"), result.stderr.decode("utf-8")
+    assert result.returncode == 0, stdout + stderr
+    assert "usage:" in stdout and "--help" in stdout and "Traceback" not in stderr

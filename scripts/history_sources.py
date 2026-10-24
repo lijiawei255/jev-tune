@@ -14,6 +14,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import subprocess
+import sys
 import tempfile
 import zipfile
 
@@ -248,6 +249,9 @@ def restore_pinned(root,from_dir=None):
 
 
 if __name__=='__main__':
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8')
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--root',type=Path,required=True)
     parser.add_argument('--requirements',type=Path)

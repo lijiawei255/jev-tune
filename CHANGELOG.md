@@ -11,6 +11,7 @@ file that produced them is named next to them.
 
 * Install the editable project with the setup script's selected Python and report that interpreter and the activation command. Fail immediately when a PowerShell installation command fails.
 * Clarify activation and independent-shell commands in both READMEs and the agent guide; list optional benchmark restoration directly in the guide. Add installation-only verification without rerunning scientific experiments.
+* Use UTF-8 for restoration-command output so bilingual help also works on Windows with a legacy console encoding.
 
 ## [0.10.1] - 2026-10-24
 
@@ -370,6 +371,7 @@ start) and the scale economics. See the release notes.
 
 * 安装脚本使用选定的Python安装可编辑项目，并输出解释器和激活命令；PowerShell安装命令失败时立即退出。
 * 中英文README及Agent指引补齐环境激活和独立终端命令，指引直接列出可选测试场恢复命令；新增安装专项验证，不重新运行科学实验。
+* 恢复命令使用UTF-8输出，确保使用旧控制台编码的Windows也能显示双语帮助。
 
 ## [0.10.1] - 2026-10-24
 
