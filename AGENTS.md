@@ -1,291 +1,175 @@
 # Agent guide
 
-## Initial clone and optional evidence / 首次克隆与按需证据
+This file is for an automated assistant pointed at this repository. Read it
+top to bottom. It has two modes; pick the one that matches the request:
 
-The v0.10.1 distribution separates experimental payloads from reachable Git
-history. An ordinary clone needs no special flags and retains complete source,
-formal PID artifacts and six non-PID model/calibration JSON files:
-
-```sh
-git clone https://github.com/lijiawei255/jev-tune.git
-cd jev-tune
-```
-
-Runtime use needs no research records. Restore the optional motor-valve benchmark
-separately with `python scripts/65_restore_benchmark.py`. Before pytest or scientific claims run
-`python scripts/59_research_data.py --fetch all`, followed by
-`python scripts/history_sources.py --root . --restore-pinned`; both accept `--from-dir`
-for pinned offline assets. Script 60 prepares a new checkout and performs complete
-verification. The source capsule supplies selected original scientific source/tree
-objects, not complete old Git history. Public manifests distinguish unchanged
-original objects from sanitized metadata derivatives. Script-42 maintenance commands
-are not promised to work directly; use the current script-44/16 frozen verifiers
-after restoration. Publication acceptance requires actual pinned assets and
-verification receipts; do not infer it from these instructions, rewrite an existing
-user's checkout, or publish a history transition without authorization.
-See [distribution and history boundaries](docs/DISTRIBUTION.md).
-
-v0.10.1分发从可达Git历史移出实验载荷。以上普通克隆无需特殊参数，保留完整源码、
-正式PID产物及六份非PID模型/校准JSON。运行复用不需要研究记录；可选电机阀门基准通过
-`python scripts/65_restore_benchmark.py`单独恢复。pytest或科学claims前
-先执行59的`--fetch all`，再执行`history_sources.py --root . --restore-pinned`；两者均
-支持`--from-dir`离线附件。60脚本在新目录完成恢复与完整核验。源码胶囊提供选定的原始
-科学源码/tree对象，并非完整旧Git历史；公开清单区分未改动的原对象与脱敏元数据派生件。
-旧42维护命令不保证直接可用，恢复后使用当前44/16冻结核验入口。发布验收以真实固定
-附件和核验收据为准，不能仅从本文推断；不要重写用户既有检出，或未经授权发布历史切换。
-详见[分发与历史边界](docs/DISTRIBUTION.md)。
-
-This file is for an automated assistant that a user pointed at this repository.
-It is written to be read top-to-bottom and executed without asking questions.
+* **Use mode** — the user wants a model tuned or the shell applied. Follow
+  [Use mode](#use-mode-tune-a-users-model).
+* **Build mode** — the user wants this repository changed. Follow
+  [Build mode](#build-mode-change-this-repository). The one-question rule of use
+  mode does not apply; ask whenever a change is ambiguous.
 
 ## What this project is
 
-A control-parameter autotuner whose decision step is a **Jev-style typed decision**
-(`choice` / `score` / `noul`) produced by a small CPU model,
-instead of an autoregressive LLM call. It tunes PID gains for a plant it can
-only test by simulation.
+A **Jev-inspired calibrated decision & safety shell**. A small CPU model answers
+typed questions — `Choice` (pick one of K), `Score` (ordered rubric), `Noul`
+(calibrated yes/no) — and the shell turns those answers into a bounded action
+or an explicit hold. PID autotuning is the complete test bed; a pure-Python VLA
+action mask shows the same shell on categorical actions. It uses the Jev
+*interface*, not the Jev model: no Jev/Laya weights, no text input, no API, and
+**no affiliation with TypeSafe AI**. Say so if asked.
 
-**It uses the Jev *interface*, not the Jev model.** Laya's 421 M text encoder is
-not in the runtime; the policy is trained in this repo. Say so if a user asks.
-This project is **Jev-inspired and not affiliated with TypeSafe AI**; it contains
-no Jev weights, no text input and no API access. `docs/JEV_MAPPING.md` lists what
-is borrowed and what is not. `docs/COMPUTE.md` separates measured forward latency
-from the complete typed decision and default abstention path. Host measurements
-are not a target-board worst-case timing guarantee.
+```
+src/jev_tune/core/           numpy only, domain-agnostic
+  primitives.py              Choice / Score / Noul, softmax, temperature fit, split CP
+  policy.py                  decide(): shrink, a-priori Hold, CP veto (default hard_hold)
+  calibration.py             temperature + CP from two disjoint labelled splits
+  gate.py                    SafetyGate: deterministic post-measurement rollback
+src/jev_tune/domains/pid/    complete PID test bed: plants, expert, head, evaluator, MATLAB bridge
+src/jev_tune/domains/light/  linear_shell.py (ordered numeric), vla_mask.py (categorical)
+src/jev_tune/cli.py, mcp_server.py   user surface
+c/                           C99 single-precision port, zero malloc, generated vectors
+matlab/                      Simulink bridge and hand-written forward pass
+scripts/                     01–22 training/evaluation, 18 C export, archive.py
+docs/                        design, results, BOUNDARIES, TRADEOFFS, ARCHIVE
+```
 
-Two runtimes ship in this repo:
+Layer defaults: temperature on; split CP `hard_hold` in `core` and the C
+config, `monitor` in the PID evaluator and CLI (lower final cost there, see
+`docs/TRADEOFFS.md`); `SafetyGate` on. Host timings are not a target-board WCET.
 
-| path | runs where | needs |
-| :--- | :--- | :--- |
-| Python (`src/jev_tune`, `scripts/00`–`09`) | CPU, any OS | conda/venv, torch, scipy |
-| MATLAB (`matlab/jev_tune_model.m`) | **R2024b verified**, R2019a+ expected (see `docs/SCALE.md`) | the trained weights `.mat` |
+## Use mode: tune a user's model
 
-## If the user only says one sentence
+The common request is "use this project to tune my model" from someone who
+knows MATLAB but not shells. Do not send them to the README and do not ask them
+to rename blocks.
 
-The common request is *"use this project to tune my model"*, from someone who
-knows MATLAB but not shells. Do not send them back to the README, and do not ask
-them to rename blocks. Do this:
+1. **Find MATLAB.** `jev-tune status --json`; if `ok` is false follow `next`,
+   or set `MATLAB_EXE`. Report the exact path tried.
+2. **Find the model.** Use the path the user gave. Otherwise look for
+   `*.slx` / `*.mdl` in the working directory, newest first: exactly one → use
+   it; several → ask once with the list. That is the only question allowed
+   before tuning.
+3. **On any failure run `jev-tune doctor --model <model>` first** and report its
+   `next` line, not the raw error.
+4. **Discover, do not assume.** `jev-tune discover --model <model> --json --out discover.json`.
+   At `confidence: high` ask nothing. At `medium` quote the candidates and let
+   the user pick. Quote the discovery ledger's simulation count.
+5. **Tune.** `jev-tune matlab --model <model> --config discover.json --plot before_after.png --write-back --json`.
+   Independent loops reported by `discover` → `--all-loops`.
+6. **Report in the user's language:** start cost, final cost, experiments, the
+   three gains, the path of `*_tuned.slx`. Numbers verbatim from the JSON:
+   "1.24 → 0.60", never "about 40 % better".
+7. **If it fails** read `code`, follow the table, never retry the same command.
 
-1. **Find MATLAB.** `jev-tune status --json`; if `ok` is false follow its `next`
-   field, or set `MATLAB_EXE`. Report the exact path you tried.
-2. **Find the model.** If the user gave a path, use it. If not, look for
-   `*.slx` / `*.mdl` in the working directory, newest first. Exactly one → use
-   it. More than one → **ask once**, with the list. That is the only question
-   you may ask before tuning.
-3. **If anything fails, run `jev-tune doctor --model <model>` before asking
-   the user.** It prints one line per check and names the missing variable,
-   referenced model or cascade. Report its `next` line, not the raw error.
-4. **Discover, do not assume.**
-   `jev-tune discover --model <model> --json --out discover.json`
-   Read `confidence`, `controller`, `measure`, `reference`. At `high`, ask
-   nothing: the signal graph and confirming simulations already agree. Read
-   the discovery ledger for the actual number of simulation attempts.
-   At `medium`, quote the candidates and let the user pick.
-5. **Tune.**
-   `jev-tune matlab --model <model> --config discover.json --plot before_after.png --write-back --json`
-   If `discover` reported several **independent** loops (a gantry, an oven with
-   zones), use `--all-loops` instead: it tunes each one, carries the gains
-   forward and writes one file with every loop's gains.
-6. **Report, in the user's language:** start cost, final cost, number of
-   experiments, the three gains, and the path of `*_tuned.slx`. Numbers come
-   from the JSON verbatim; "about 40 % better" is banned, "1.24 → 0.60" is not.
-7. **If it fails**, read `code` and follow the table below. Do not retry the
-   same command twice.
+Without MATLAB: `jev-tune loop --num "1" --den "0.5 1 0" --delay 0.05 --json`
+tunes a transfer function with the same head (ONNX, no torch required).
 
-Never modify the user's model file. `--write-back` writes `<name>_tuned.slx`
-next to it; the original stays byte-identical.
-
-Respond in the language the user wrote in: an English-speaking user gets
-English, a Chinese-speaking user gets Chinese. Do not translate the JSON keys.
-
-### Error codes
+Never modify the user's model: `--write-back` writes `<name>_tuned.slx` next to
+it and the original stays byte-identical.
 
 | `code` | meaning | what you do |
 | :--- | :--- | :--- |
-| `matlab_missing` | no MATLAB on PATH | show both install hints, ask for `MATLAB_EXE` |
+| `matlab_missing` | no MATLAB found | show both install hints, ask for `MATLAB_EXE` |
 | `model_not_found` | bad path | ask once more |
-| `no_loop` | no feedback loop found | the model may be open-loop; point at `docs/APPLICABILITY.md` |
-| `cascade_unsupported` | several masked PID blocks | say cascade is out of scope; offer inner-then-outer |
-| `cascade_suspect` | two loops nested, or two integrators in one path | **do not tune**; explain the inner-first plan and offer to tune one loop by name |
-| `ambiguous_junction` | no summing junction could be confirmed | the model probably needs workspace variables; ask the user to run it once in Simulink |
-| `ambiguous_controller` | two plausible Kp blocks | list `candidates`, ask which is the controller |
-| `loop_not_found` | `--all-loops` asked for a junction that is not verified | re-run `discover` and use a name from `loops` |
-| `referenced_model_unsupported` | Model blocks: the contents live in another file | tune that file instead, or flatten the hierarchy |
-| `no_signal` | nothing was logged | re-run `discover`; if it still fails, ask which Scope shows the output |
-| `sim_failed`, `model_error` | Simulink refused the model | it needs workspace variables; ask the user to run it once in Simulink |
+| `no_loop` | no feedback loop | may be open-loop; point at `docs/APPLICABILITY.md` |
+| `cascade_unsupported` | several masked PID blocks | cascade is out of scope; offer inner-then-outer |
+| `cascade_suspect` | nested loops / two integrators | **do not tune**; explain inner-first, offer one loop by name |
+| `ambiguous_junction` | no summing junction confirmed | ask the user to run the model once in Simulink |
+| `ambiguous_controller` | two plausible Kp blocks | list `candidates`, ask which one |
+| `loop_not_found` | `--all-loops` name not verified | re-run `discover`, use a name from `loops` |
+| `referenced_model_unsupported` | Model blocks | tune that file or flatten the hierarchy |
+| `no_signal` | nothing logged | re-run `discover`; then ask which Scope shows the output |
+| `sim_failed`, `model_error` | Simulink refused | needs workspace variables; ask the user to run it once |
+| `no_ultimate_gain` | `loop` plant has no phase crossover | add the real delay with `--delay`, or use MATLAB |
 | `tune_failed` | anything else | quote `error`; do not guess a fix |
 
-### When discovery fails on a model that should work
+**Before claiming success:** `result["ok"]` is true **and**
+`result["final_J"] <= min(result["history"][0]["J"], result.get("own_J", inf))`.
+The tuner never returns gains worse than the better of its start and the gains
+the model already ran. If a baseline beats the head, say so.
 
-That is a bug in this project, not in the user's model. Ask them to open the
-"Discovery failed on a real model" issue template in `.github/ISSUE_TEMPLATE/`
-and paste the `--json` output; it already contains every candidate junction and
-the reason. Do not patch around it silently by hardcoding block names.
+Discovery failing on a model that should work is a bug here: ask the user to
+open the "Discovery failed on a real model" issue template with the `--json`
+output. Never hard-code block names around it.
 
-### Before you claim success
+More than a couple of jobs: `jev-tune batch --jobs jobs.json` or the MCP server
+(`{"mcpServers": {"jev-tune": {"command": "jev-tune-mcp"}}}`; tools
+`tune_status`, `tune_probe_matlab`, `tune_doctor`, `tune_discover`,
+`tune_simulink`, `tune_apply_gains`, `tune_demo`). A model left in Fast Restart
+raises a modal dialog on close: use `jev_close_all`, never `close_system`.
 
-`result["ok"]` must be true **and**
-`result["final_J"] <= min(result["history"][0]["J"], result.get("own_J", float("inf")))`.
+## Porting the shell to another domain
 
-That inequality is the project's promise: the tuner never returns a gain set worse
-than the better of its own starting point and the gains the model already ran.
-`own_J` is the cost of those existing gains; it is reported so you can quote both.
-If a baseline beats the head, say so.
+Use `src/jev_tune/domains/light/` as the template and keep `core/` unchanged.
 
-## Setup (idempotent, no prompts)
+1. **Name the questions.** One `Choice` per actuated axis with ordered numeric
+   `Option.delta` payloads, or a categorical token set; optional `Score` and
+   `Noul`. Never add a path that regresses the action directly.
+2. **Write a backend** returning `core.primitives.Answer` from your own model.
+3. **Pick the decoder by action type.** Ordered numeric → `core.policy.decide`
+   (expectation + variance shrink + `max_step`). Categorical → never average;
+   follow `vla_mask.py` (argmax inside the admissible CP set, else hold).
+4. **Calibrate on two disjoint labelled splits** with
+   `core.calibration.fit_frozen_calibration`; freeze the model first.
+5. **Choose the CP mode explicitly.** `hard_hold` vetoes before actuation;
+   `monitor` only records. Measure both as in `docs/TRADEOFFS.md`.
+6. **Own the hard rules.** Domain masks (forbidden actions), units, actuator
+   bounds and `SafetyGate` thresholds live in the domain, not in `core`.
+7. **Test like `tests/test_light_domains.py`:** documented output, forbidden
+   actions never executed, holds observable, import without torch.
+8. **Embedded target:** export with `scripts/18_export_c.py`; the C port is
+   float32 only and its CP threshold is `p_min` from
+   `core.primitives.conformal_inclusion_threshold`.
 
-```bash
-bash scripts/agent_setup.sh          # macOS / Linux / WSL
-```
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\agent_setup.ps1
-```
+CP coverage is per-axis marginal teacher-label coverage on exchangeable states.
+It is not closed-loop stability, joint-action safety or a physical guarantee.
 
-Both scripts create the conda env `jev-tune` (Python 3.12) if missing, or fall
-back to `.venv`. They install CPU dependencies and the editable project with
-`--no-deps` in that selected interpreter, then print status, `[setup] python:`
-and `[setup] activate:`. The subprocess does not activate the caller's shell.
-Before the bare `python` commands below, run the printed activation command in
-the current shell. For agents using separate shells, use the exact reported
-Python path (also `executable` in status JSON) for every Python command, including
-restoration. Replace these example paths with the actual executable:
+## Build mode: change this repository
 
-```bash
-"/path/from/setup/python" -m jev_tune.cli status --json
-```
+Setup: `bash scripts/agent_setup.sh` (macOS/Linux/WSL) or
+`powershell -ExecutionPolicy Bypass -File scripts\agent_setup.ps1`; both print
+`[setup] python:` — use that interpreter for every command.
 
-```powershell
-& "C:/path/from/setup/python.exe" -m jev_tune.cli status --json
-```
-
-两个脚本在缺少时创建conda环境`jev-tune`（Python 3.12），或回退到`.venv`；在所选解释器
-中先安装CPU依赖，再用`--no-deps`以editable方式安装项目，并输出status、`[setup] python:`
-和`[setup] activate:`。子进程不会激活调用者的shell。执行下文裸`python`前，先在当前
-shell执行输出的激活命令。Agent使用独立shell时，每条Python命令（包括恢复命令）均应
-显式调用所报告的解释器路径（status JSON的`executable`），按以上Bash或PowerShell
-写法替换示例路径，不能假定后续shell的PATH已切换。
-
-## Verify
+Required checks before you report a change:
 
 ```bash
-python -m jev_tune.cli status --json   # exit 0 = ready, 2 = missing prerequisites
-python -m jev_tune.cli check           # pytest, exit 0 = green
-python -m jev_tune.cli demo --plants 12 --json
-python -m jev_tune.cli matlab --probe --json   # MATLAB release and capabilities
+python -m pytest -q                      # no Release download needed
+make -C c check                          # includes the -Wdouble-promotion -Werror build
+python scripts/docs_relink.py --check    # every relative doc link resolves
 ```
 
-## Tune a model
+Rules:
 
-```bash
-python -m jev_tune.cli matlab --model C:/path/Model.slx --auto --json
-```
-`--auto` runs discovery first, so this works on a model whose blocks are called
-anything at all. Options that matter when discovery is not enough:
-
-| flag | when |
-| :--- | :--- |
-| `--config discovered.json` | reuse what `discover --out` found |
-| `--kp-block/--ki-block/--kd-block` | override the discovered gain blocks |
-| `--controller pid_block --pid-block "PID Controller"` | the controller is a masked PID block |
-| `--measure-scope/--input-scope` | scopes are not `Scope_Position/Scope_Current` |
-| `--ref-source 0.5236` | the reference cannot be inferred from `Step × Deg2Rad` |
-| `--stop-time` | model horizon differs from its own `StopTime` |
-
-A JSON `warnings` array is returned when the setup is far from the training
-distribution (e.g. `StopTime` far from 10 s).
-
-## Specialise on one plant family
-
-The shipped head is zero-shot. When a project sits outside the training zoo
-(dead band, inverse response, unstable plant), fine-tune a specialist instead of
-hoping:
-
-```bash
-python scripts/10_specialize.py --spec plant.json --name myplant
-# plant.json: {"num":[1], "den":[0.5,1,0], "delay_s":0.05, "u_max":1.6}
-python scripts/10_specialize.py --scenario valve_dead_zone --name valve
-```
-
-It jitters the plant, runs the expert on a small zoo, fine-tunes for a few
-epochs (~1–3 min CPU) and reports zero-shot vs specialised on held-out jitters.
-
-## Throughput (read before running many jobs)
-
-**v0.9.0 scope:** the timing figures below are historical. Cross-job compiled
-model and sweep caches are disabled: each job copies its original source again,
-so original-gain comparisons and changed configurations cannot inherit a prior
-job's tuned state. The process stays warm and Fast Restart is retained within
-each job. Report current `timings` and `n_total_simulations`, including discovery
-and setup. `iters` is not an end-to-end hard simulation cap.
-
-**v0.9.0范围：**下列耗时为历史数据。跨任务编译模型与扫描缓存已停用，每次从原件
-重新复制，避免原增益比较或新配置继承上一任务的调参状态。进程仍常驻，单任务内保留
-Fast Restart。报告当前`timings`及包含发现和准备阶段的`n_total_simulations`；
-`iters`不是端到端仿真硬上限。
-
-Measured on the reference machine: MATLAB cold start ≈ 50 s, then ≈ 0.11 s per
-simulation (Fast Restart, 10 s horizon). **Without** `--auto` the model setup is
-≈ 24 s and the Kp sweep ≈ 39 s; **with** `--auto` discovery pays the load and
-compile first, so `timings` reports setup ≈ 1 s and sweep ≈ 4 s for the same job.
-(The "0.4 s per experiment" in older notes was the Python zoo, not MATLAB.)
-
-* **one process per job is SLOWER than an agent loop** (122 s vs 60 s);
-* a warm worker gives 8.8 s per job; a long-lived session 2.7 s (both measured
-  without `--auto`; with it, each job also pays the discovery pass).
-
-So: for more than a couple of jobs use `jev-tune batch --jobs jobs.json`
-(one MATLAB for the whole queue) or the MCP server, which keeps a worker alive.
-`--workers N` runs N warm MATLAB processes in parallel; the ceiling is your
-MATLAB licence, not the code.
-
-## MCP server
-
-```jsonc
-{ "mcpServers": { "jev-tune": { "command": "jev-tune-mcp" } } }
-```
-
-Tools: `tune_status`, `tune_probe_matlab`, `tune_doctor`, `tune_discover`,
-`tune_simulink`, `tune_apply_gains`, `tune_demo`. `tune_discover` returns a `config` object
-that `tune_simulink` accepts as-is. `tune_simulink` reuses a warm MATLAB; do
-not spawn one per call.
-
-## Before pointing it at a user's model
-
-Read `docs/APPLICABILITY.md`. Cascade, MIMO, non-PID controllers and hardware
-in the loop are outside the design; tracking/disturbance objectives need new
-metrics and a retrain. The tuner never returns a gain set worse than the one
-it started from, and `scripts/11_robustness.py` reproduces that claim.
-
-## Rules for automation
-
-* Never edit `data/`, `models/`, `assets/` by hand; regenerate them.
-* The decision contract is `Choice` / `Score` / `Noul` (`primitives.py`). Do not
-  add a "regress the gain directly" path; that is what this project tests.
-* `noul` is advice; the deterministic safety gate holds the veto.
-* **A model left in Fast Restart raises a modal dialog on close.** The tuner
-  disables caching in desktop sessions, and `jev_close_all` closes everything
-  safely. Never call `close_system` on a Fast-Restart model directly.
-* Report numbers, not adjectives. If a baseline beats the head, say so.
-* Ask at most one question before tuning (the model path, or a block the
-  discoverer could not separate). Everything else is a discovered fact.
-* Reply in the user's language; never answer a Chinese question with English
-  prose or the other way round.
-* `jev-tune discover` is cheap (seconds) and safe (it works on a copy). Prefer
-  it over reading the model with your own heuristics.
-
-## Documentation languages
-
-Every human-facing document is bilingual: English first, then 简体中文 in the
-same file, with a language switcher at the top (`README` has a separate
-`README.zh-CN.md`). Keep that structure when you edit docs.
+* `core/` imports numpy only. Domain code imports `core`, never the reverse.
+* Generated files are regenerated, never hand-edited: `c/jev_head_weights.h`,
+  `c/jev_config.h`, `c/test_*.h`, `c/test_vectors.json` (`scripts/18_export_c.py`),
+  `models/*` (training scripts), `assets/*`.
+* Keep Python and C policy semantics identical; a change to `core/policy.py` or
+  `core/gate.py` needs a regenerated vector set and a passing `make -C c check`.
+* Frozen research, negative results and their verifiers live only at tag
+  `v0.10.2-archive` (`python scripts/archive.py [--verify]`, `docs/ARCHIVE.md`).
+  Do not copy archived scripts back into `main`.
+* Report numbers, not adjectives. If a baseline wins, say so.
+* Human-facing docs are bilingual: English first, then 简体中文 in the same file;
+  `README` has a separate `README.zh-CN.md`.
 
 ## Where the numbers come from
 
 | file | content |
 | :--- | :--- |
 | `docs/STEP1_RESULTS.md` | latency, calibration, held-out benchmark |
-| `docs/STEP4_RESULTS.md` | real Simulink model: 5 experiments, cost 1.24 → 0.60 |
-| `docs/GENERALIZATION.md` | ten out-of-zoo scenarios, where it fails and why |
-| `docs/SCALE.md` | throughput economics, concurrency, version matrix |
-| `docs/APPLICABILITY.md` | what fits, the no-regression evidence, per-task effort |
-| `research/results/*.json` | raw evaluation output |
+| `docs/STEP4_RESULTS.md` | historical Simulink run and its corrections |
+| `docs/GENERALIZATION.md` | out-of-zoo scenarios, where it fails |
+| `docs/TRADEOFFS.md` | monitor vs hard_hold: harmful steps, experiments, final cost |
+| `docs/BOUNDARIES.md` | negative results, cross-CPU replay, disclaimers |
+| `docs/APPLICABILITY.md` | what fits, the no-regression evidence, effort per task |
+
+## 简体中文摘要
+
+本文件供自动化助手使用。**使用模式**：按上文步骤发现并调参，调参前最多问一个问题，
+数字原样引用JSON，不得修改用户模型。**构建模式**：修改本仓库时可随时提问；提交前必须
+通过`pytest`、`make -C c check`与`python scripts/docs_relink.py --check`。`core/`只依赖numpy，
+领域代码依赖core而非相反；生成文件只能重新生成；冻结研究只在`v0.10.2-archive`标签中
+（`python scripts/archive.py`）。跨领域移植以`domains/light/`为模板：数值动作用`decide`，
+类别动作不得取期望；校准使用两个不相交的标注分区；CP模式须显式选择并实测。
