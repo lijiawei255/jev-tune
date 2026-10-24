@@ -1,5 +1,11 @@
 [English](README.md) · [简体中文](README.zh-CN.md)
 
+**Download for reuse:** [v0.10.1 source ZIP](https://github.com/lijiawei255/jev-tune/archive/refs/tags/v0.10.1.zip)
+keeps the complete implementation, tests, documentation and formal weights.
+Experiment records are optional [Release attachments](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1),
+with SHA-256 verification and automatic restoration. See [downloads and reproduction](docs/DISTRIBUTION.md).
+Ordinary Git clones still include the retained research records and history.
+
 <!-- transfer-shell:en:start -->
 **Scope: a decomposable Calibrated Decision & Safety Shell with a PID testbed.** A new non-PID offline denoising task includes three genuinely trained models and independent testing; policy-benefit acceptance is `negative_stop`. At budget20, learned mean MSE spans 0.01555577–0.01582834, versus simplex 0.01423997. Stable benefit was not established; this policy investigation stops. Prospective acquisition used 76683 objective calls; standalone training/calibration labels cost 27345 per model. Negative raw evidence, frozen protocols and reproduction remain available; complex risk research stays paused.
 

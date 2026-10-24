@@ -159,3 +159,5 @@ jobs:
           test -f README.zh-CN.md
           test -f NOTICE.md
           test -f CONTRIBUTING.md
+      - name: Verify the real source ZIP and pinned attachment coverage
+        run: python scripts/61_check_distribution.py

@@ -7,6 +7,12 @@ file that produced them is named next to them.
 
 ## English
 
+## [0.10.1] - 2026-10-24
+
+* Keep reusable source, tests, documentation and all formal weights in the default source ZIP; distribute experiment records as optional hash-bound Release attachments. Preserve every original data blob, historical tag and previous release.
+* Add safe, idempotent data restoration, offline packaging and a full-history reproduction bootstrap. Check real source archives and reject incomplete test/claims runs; retain scientific failures and their original verification boundaries.
+* Document partial-clone versus source-ZIP behavior and the privacy review boundary: synthetic raw scans found no listed benchmark or personal-record indicators, while original measurement provenance retains local environment paths.
+
 ## [0.10.0] - 2026-10-24
 
 * Publish the separable calibrated decision and safety shell, frozen-model peripheral calibration, and a trained non-PID reference-denoising transfer study. Preserve its `negative_stop` result and stop policy deepening; see `docs/NONPID_TRANSFER.md` and `docs/RECALIBRATION.md`.
@@ -353,6 +359,12 @@ six-method benchmark, the robustness study (200/200 plants not worse than the
 start) and the scale economics. See the release notes.
 
 ## 简体中文
+
+## [0.10.1] - 2026-10-24
+
+* 默认源码ZIP保留可复用代码、测试、文档及全部正式权重；实验记录改由固定哈希的Release附件按需获取。所有原始数据Git blob、旧tag与旧发布均保留。
+* 新增安全幂等的数据恢复、离线打包及完整历史复现入口。验证真实源码包，拒绝不完整的测试或claims结果；保留科学失败及原验证边界。
+* 说明部分克隆与源码ZIP的差异，以及隐私审查范围：合成原始数据未命中所列基准和个人记录标识，原测量来源元数据仍含本机环境路径。
 
 ## [0.10.0] - 2026-10-24
 

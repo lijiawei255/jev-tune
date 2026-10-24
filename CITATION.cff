@@ -27,5 +27,5 @@ keywords:
   - Jev-inspired
   - ONNX
   - CPU inference
-version: 0.10.0
+version: 0.10.1
 date-released: "2026-10-24"

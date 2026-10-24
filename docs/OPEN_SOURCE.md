@@ -6,6 +6,8 @@
 
 This inventories the latest source tree and v0.10.0 release, not Git history cleansing. A normal clone includes the formal trained weights, complete implementation and tests. The ignored synthetic PID datasets are distributed separately; the data ZIP includes LICENSE, NOTICE.md and the machine inventory. Without these NPZ files, --check still validates pins and any locally present files. Packaging requires all four exact files.
 
+Starting with v0.10.1, source ZIPs retain the complete implementation and all formal weights, including the six non-PID JSON artifacts, but omit the other experimental records. Those records are pinned Release attachments with automatic SHA-256 restoration; ordinary Git clones still contain them. This v0.10.0 inventory remains the original artifact binding. See [downloads, full reproduction and privacy boundaries](DISTRIBUTION.md). The source ZIP alone cannot run the complete scientific audit: restore evidence and obtain real historical Git objects with scripts/60_reproduce_release.py.
+
 | Component / 内容 | Distribution / 分发 |
 | :--- | :--- |
 | Formal PID model artifacts and non-PID models | Git: seven models files plus six non-PID JSON artifacts |
@@ -65,6 +67,8 @@ The historical response figures (`tuning.gif`, `before_after.png`, `convergence.
 ## 简体中文
 
 清单范围为当前源码树与v0.10.0发布，不声称清理Git历史。普通clone已包含正式训练权重、完整实现与测试；被忽略的合成PID数据通过独立附件提供，ZIP内含LICENSE、NOTICE.md与机器清单。缺少NPZ时仍可运行--check，核对校准pin，存在本地文件则额外校验；打包必须四文件全部逐字节匹配。
+
+从v0.10.1起，源码ZIP保留完整实现及全部正式权重（含六份非PID模型/校准JSON），其他实验记录通过固定哈希的Release附件按需恢复；普通Git克隆仍含原记录。本v0.10.0清单继续绑定原产物，不改旧证据。详见[分发、完整复现与隐私边界](DISTRIBUTION.md)。仅源码ZIP不能执行完整科学审计，须恢复证据并通过scripts/60_reproduce_release.py获取真实历史Git对象。
 
 | 内容 | 分发方式 |
 | :--- | :--- |

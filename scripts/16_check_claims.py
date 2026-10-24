@@ -26,6 +26,48 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
+# Explicit acceptance roster: --list-ids performs no experiment/audit.  The
+# actual run must still return every registered check exactly once.
+ARTIFACT_CHECK_IDS = (
+    'table:jev_head', 'table:bo', 'table:jev_head_swept', 'table:shrunk_zn',
+    'table:identify+pidtune_PID', 'table:swept_zn', 'table:vocab_hill',
+    'table:cmaes', 'table:simplex', 'table:zn_classic',
+    'table_thermal_deadtime:vocab_hill', 'table_thermal_deadtime:jev_head_swept',
+    'table_thermal_deadtime:jev_head', 'table_thermal_deadtime:bo',
+    'table_thermal_deadtime:cmaes', 'table_thermal_deadtime:identify+pidtune_PID',
+    'table_thermal_deadtime:zn_classic', 'table_thermal_deadtime:swept_zn',
+    'table_thermal_deadtime:shrunk_zn', 'table_thermal_deadtime:simplex',
+    'generated:ABLATION.md', 'generated:ABSTENTION.md', 'generated:COMPUTE.md',
+    'generated:CALIBRATE_ONLY.md', 'generated:JOINT_RISK.md',
+    'generated:CP_DIAGNOSIS.md', 'generated:JOINT_RISK_ROLLOUT.md',
+    'generated:ROLLOUT_DIAGNOSIS.md', 'generated:TRAJECTORY_RISK.md',
+    'generated:CONFORMAL.md', 'generated:rollout_readmes',
+    'generated:APPLICABILITY.md', 'generated:trajectory_summaries',
+    'raw:joint_risk', 'raw:monitor_equivalence', 'raw:joint_risk_rollout',
+    'raw:cp_performance_diagnosis', 'evidence:rollout_diagnosis.json',
+    'evidence:trajectory_risk.json', 'evidence:trajectory_risk_reproduction.json',
+    'evidence:cohort_portability.json', 'practical:43_verify_practical_budget',
+    'practical:40_verify_model_adaptation', 'practical:41_sync_practical_docs',
+    'practical:42_release_practical', 'shell:recorded_transfer',
+    'shell:recorded_recalibration', 'shell:runtime_boundary',
+    'shell:recorded_audit_summary', 'shell:49_sync_shell_docs',
+    'shell:50_open_source_inventory', 'shell:distribution',
+)
+
+
+def expected_ids():
+    claims = json.loads((ROOT / 'docs/claims.json').read_text(encoding='utf-8'))['claims']
+    identifiers = [row['id'] for row in claims] + list(ARTIFACT_CHECK_IDS)
+    if len(identifiers) != len(set(identifiers)):
+        raise ValueError('Duplicate registered claim/check IDs')
+    return identifiers
+
+
+def complete_roster(rows):
+    identifiers = [row['id'] for row in rows]
+    expected = expected_ids()
+    return len(identifiers) == len(set(identifiers)) and set(identifiers) == set(expected)
+
 
 def render_value(value, fmt=".3f"):
     return "null" if value is None else format(float(value), fmt)
@@ -528,6 +570,7 @@ def transfer_shell_evidence() -> list[dict]:
         ('recorded_audit_summary', '56_summarize_recorded_evidence', 'check', 'research/results/recorded_evidence_audit_v0100.json'),
         ('49_sync_shell_docs', '49_sync_shell_docs', 'check', 'docs/SAFETY_SHELL.md'),
         ('50_open_source_inventory', '50_open_source_inventory', 'check', 'research/results/open_source_inventory_v0100.json'),
+        ('distribution', '61_check_distribution', 'check', 'research/distribution/research_data_v0101.json'),
     ):
         try:
             spec = importlib.util.spec_from_file_location(name, ROOT/'scripts'/(name+'.py'))
@@ -548,7 +591,17 @@ def transfer_shell_evidence() -> list[dict]:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--list-ids", action="store_true", help="Print the complete acceptance roster without running audits")
     args = ap.parse_args()
+
+    if args.list_ids:
+        print(json.dumps(expected_ids(), indent=2, ensure_ascii=False))
+        return 0
+    if not (ROOT / 'research/results/open_source_inventory_v0100.json').is_file():
+        print('Optional research evidence is missing. Restore with: python scripts/59_research_data.py --fetch all. '
+              'For full verification including historical Git objects, use: '
+              'python scripts/60_reproduce_release.py --destination NEW_DIRECTORY --verify', file=sys.stderr)
+        return 2
 
     claims = json.loads((ROOT / "docs/claims.json").read_text(encoding="utf-8"))[
         "claims"
@@ -583,6 +636,11 @@ def main() -> int:
             rows.append(row)
             failed += not row["ok"]
 
+    if not complete_roster(rows):
+        failed += 1
+        rows.append({'id': 'check:complete_roster', 'text': 'Every registered acceptance check must execute exactly once',
+                     'ok': False, 'value': None, 'source': 'docs/claims.json + ARTIFACT_CHECK_IDS',
+                     'detail': 'Missing, unexpected or duplicate acceptance check ID'})
     if args.json:
         print(json.dumps(rows, indent=2, ensure_ascii=False))
     else:

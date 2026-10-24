@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "jev-tune"
-version = "0.10.0"
+version = "0.10.1"
 description = "Calibrated typed decision and safety-shell reference with PID and non-PID testbeds; Jev-inspired, not affiliated with TypeSafe AI"
 readme = "README.md"
 requires-python = ">=3.10"

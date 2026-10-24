@@ -1,5 +1,10 @@
 [English](README.md) · [简体中文](README.zh-CN.md)
 
+**下载复用框架：**[v0.10.1源码ZIP](https://github.com/lijiawei255/jev-tune/archive/refs/tags/v0.10.1.zip)
+保留完整代码、测试、文档和正式权重；实验记录通过[Release附件](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)
+按需下载，提供SHA-256校验与自动恢复。详见[分发与复现](docs/DISTRIBUTION.md)。
+普通Git克隆仍包含保留的研究记录和历史，不能把ZIP精简说成Git历史已经缩小。
+
 <!-- transfer-shell:zh:start -->
 **定位：以PID为验证床的可拆解 Calibrated Decision & Safety Shell。** 新增非PID离线去噪标定完成三个模型的真实训练与独立测试，策略收益验收为`negative_stop`；预算20时三模型平均MSE为0.01555577–0.01582834，simplex为0.01423997，没有稳定收益，停止本轮策略深化。前瞻采集实际76683次，单模型离线训练/校准标注成本27345次；原始负结果、冻结协议和复现入口保留，复杂风险研究仍暂停。
 
