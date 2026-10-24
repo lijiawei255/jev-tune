@@ -46,7 +46,7 @@ jobs:
           unset PYTHONPATH
           "$JEV_SETUP_PYTHON" -m jev_tune.cli --help
           "$JEV_SETUP_PYTHON" -m jev_tune.cli status --json
-          for script in 59_research_data.py history_sources.py 65_restore_benchmark.py; do
+          for script in archive.py; do
             "$JEV_SETUP_PYTHON" "scripts/$script" --help
           done
           "$JEV_SETUP_PYTHON" -m pytest tests/test_agent_setup.py -q
@@ -61,7 +61,7 @@ jobs:
           }
           Invoke-Check -m jev_tune.cli --help
           Invoke-Check -m jev_tune.cli status --json
-          foreach ($script in '59_research_data.py', 'history_sources.py', '65_restore_benchmark.py') {
+          foreach ($script in 'archive.py') {
             Invoke-Check "scripts/$script" --help
           }
           Invoke-Check -m pytest tests/test_agent_setup.py -q

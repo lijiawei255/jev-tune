@@ -34,18 +34,13 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
 
-      # Release assets are immutable inputs. Missing assets must fail visibly;
-      # they are never replaced by skipped scientific assertions.
-      - name: Restore the pinned evidence and original source proofs
-        run: |
-          python scripts/59_research_data.py --fetch all
-          python scripts/history_sources.py --root . --restore-pinned
-
+      # Frozen research evidence is verified at its tag by the archive job;
+      # the runtime suite needs no Release download.
       - name: Install CPU dependencies
         run: |
           python -m pip install --upgrade pip
           pip install torch --index-url https://download.pytorch.org/whl/cpu
-          pip install numpy scipy scikit-learn pytest pytest-cov pillow matplotlib onnxruntime
+          pip install numpy scipy scikit-learn pytest pytest-cov matplotlib onnx onnxruntime
           pip install -e . --no-deps
 
       - name: Run the test suite
@@ -60,8 +55,9 @@ jobs:
           python -m jev_tune.cli status --json || test $? -eq 2
           python -m jev_tune.cli demo --plants 4 --json
 
-  evidence:
-    name: Windows scientific evidence
+  archive:
+    name: Frozen v0.10.2 research archive
+    if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     defaults:
       run:
@@ -69,67 +65,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # The observation audit verifies the exact historical producer blobs.
           fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
-      - name: Restore the pinned evidence and original source proofs
-        run: |
-          python scripts/59_research_data.py --fetch all
-          python scripts/history_sources.py --root . --restore-pinned
-      - name: Install the recorded scientific dependency versions
+      - name: Verify archived evidence in its own worktree
         run: |
           python -m pip install --upgrade pip
-          python - <<'PY'
-          import json
-          import subprocess
-          import sys
-          from pathlib import Path
-          result = json.loads(Path('research/results/trajectory_risk.json').read_text(encoding='utf-8'))
-          packages = result['manifest']['packages']
-          subprocess.check_call([sys.executable, '-m', 'pip', 'install',
-                                 'torch==' + packages['torch'],
-                                 '--index-url', 'https://download.pytorch.org/whl/cpu'])
-          subprocess.check_call([sys.executable, '-m', 'pip', 'install',
-                                 *[name + '==' + version for name, version in packages.items()
-                                   if name != 'torch']])
-          PY
-          pip install pillow matplotlib onnxruntime
-          pip install -e . --no-deps
-      - name: Independently audit recorded evidence and published claims
-        env:
-          PYTHONPATH: src
-          PYTHONUTF8: "1"
-          OMP_NUM_THREADS: "1"
-          MKL_NUM_THREADS: "1"
-          OPENBLAS_NUM_THREADS: "1"
-          NUMEXPR_NUM_THREADS: "1"
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import subprocess
-          import sys
-          output = Path('.local-audit')
-          output.mkdir(exist_ok=True)
-          stdout = output / 'hosted_claims.json'
-          stderr = output / 'hosted_claims.stderr.txt'
-          with stdout.open('w', encoding='utf-8') as out, stderr.open('w', encoding='utf-8') as err:
-              result = subprocess.run([sys.executable, 'scripts/16_check_claims.py', '--json'],
-                                      stdout=out, stderr=err)
-          print(stdout.read_text(encoding='utf-8'))
-          print(stderr.read_text(encoding='utf-8'), file=sys.stderr)
-          raise SystemExit(result.returncode)
-          PY
-      - name: Preserve scientific evidence receipts including failures
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: scientific-evidence-${{ github.run_id }}
-          path: .local-audit/
-          include-hidden-files: true
-          if-no-files-found: warn
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install numpy scipy scikit-learn pytest matplotlib pillow onnx onnxruntime
+          python scripts/archive.py --verify
 
   c-parity:
     runs-on: ubuntu-latest
@@ -173,17 +118,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Check that the documented commands exist
+      - name: Scripts parse and required documents exist
         run: |
           set -e
           for f in scripts/*.py; do python -c "import ast,sys;ast.parse(open('$f',encoding='utf-8').read(),'$f')"; done
-          test -f README.md
-          test -f README.zh-CN.md
-          test -f NOTICE.md
-          test -f CONTRIBUTING.md
-      - name: Verify the real source ZIP and pinned attachment coverage
-        run: |
-          python scripts/history_sources.py --root . --restore-pinned
-          python scripts/61_check_distribution.py
+          for f in README.md README.zh-CN.md NOTICE.md CONTRIBUTING.md CITATION.cff docs/BOUNDARIES.md docs/TRADEOFFS.md docs/ARCHIVE.md; do test -f "$f"; done

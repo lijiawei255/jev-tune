@@ -176,7 +176,7 @@ def test_setup_venv_fallback_installs_with_its_python_and_prints_activation(setu
     assert ("/activate" if shell == "bash" else "Activate.ps1") in result.stdout
 
 
-@pytest.mark.parametrize("script", ["59_research_data.py", "history_sources.py", "65_restore_benchmark.py"])
+@pytest.mark.parametrize("script", ["archive.py"])
 def test_restore_help_uses_utf8_without_pythonpath_under_legacy_encoding(script, tmp_path):
     env = dict(os.environ, PYTHONIOENCODING="cp1252", PYTHONUTF8="0")
     env.pop("PYTHONPATH", None)

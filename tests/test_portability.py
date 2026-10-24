@@ -1,6 +1,5 @@
 """Reference ports must validate committed artifacts, including failure paths."""
 import hashlib
-import importlib.util
 import json
 from pathlib import Path
 import shutil
@@ -10,59 +9,6 @@ import numpy as np
 import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-def test_matlab_report_binds_the_exported_inputs_and_implementation():
-    report = json.loads((ROOT / "research/results/matlab_parity_v0100.json").read_text())
-    assert report["ok"] and report["cases"] == 24 and report["policy_cases"] >= 27
-    assert report["schema_version"] == 3 and report["configuration"]["conformal"]["enabled"]
-    assert report["configuration"]["conformal"]["mode"] == "monitor"
-    assert {c["conformal_mode"] for c in report["policy_outputs"]} == {"off", "monitor", "hard_hold"}
-    for field, name in {
-        "model_sha256": "models/jev_head.pt",
-        "calibration_sha256": "models/calibration.json",
-        "vectors_sha256": "c/test_vectors.json",
-        "weights_mat_sha256": "models/jev_head_weights.mat",
-        "decoder_sha256": "matlab/jev_decode.m",
-        "forward_sha256": "matlab/jev_head_forward.m",
-    }.items():
-        data = (ROOT / name).read_bytes()
-        if name.endswith((".m", ".json")):
-            data = data.replace(b"\r\n", b"\n")
-        assert report[field] == hashlib.sha256(data).hexdigest(), name
-    assert max(report["max_errors"].values()) < 2e-5
-
-
-def _script(name):
-    spec = importlib.util.spec_from_file_location(name, ROOT / "scripts" / f"{name}.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_matlab_runtime_report_binds_actual_closed_loop_evidence():
-    module = _script("24_verify_matlab_runtime")
-    report = json.loads((ROOT / "research/results/matlab_runtime.json").read_text())
-    assert report["ok"] and report["schema_version"] == 1
-    assert report["source_log_sha256"] == hashlib.sha256(report["source_log"].encode("utf-8")).hexdigest()
-    records = [line[len(module.MARKER):] for line in report["source_log"].splitlines()
-               if line.startswith(module.MARKER)]
-    assert len(records) == 1 and json.loads(records[0]) == report["test_results"]
-    for name in module.SOURCES:
-        assert report["source_hashes"][name] == module.file_hash(ROOT / name), name
-    result = report["test_results"]
-    assert result["first_iteration_rollbacks"] == 1 and result["first_iteration_escalations"] == 0
-    assert result["monitor_off_max_cost_difference"] < 1e-10
-    assert result["monitor_off_max_gain_difference"] < 1e-10
-    assert result["hard_hold_no_action_stops"] == 1 and result["hard_hold_final_reused"]
-    assert result["no_action_measurements"] == 1 and result["repeated_observation_measurements"] == 5
-    assert result["hard_hold_n_experiments"] == 1 and result["hard_hold_n_history_records"] == 2
-    assert result["hard_hold_total_simulations"] == sum(result["hard_hold_measurements"].values())
-    assert result["rollback_no_action_measurements"] == 2
-    assert result["rollback_no_action_reason"] == "rollback_no_action"
-    assert result["rollback_no_action_final_reused"]
-    assert result["hard_hold_final_J"] <= min(result["hard_hold_initial_J"], result["hard_hold_own_J"])
-    assert result["monitor_final_J"] <= min(result["monitor_initial_J"], result["monitor_own_J"])
 
 
 def test_committed_vectors_match_current_model_and_policy():
@@ -131,16 +77,6 @@ def test_c_reference_and_nan_mutation(tmp_path):
         assert build.returncode == 0, build.stdout + build.stderr
         result = subprocess.run([str(exe)], capture_output=True, text=True)
         assert (result.returncode != 0) == mutant, result.stdout + result.stderr
-
-
-def test_elf_coff_and_unavailable_memory_accounting():
-    module = _script("21_hardware")
-    elf = module.parse_size_sections("section size addr\n.text 20 0\n.rodata 100 0\n.rodata.str1.1 7 0\n.data 8 0\n.bss 9 0\nTotal 144\n")
-    coff = module.parse_size_sections(".text 20 0\n.rdata 100 0\n.rdata$zzz 7 0\n.data 8 0\n.bss 9 0\n")
-    assert module._flash_bytes(elf) == module._flash_bytes(coff) == 127
-    assert module._ram_bytes(elf) == module._ram_bytes(coff) == 17
-    assert module._flash_bytes({"status": "unavailable", "error": "no compiler"}) is None
-    assert module._ram_bytes({}) is None
 
 
 def test_matlab_production_decoder(tmp_path):

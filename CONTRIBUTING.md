@@ -13,7 +13,7 @@ focused.
    a measurement and the command that produced it. "Faster" without a number
    will be asked for one.
 2. **Never regress the benchmark silently.** If your change moves
-   `scripts/03_evaluate.py` or `scripts/08_generalize.py`, include the before/after
+   `scripts/03_evaluate.py` or `scripts/11_robustness.py`, include the before/after
    table in the PR. A worse tail is acceptable if it is stated.
 3. **Keep the decision contract.** Everything the tuner outputs must be a
    `choice`, a `score`, or a `noul` (`src/jev_tune/primitives.py`). PRs that add
@@ -93,7 +93,7 @@ licence of this repository. No contributor licence agreement is required.
 1. **用数字说话。** 任何关于速度或质量的结论都要有测量和复现命令。"更快"这种
    说法一定会被要求给数据。
 2. **不要悄悄退化基准。** 改动影响 `scripts/03_evaluate.py` 或
-   `scripts/08_generalize.py` 时，PR 里要附修改前后的对照表。尾部变差可以接受，
+   `scripts/11_robustness.py` 时，PR 里要附修改前后的对照表。尾部变差可以接受，
    但必须写出来。
 3. **保持决策契约。** 调参器输出的一切必须是 `choice`、`score` 或 `noul`
    （`src/jev_tune/primitives.py`）。引入"直接回归增益"通道的 PR 会被拒绝——

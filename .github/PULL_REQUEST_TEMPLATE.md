@@ -9,7 +9,7 @@
 | | before | after |
 | :--- | ---: | ---: |
 | `jev-tune demo --plants 12` median cost | | |
-| `scripts/08_generalize.py` median ratio | | |
+| `scripts/11_robustness.py` median ratio | | |
 | decision latency (if touched) | | |
 
 Command used:
