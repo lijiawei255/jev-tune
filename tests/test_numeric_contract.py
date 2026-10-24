@@ -2,9 +2,10 @@
 import numpy as np
 import pytest
 
-from jev_tune.decode import ActionSpace, AbstainPolicy, apply_abstention, apply_step, decide
-from jev_tune.decision import NumericBackend
-from jev_tune.primitives import Answer, Choice, Noul, Option, softmax
+from jev_tune.core.policy import AbstainPolicy, apply_abstention, decide
+from jev_tune.domains.pid.action import ActionSpace, apply_step
+from jev_tune.domains.pid.decision import NumericBackend
+from jev_tune.core.primitives import Answer, Choice, Noul, Option, softmax
 
 
 def test_non_pid_payloads_drive_additive_two_axis_actions():

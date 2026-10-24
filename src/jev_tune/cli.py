@@ -135,7 +135,6 @@ def cmd_demo(args) -> int:
     from .domains.pid.baselines import run_cmaes, run_zn, zn_gains
     from .domains.pid.evaluate import evaluate_head
     from .domains.pid.plants import HELDOUT_FAMILIES, sample_plants, ultimate_gain
-
     from .domains.pid.decision import load_backend
 
     kind = _head_kind()
@@ -498,11 +497,10 @@ def cmd_loop(args) -> int:
     see the loop work, and so CI exercises the decision path on every push.
     """
     from .domains.pid.evaluate import evaluate_head
+    from .domains.pid.decision import load_backend
     from .domains.pid.plants import make_plant, ultimate_gain
 
     import numpy as np
-
-    from .domains.pid.decision import load_backend
 
     kind = _head_kind()
     if kind is None:

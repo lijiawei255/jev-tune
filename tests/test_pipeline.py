@@ -6,11 +6,11 @@ labels* is exercised, not just the code that consumes them.
 
 import numpy as np
 
-from jev_tune.expert import FAMILY_TO_ID, generate
-from jev_tune.identified import fopdt_pade_tf, identify_fopdt, open_loop_step
-from jev_tune.plants import TRAIN_FAMILIES, sample_plants
-from jev_tune.scenarios import _stack, names, variants
-from jev_tune.train import train_head
+from jev_tune.domains.pid.expert import FAMILY_TO_ID, generate
+from jev_tune.domains.pid.identified import fopdt_pade_tf, identify_fopdt, open_loop_step
+from jev_tune.domains.pid.plants import TRAIN_FAMILIES, sample_plants
+from jev_tune.domains.pid.scenarios import _stack, names, variants
+from jev_tune.domains.pid.train import train_head
 
 
 def _plants(n=2):

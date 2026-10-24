@@ -23,22 +23,22 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from jev_tune.evaluate import evaluate_head
-from jev_tune.metrics import DIVERGED_J
-from jev_tune.model import JevHead
-from jev_tune.plants import (
+from jev_tune.domains.pid.evaluate import evaluate_head
+from jev_tune.domains.pid.metrics import DIVERGED_J
+from jev_tune.domains.pid.model import JevHead
+from jev_tune.domains.pid.plants import (
     HELDOUT_FAMILIES,
     TRAIN_FAMILIES,
     sample_plants,
     ultimate_gain,
 )
-from jev_tune.scenarios import names as scenario_names
-from jev_tune.scenarios import variants
+from jev_tune.domains.pid.scenarios import names as scenario_names
+from jev_tune.domains.pid.scenarios import variants
 from _experiment_protocol import manifest
 
 
 def load_head(models: str) -> JevHead:
-    from jev_tune.decision import load_backend
+    from jev_tune.domains.pid.decision import load_backend
 
     return load_backend(models).model
 
@@ -143,7 +143,7 @@ def main():
     scenarios = []
     for nm in scenario_names():
         scenarios.append(variants(nm, 4, seed=3))
-    from jev_tune.scenarios import _stack
+    from jev_tune.domains.pid.scenarios import _stack
 
     ood = _stack(scenarios)
 

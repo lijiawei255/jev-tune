@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from jev_tune.metrics import cost_from_metrics
-from jev_tune.plants import METRIC_NAMES, sample_plants, simulate
+from jev_tune.domains.pid.metrics import cost_from_metrics
+from jev_tune.domains.pid.plants import METRIC_NAMES, sample_plants, simulate
 
 
 def test_metric_columns():

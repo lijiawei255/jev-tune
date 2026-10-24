@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from jev_tune.decision import (
+from jev_tune.domains.pid.decision import (
     AXES,
     NumericBackend,
     OnnxBackend,
@@ -15,7 +15,7 @@ from jev_tune.decision import (
     as_backend,
     tuner_questions,
 )
-from jev_tune.decode import ActionSpace, decode_answer
+from jev_tune.domains.pid.action import ActionSpace, decode_answer
 
 MODELS = Path(__file__).resolve().parents[1] / "models"
 torch = pytest.importorskip("torch")
@@ -107,7 +107,7 @@ def test_bare_head_keeps_its_calibration_through_as_backend(backend):
 
 
 def test_load_backend_can_disable_calibration():
-    from jev_tune.decision import load_backend
+    from jev_tune.domains.pid.decision import load_backend
 
     off = load_backend(MODELS, calibrate=False)
     assert off.calibrate is False
@@ -127,7 +127,7 @@ def test_onnx_and_torch_agree():
     if not (MODELS / "jev_head.onnx").is_file():
         pytest.skip("no exported ONNX graph")
     pytest.importorskip("onnxruntime")
-    from jev_tune.decision import load_backend
+    from jev_tune.domains.pid.decision import load_backend
 
     f, c = _state(16)
     torch_b = load_backend(MODELS)

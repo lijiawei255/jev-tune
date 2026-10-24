@@ -2,8 +2,8 @@
 import numpy as np
 import pytest
 
-from jev_tune.decode import AbstainPolicy, ConformalPolicy, decide
-from jev_tune.primitives import Answer, Choice, Noul, Option
+from jev_tune.core.policy import AbstainPolicy, ConformalPolicy, decide
+from jev_tune.core.primitives import Answer, Choice, Noul, Option
 
 
 def decision(p, q=.7, *, kmax=3, noul=.9, abstain=None, mode="hard_hold"):
@@ -92,7 +92,7 @@ def test_noul_override_and_cp_reason_remain_separate(mode):
 
 def test_calibration_without_mode_defaults_to_monitor_and_explicit_mode_is_validated(tmp_path):
     import json
-    from jev_tune.decision import read_conformal
+    from jev_tune.domains.pid.decision import read_conformal
 
     data = {"split_conformal": {"qhat_per_axis": [.8], "alpha": .1, "k_max": 3}}
     assert ConformalPolicy((.8,)).mode == "monitor"
@@ -107,7 +107,7 @@ def test_calibration_without_mode_defaults_to_monitor_and_explicit_mode_is_valid
 
 
 def test_float32_inclusion_threshold_matches_float64_score_rule():
-    from jev_tune.primitives import conformal_inclusion_threshold
+    from jev_tune.core.primitives import conformal_inclusion_threshold
     rng = np.random.default_rng(7)
     qs = np.r_[0.0, 1.0, 0.75, 1 - 2.0**-40, 0.9067908043575168, rng.random(64)]
     t = conformal_inclusion_threshold(qs)

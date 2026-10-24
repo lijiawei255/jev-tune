@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 from scipy import signal
 
-from jev_tune.plants import PlantSet, sample_plants, simulate
+from jev_tune.domains.pid.plants import PlantSet, sample_plants, simulate
 
 
 def _single(num, den, delay=0.0, ulim=2.5):

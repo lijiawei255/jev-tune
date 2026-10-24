@@ -23,9 +23,9 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from jev_tune.decision import OnnxBackend, read_conformal, read_temperature
-from jev_tune.decode import decide
-from jev_tune.model import JevHead
+from jev_tune.domains.pid.decision import OnnxBackend, read_conformal, read_temperature
+from jev_tune.core.policy import decide
+from jev_tune.domains.pid.model import JevHead
 
 
 class _Export(torch.nn.Module):

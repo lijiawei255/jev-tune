@@ -3,13 +3,8 @@
 import numpy as np
 import pytest
 
-from jev_tune.decode import (
-    ActionSpace,
-    apply_step,
-    decode_choice,
-    interval_refine,
-)
-from jev_tune.primitives import Choice, Noul, Option, Score, softmax
+from jev_tune.domains.pid.action import ActionSpace, apply_step, decode_choice, interval_refine
+from jev_tune.core.primitives import Choice, Noul, Option, Score, softmax
 
 
 def test_softmax_normalised():

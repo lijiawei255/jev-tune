@@ -7,7 +7,7 @@ pin the accounting (budget spent) and the shapes the comparison tables rely on.
 import numpy as np
 import pytest
 
-from jev_tune.baselines import (
+from jev_tune.domains.pid.baselines import (
     choose_zn_shrink,
     relay_estimate,
     run_bo,
@@ -21,8 +21,8 @@ from jev_tune.baselines import (
     run_zn,
     zn_gains,
 )
-from jev_tune.metrics import cost_from_metrics, is_failed
-from jev_tune.plants import (
+from jev_tune.domains.pid.metrics import cost_from_metrics, is_failed
+from jev_tune.domains.pid.plants import (
     TRAIN_FAMILIES,
     estimate_ultimate_gain,
     make_plant,

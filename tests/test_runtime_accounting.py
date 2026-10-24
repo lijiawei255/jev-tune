@@ -3,10 +3,10 @@
 import numpy as np
 import pytest
 
-import jev_tune.baselines as baselines
-import jev_tune.evaluate as evaluator
-from jev_tune.decode import ActionSpace
-from jev_tune.primitives import Answer, Choice, Noul, Option, Score
+import jev_tune.domains.pid.baselines as baselines
+import jev_tune.domains.pid.evaluate as evaluator
+from jev_tune.domains.pid.action import ActionSpace
+from jev_tune.core.primitives import Answer, Choice, Noul, Option, Score
 
 
 class Plants:
@@ -203,7 +203,7 @@ def test_command_clipped_at_gain_bound_is_not_an_applied_action(simulation):
 
 
 def test_no_action_terminal_proposal_has_evidence_but_no_fictitious_outcome(simulation):
-    from jev_tune.decode import ConformalPolicy
+    from jev_tune.core.policy import ConformalPolicy
 
     calls = simulation(lambda ids, g: 1 / g[:, 0])
     r = run(conformal=ConformalPolicy((1.,) * 3, mode="hard_hold"),
@@ -260,7 +260,7 @@ def test_historical_repeat_flag_can_allow_a_later_proposal_to_move(simulation):
 
 
 def test_backend_monitor_is_action_equivalent_to_cp_off_and_hard_hold_is_explicit(simulation):
-    from jev_tune.decode import ConformalPolicy
+    from jev_tune.core.policy import ConformalPolicy
 
     simulation(lambda ids, g: 1 / g[:, 0])
     policy = Policy()
@@ -310,7 +310,7 @@ def test_repeated_rollback_target_stops_without_inventing_a_measured_recovery(si
 
 def test_opt_in_value_filter_runs_with_trainable_parameters():
     torch = pytest.importorskip("torch")
-    from jev_tune.model import ValueNet
+    from jev_tune.domains.pid.model import ValueNet
 
     value = ValueNet()
     assert all(p.requires_grad for p in value.parameters())
@@ -325,10 +325,10 @@ def test_opt_in_value_filter_runs_with_trainable_parameters():
 
 @pytest.mark.parametrize("sim_kwargs", [{}, {"horizon": 2.0, "ref": 0.5}])
 def test_runtime_cost_and_policy_state_use_the_actual_simulation_scale(sim_kwargs):
-    from jev_tune.metrics import cost_from_metrics
-    from jev_tune.plants import simulate
-    from jev_tune.scenarios import make_plant
-    from jev_tune.state import build_state
+    from jev_tune.domains.pid.metrics import cost_from_metrics
+    from jev_tune.domains.pid.plants import simulate
+    from jev_tune.domains.pid.scenarios import make_plant
+    from jev_tune.domains.pid.state import build_state
 
     class RecordingPolicy(Policy):
         def answer(self, feats, curves, questions=None):
@@ -358,10 +358,10 @@ def test_runtime_cost_and_policy_state_use_the_actual_simulation_scale(sim_kwarg
 
 @pytest.mark.parametrize("sim_kwargs", [{}, {"horizon": 2.0, "ref": 0.5}])
 def test_expert_cost_and_training_state_use_the_actual_simulation_scale(sim_kwargs):
-    from jev_tune.expert import generate
-    from jev_tune.metrics import cost_from_metrics
-    from jev_tune.plants import sample_plants, simulate, ultimate_gain
-    from jev_tune.state import build_state
+    from jev_tune.domains.pid.expert import generate
+    from jev_tune.domains.pid.metrics import cost_from_metrics
+    from jev_tune.domains.pid.plants import sample_plants, simulate, ultimate_gain
+    from jev_tune.domains.pid.state import build_state
 
     plants = sample_plants(2, seed=5)
     data, gains, final_j, gzn = generate(plants, steps=1, verbose=False, **sim_kwargs)

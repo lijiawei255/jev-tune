@@ -27,10 +27,11 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from jev_tune.decision import read_conformal, read_temperature
-from jev_tune.decode import AbstainPolicy, ActionSpace, ConformalPolicy, apply_step, decide
-from jev_tune.model import JevHead
-from jev_tune.primitives import softmax
+from jev_tune.domains.pid.decision import read_conformal, read_temperature
+from jev_tune.core.policy import AbstainPolicy, ConformalPolicy, decide
+from jev_tune.domains.pid.action import ActionSpace, apply_step
+from jev_tune.domains.pid.model import JevHead
+from jev_tune.core.primitives import softmax
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -105,9 +106,9 @@ def _state_cases() -> list[dict]:
     Real simulated responses, so the cases exercise the same numbers the loop
     sees rather than synthetic noise.
     """
-    from jev_tune.metrics import cost_from_metrics
-    from jev_tune.plants import sample_plants, simulate, ultimate_gain
-    from jev_tune.state import build_state
+    from jev_tune.domains.pid.metrics import cost_from_metrics
+    from jev_tune.domains.pid.plants import sample_plants, simulate, ultimate_gain
+    from jev_tune.domains.pid.state import build_state
 
     plants = sample_plants(6, seed=3)
     ku, tu = ultimate_gain(plants)
@@ -205,7 +206,7 @@ def _resample_cases() -> list[dict]:
 
 def _policy_cases() -> list[dict]:
     """Synthetic edge cases, independent of what the checkpoint happens to emit."""
-    from jev_tune.primitives import Answer, Choice, Noul, Option, Score
+    from jev_tune.core.primitives import Answer, Choice, Noul, Option, Score
 
     space = ActionSpace()
     unit = np.eye(space.k)
@@ -388,7 +389,7 @@ def main():
         probs = np.stack(
             [softmax(choice_logits[a] / temperature[a]) for a in range(3)], axis=0
         )
-        from jev_tune.primitives import Answer, Choice, Noul, Option, Score
+        from jev_tune.core.primitives import Answer, Choice, Noul, Option, Score
 
         answer = Answer(
             choice=[

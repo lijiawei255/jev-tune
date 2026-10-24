@@ -16,7 +16,7 @@ REPO = Path(__file__).resolve().parents[1]
 
 CODE = (
     "import json;"
-    "from jev_tune.scenarios import variants;"
+    "from jev_tune.domains.pid.scenarios import variants;"
     "p = variants('valve_dead_zone', 2, seed=3);"
     "print(json.dumps({'u_max': p.u_max.tolist(),"
     " 'u_min': p.u_min.tolist(),"

@@ -8,11 +8,11 @@ gains it returned (the last experiment updated ``best_cost`` but not
 import numpy as np
 import pytest
 
-from jev_tune.decode import ActionSpace, decode_answer, decode_choice
-from jev_tune.evaluate import evaluate_head
-from jev_tune.metrics import cost_from_metrics
-from jev_tune.plants import make_plant, simulate
-from jev_tune.primitives import Answer, Choice, Noul, Option, Score
+from jev_tune.domains.pid.action import ActionSpace, decode_answer, decode_choice
+from jev_tune.domains.pid.evaluate import evaluate_head
+from jev_tune.domains.pid.metrics import cost_from_metrics
+from jev_tune.domains.pid.plants import make_plant, simulate
+from jev_tune.core.primitives import Answer, Choice, Noul, Option, Score
 
 
 class _Stub:
@@ -199,7 +199,7 @@ class _Confident(_Stub):
 
 
 def test_abstention_holds_when_confidence_is_low():
-    from jev_tune.decode import AbstainPolicy, decide
+    from jev_tune.core.policy import AbstainPolicy, decide
 
     plants = _plants(3)
     gzn, ku, tu = _gnz(plants)
@@ -225,7 +225,7 @@ def test_abstention_holds_when_confidence_is_low():
 def test_abstention_executes_when_confidence_is_high():
     plants = _plants(3)
     gzn, ku, tu = _gnz(plants)
-    from jev_tune.decode import AbstainPolicy
+    from jev_tune.core.policy import AbstainPolicy
 
     r = evaluate_head(
         _Confident(),
@@ -266,14 +266,7 @@ def test_abstention_can_be_disabled_explicitly():
 
 
 def test_abstention_reason_codes():
-    from jev_tune.decode import (
-        AbstainPolicy,
-        REASON_ACT,
-        REASON_ESCALATE,
-        REASON_LOW_CONFIDENCE,
-        REASON_NOUL,
-        decide,
-    )
+    from jev_tune.core.policy import AbstainPolicy, REASON_ACT, REASON_ESCALATE, REASON_LOW_CONFIDENCE, REASON_NOUL, decide
 
     space = ActionSpace()
     opts = [Option(f"x{m:g}", float(np.log10(m))) for m in space.multipliers]
@@ -306,7 +299,7 @@ def test_abstention_reason_codes():
 
 
 def _result_with(decisions):
-    from jev_tune.evaluate import HeadResult
+    from jev_tune.domains.pid.evaluate import HeadResult
 
     return HeadResult(
         name="stub",

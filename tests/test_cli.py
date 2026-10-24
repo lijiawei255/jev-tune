@@ -37,9 +37,9 @@ def test_train_head_accepts_an_initial_model(tmp_path):
     import numpy as np
     import torch
 
-    from jev_tune.expert import ExpertData
-    from jev_tune.model import JevHead
-    from jev_tune.train import train_head
+    from jev_tune.domains.pid.expert import ExpertData
+    from jev_tune.domains.pid.model import JevHead
+    from jev_tune.domains.pid.train import train_head
 
     n = 64
     data = ExpertData(

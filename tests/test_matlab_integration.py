@@ -20,7 +20,7 @@ REPO = Path(__file__).resolve().parents[1]
 
 
 def _matlab():
-    from jev_tune.matlab_runner import find_matlab
+    from jev_tune.domains.pid.matlab_runner import find_matlab
 
     info = find_matlab()
     return info if info.ok else None

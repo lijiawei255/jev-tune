@@ -6,8 +6,8 @@ import sys
 import numpy as np
 import pytest
 
-from jev_tune import baselines, identified, matlab_baseline
-from jev_tune.plants import make_plant
+from jev_tune.domains.pid import baselines, identified, matlab_baseline
+from jev_tune.domains.pid.plants import make_plant
 
 
 @pytest.mark.parametrize("budget", [1, 2, 3, 4, 8, 20])

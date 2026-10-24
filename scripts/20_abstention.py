@@ -8,10 +8,10 @@ import argparse
 import json
 from pathlib import Path
 import numpy as np
-from jev_tune.decision import load_backend
-from jev_tune.decode import DEFAULT_ABSTAIN, AbstainPolicy
-from jev_tune.evaluate import HARM_METRIC, evaluate_head
-from jev_tune.plants import HELDOUT_FAMILIES, sample_plants, ultimate_gain
+from jev_tune.domains.pid.decision import load_backend
+from jev_tune.core.policy import DEFAULT_ABSTAIN, AbstainPolicy
+from jev_tune.domains.pid.evaluate import HARM_METRIC, evaluate_head
+from jev_tune.domains.pid.plants import HELDOUT_FAMILIES, sample_plants, ultimate_gain
 from _experiment_protocol import conformal_evidence_lines, manifest
 
 GRID = (None, .30, .35, .40, .45, .50, .55, .60, .70)

@@ -23,12 +23,12 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from jev_tune.evaluate import evaluate_head
-from jev_tune.expert import ExpertData, generate
-from jev_tune.model import JevHead
-from jev_tune.plants import make_plant, ultimate_gain
-from jev_tune.scenarios import SPECS
-from jev_tune.train import save, train_head
+from jev_tune.domains.pid.evaluate import evaluate_head
+from jev_tune.domains.pid.expert import ExpertData, generate
+from jev_tune.domains.pid.model import JevHead
+from jev_tune.domains.pid.plants import make_plant, ultimate_gain
+from jev_tune.domains.pid.scenarios import SPECS
+from jev_tune.domains.pid.train import save, train_head
 from _experiment_protocol import manifest
 
 
@@ -62,7 +62,7 @@ def build_family(args):
             )
         plants.append(make_plant(num_v, den_v, name=args.name or "special", **kw_v))
 
-    from jev_tune.scenarios import _stack
+    from jev_tune.domains.pid.scenarios import _stack
 
     allp = _stack(plants)
     n_eval = max(3, args.plants // 4)
@@ -75,14 +75,14 @@ def build_family(args):
 def load_head(models: str) -> JevHead:
     # fine-tuning starts from the shipped head; the fitted temperatures come
     # with it and are copied to the specialist below (they are not re-fitted)
-    from jev_tune.decision import load_backend
+    from jev_tune.domains.pid.decision import load_backend
 
     return load_backend(models).model
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--scenario", help="a name from jev_tune.scenarios")
+    ap.add_argument("--scenario", help="a name from jev_tune.domains.pid.scenarios")
     ap.add_argument("--spec", help="JSON with num/den/delay_s for a custom plant")
     ap.add_argument("--name", default="special")
     ap.add_argument("--plants", type=int, default=48)

@@ -12,8 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_committed_vectors_match_current_model_and_policy():
-    from jev_tune.decision import load_backend
-    from jev_tune.decode import decide
+    from jev_tune.domains.pid.decision import load_backend
+    from jev_tune.core.policy import decide
 
     artifact = json.loads((ROOT / "c/test_vectors.json").read_text())
     assert artifact["schema_version"] == 4
@@ -80,7 +80,7 @@ def test_c_reference_and_nan_mutation(tmp_path):
 
 
 def test_matlab_production_decoder(tmp_path):
-    from jev_tune.matlab_runner import find_matlab
+    from jev_tune.domains.pid.matlab_runner import find_matlab
     matlab = find_matlab()
     if not matlab.ok:
         pytest.skip("MATLAB unavailable")

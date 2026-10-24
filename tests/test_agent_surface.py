@@ -53,7 +53,7 @@ def test_matlab_accepts_the_agent_flags():
 
 def test_discover_without_matlab_reports_a_code(monkeypatch):
     """A missing MATLAB must be a machine-readable failure, not a traceback."""
-    from jev_tune import matlab_runner
+    from jev_tune.domains.pid import matlab_runner
 
     class _Missing:
         ok = False
@@ -112,7 +112,7 @@ def test_doctor_is_a_subcommand():
 
 
 def test_doctor_without_matlab_reports_a_code(monkeypatch):
-    from jev_tune import matlab_runner
+    from jev_tune.domains.pid import matlab_runner
 
     class _Missing:
         ok = False
@@ -126,7 +126,7 @@ def test_doctor_without_matlab_reports_a_code(monkeypatch):
 
 
 def test_all_loops_without_matlab_reports_a_code(monkeypatch):
-    from jev_tune import matlab_runner
+    from jev_tune.domains.pid import matlab_runner
 
     class _Missing:
         ok = False
@@ -153,7 +153,7 @@ def test_mcp_exposes_discover_and_writeback():
 
 @pytest.mark.skipif(not HAS_MPL, reason="matplotlib is an optional dependency")
 def test_plot_writes_a_png(tmp_path):
-    from jev_tune.plot import save_before_after
+    from jev_tune.domains.pid.plot import save_before_after
 
     result = {
         "model": "Motor.slx",
@@ -172,7 +172,7 @@ def test_plot_writes_a_png(tmp_path):
 @pytest.mark.skipif(not HAS_MPL, reason="matplotlib is an optional dependency")
 def test_plot_without_traces_still_succeeds(tmp_path):
     """A result with no curves must not crash the agent's pipeline."""
-    from jev_tune.plot import save_before_after
+    from jev_tune.domains.pid.plot import save_before_after
 
     out = save_before_after(
         {"model": "x.slx", "history": [{"J": 1.0}]}, tmp_path / "empty.png"

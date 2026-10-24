@@ -7,9 +7,9 @@ import sys
 import numpy as np
 import pytest
 
-from jev_tune.decode import ActionSpace
-from jev_tune.plants import make_plant
-from jev_tune.primitives import Answer, Choice, Noul, Option, Score
+from jev_tune.domains.pid.action import ActionSpace
+from jev_tune.domains.pid.plants import make_plant
+from jev_tune.core.primitives import Answer, Choice, Noul, Option, Score
 
 
 @pytest.fixture

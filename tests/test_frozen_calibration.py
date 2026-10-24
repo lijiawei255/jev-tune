@@ -4,8 +4,8 @@ import copy
 import numpy as np
 import pytest
 
-import jev_tune.calibration as calibration
-from jev_tune.primitives import conformal_prediction_set, fit_split_conformal, softmax
+import jev_tune.core.calibration as calibration
+from jev_tune.core.primitives import conformal_prediction_set, fit_split_conformal, softmax
 
 
 def inputs(axes=2, options=3, n_temperature=12, n_conformal=19):

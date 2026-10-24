@@ -16,11 +16,11 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from jev_tune.expert import ExpertData, generate
-from jev_tune.model import JevHead
-from jev_tune.plants import TRAIN_FAMILIES, sample_plants
-from jev_tune.primitives import calibrate_temperature, fit_split_conformal, softmax
-from jev_tune.train import save, train_head, train_value
+from jev_tune.domains.pid.expert import ExpertData, generate
+from jev_tune.domains.pid.model import JevHead
+from jev_tune.domains.pid.plants import TRAIN_FAMILIES, sample_plants
+from jev_tune.core.primitives import calibrate_temperature, fit_split_conformal, softmax
+from jev_tune.domains.pid.train import save, train_head, train_value
 
 SPLITS = ("temperature_fit", "cp_fit", "empirical_eval")
 DEFAULT_SEEDS = (62601, 62602, 62603)

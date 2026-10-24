@@ -2,9 +2,10 @@
 import numpy as np
 import pytest
 
-import jev_tune.evaluate as evaluator
-from jev_tune.decode import AbstainPolicy, ActionSpace, REASON_NOUL, decide, decode_choice
-from jev_tune.primitives import Answer, Choice, Noul, Option, Score
+import jev_tune.domains.pid.evaluate as evaluator
+from jev_tune.core.policy import AbstainPolicy, REASON_NOUL, decide
+from jev_tune.domains.pid.action import ActionSpace, decode_choice
+from jev_tune.core.primitives import Answer, Choice, Noul, Option, Score
 
 
 def numeric_answer(probabilities, payloads=(-.2, 0., .2)):

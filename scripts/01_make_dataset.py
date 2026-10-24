@@ -9,8 +9,8 @@ from pathlib import Path
 
 import numpy as np
 
-from jev_tune.expert import generate
-from jev_tune.plants import sample_plants
+from jev_tune.domains.pid.expert import generate
+from jev_tune.domains.pid.plants import sample_plants
 from _experiment_protocol import manifest
 
 

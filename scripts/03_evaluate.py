@@ -29,7 +29,7 @@ from pathlib import Path
 
 import numpy as np
 
-from jev_tune.baselines import (
+from jev_tune.domains.pid.baselines import (
     choose_zn_shrink,
     run_bo,
     run_cmaes,
@@ -40,11 +40,11 @@ from jev_tune.baselines import (
     run_zn,
     zn_gains,
 )
-from jev_tune.evaluate import evaluate_head
-from jev_tune.identified import IdentificationUnavailable, run_identify_pidtune
-from jev_tune.matlab_baseline import matlab_available
-from jev_tune.model import JevHead
-from jev_tune.plants import (
+from jev_tune.domains.pid.evaluate import evaluate_head
+from jev_tune.domains.pid.identified import IdentificationUnavailable, run_identify_pidtune
+from jev_tune.domains.pid.matlab_baseline import matlab_available
+from jev_tune.domains.pid.model import JevHead
+from jev_tune.domains.pid.plants import (
     HELDOUT_FAMILIES,
     TEST_FAMILIES,
     TRAIN_FAMILIES,
@@ -62,7 +62,7 @@ def load_head(models_dir: str):
     `calibration.json` are applied inside the loop, exactly as in the CLI and
     the MCP server.
     """
-    from jev_tune.decision import load_backend
+    from jev_tune.domains.pid.decision import load_backend
 
     return load_backend(models_dir)
 

@@ -16,7 +16,7 @@ import numpy as np
 import torch
 from scipy.io import savemat
 
-from jev_tune.model import JevHead
+from jev_tune.domains.pid.model import JevHead
 
 
 def main():
@@ -98,9 +98,10 @@ def main():
 
     # reference *step*, not just logits: lets MATLAB verify the whole decode
     # (temperature -> softmax -> expectation -> variance shrink -> abstention -> clip)
-    from jev_tune.decode import ActionSpace, decide
-    from jev_tune.decision import read_conformal
-    from jev_tune.primitives import Answer, Choice, Noul, Option, Score, softmax
+    from jev_tune.core.policy import decide
+    from jev_tune.domains.pid.action import ActionSpace
+    from jev_tune.domains.pid.decision import read_conformal
+    from jev_tune.core.primitives import Answer, Choice, Noul, Option, Score, softmax
 
     space = ActionSpace()
     conformal = read_conformal(args.models)

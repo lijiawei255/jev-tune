@@ -3,13 +3,13 @@ from dataclasses import replace
 
 import numpy as np
 
-from jev_tune.baselines import run_cmaes
-from jev_tune.decode import ActionSpace
-from jev_tune.evaluate import evaluate_head
-from jev_tune.metrics import cost_from_metrics
-from jev_tune.plants import make_plant, simulate
-from jev_tune.primitives import Answer, Choice, Noul, Option, Score
-from jev_tune.scenarios import _stack
+from jev_tune.domains.pid.baselines import run_cmaes
+from jev_tune.domains.pid.action import ActionSpace
+from jev_tune.domains.pid.evaluate import evaluate_head
+from jev_tune.domains.pid.metrics import cost_from_metrics
+from jev_tune.domains.pid.plants import make_plant, simulate
+from jev_tune.core.primitives import Answer, Choice, Noul, Option, Score
+from jev_tune.domains.pid.scenarios import _stack
 
 
 def noisy():

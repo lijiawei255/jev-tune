@@ -8,7 +8,8 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from jev_tune import cli, matlab_runner, matlab_worker
+from jev_tune.domains.pid import matlab_runner, matlab_worker
+from jev_tune import cli
 
 
 def test_worker_waits_for_complete_result_and_atomically_publishes_request(tmp_path, monkeypatch):
@@ -170,10 +171,10 @@ def test_successful_writeback_remains_success(monkeypatch, capsys):
 
 @pytest.mark.parametrize('json_output', [False, True])
 def test_loop_reports_measured_simulations_separately_from_budget(monkeypatch, capsys, json_output):
-    monkeypatch.setattr('jev_tune.plants.make_plant', lambda *a, **kw: SimpleNamespace(n=1))
-    monkeypatch.setattr('jev_tune.plants.ultimate_gain', lambda p: (np.ones(1), np.ones(1)))
-    monkeypatch.setattr('jev_tune.decision.load_backend', lambda *a, **kw: None)
-    monkeypatch.setattr('jev_tune.evaluate.evaluate_head', lambda *a, **kw: SimpleNamespace(
+    monkeypatch.setattr('jev_tune.domains.pid.plants.make_plant', lambda *a, **kw: SimpleNamespace(n=1))
+    monkeypatch.setattr('jev_tune.domains.pid.plants.ultimate_gain', lambda p: (np.ones(1), np.ones(1)))
+    monkeypatch.setattr('jev_tune.domains.pid.decision.load_backend', lambda *a, **kw: None)
+    monkeypatch.setattr('jev_tune.domains.pid.evaluate.evaluate_head', lambda *a, **kw: SimpleNamespace(
         history=np.ones((1, 21)), best_j=np.ones(1), gains=np.ones((1, 3)),
         budget=21, actual_simulations=np.array([2]), stop_iter=np.array([2])))
     assert cli.main(['loop', '--iters', '20'] + (['--json'] if json_output else [])) == 0

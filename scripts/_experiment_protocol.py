@@ -26,7 +26,7 @@ def manifest(args, *, files=(), extra=None):
             ["git", "status", "--porcelain", "--untracked-files=no"], cwd=root, text=True).strip())
     except (OSError, subprocess.SubprocessError):
         revision, dirty = None, None
-    sources = list(root.glob("src/jev_tune/*.py")) + list(root.glob("scripts/*.py"))
+    sources = list(root.glob("src/jev_tune/**/*.py")) + list(root.glob("scripts/*.py"))
     hashes = {str(p.relative_to(root)): sha256(p) for p in sources}
     for filename in files:
         p = Path(filename)

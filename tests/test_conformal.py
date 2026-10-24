@@ -7,7 +7,7 @@ import sys
 import numpy as np
 import pytest
 
-from jev_tune.primitives import (
+from jev_tune.core.primitives import (
     SplitConformal, conformal_prediction_set, conformal_quantile, fit_split_conformal,
 )
 
@@ -105,7 +105,7 @@ def test_empirical_labels_cannot_change_temperature_or_qhat():
 
 def test_calibrate_only_preserves_weights_and_saves_three_independent_splits(tmp_path, monkeypatch):
     import torch
-    from jev_tune.model import JevHead
+    from jev_tune.domains.pid.model import JevHead
 
     module = training_script()
     torch.manual_seed(41)

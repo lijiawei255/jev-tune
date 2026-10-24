@@ -12,11 +12,11 @@ import json
 import time
 from pathlib import Path
 import numpy as np
-from jev_tune.decision import load_backend
-from jev_tune.decode import DEFAULT_ABSTAIN, AbstainPolicy, apply_abstention
-from jev_tune.evaluate import HARM_METRIC, evaluate_head
-from jev_tune.plants import ultimate_gain
-from jev_tune.scenarios import _stack, variants
+from jev_tune.domains.pid.decision import load_backend
+from jev_tune.core.policy import DEFAULT_ABSTAIN, AbstainPolicy, apply_abstention
+from jev_tune.domains.pid.evaluate import HARM_METRIC, evaluate_head
+from jev_tune.domains.pid.plants import ultimate_gain
+from jev_tune.domains.pid.scenarios import _stack, variants
 from _experiment_protocol import manifest
 
 

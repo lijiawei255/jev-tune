@@ -56,9 +56,9 @@ source = ["jev_tune"]
 # runners have no licence, so counting them turns the coverage gate into a
 # measure of "do we have MATLAB" rather than "is the code tested".
 omit = [
-  "*/jev_tune/matlab_runner.py",
-  "*/jev_tune/matlab_worker.py",
-  "*/jev_tune/matlab_baseline.py",
+  "*/jev_tune/domains/pid/matlab_runner.py",
+  "*/jev_tune/domains/pid/matlab_worker.py",
+  "*/jev_tune/domains/pid/matlab_baseline.py",
 ]
 
 [tool.coverage.report]
