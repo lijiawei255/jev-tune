@@ -72,7 +72,7 @@ def _candidates() -> list[tuple[Path, str]]:
                         out.append((exe, f"registry:{sub}"))
                 except OSError:
                     continue
-        except Exception:
+        except (ImportError, OSError):
             pass
     elif system == "Darwin":
         base = Path("/Applications")
@@ -119,7 +119,7 @@ def _supports_batch(exe: str) -> bool:
     try:
         out = subprocess.run([exe, "-help"], capture_output=True, text=True, timeout=30)
         return "-batch" in (out.stdout + out.stderr)
-    except Exception:
+    except (OSError, subprocess.TimeoutExpired):
         return True
 
 

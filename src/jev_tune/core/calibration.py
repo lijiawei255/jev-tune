@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 import time
+from collections.abc import Iterable
 
 import numpy as np
 
@@ -29,12 +30,9 @@ def _inputs(logits, labels, name):
 
 
 def _identities(values, n, name):
-    if isinstance(values, (str, bytes)):
+    if isinstance(values, (str, bytes)) or not isinstance(values, Iterable):
         raise ValueError(f"{name} IDs must be one string or integer per row")
-    try:
-        identities = list(values)
-    except TypeError as exc:
-        raise ValueError(f"{name} IDs must be one string or integer per row") from exc
+    identities = list(values)
     if len(identities) != n:
         raise ValueError(f"{name} IDs must match the number of rows")
     tokens = []

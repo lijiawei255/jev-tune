@@ -63,7 +63,7 @@ class MatlabWorker:
         try:
             self.stop_file.write_text("stop", encoding="utf-8")
             self._proc.wait(timeout=30)
-        except Exception:
+        except (OSError, subprocess.TimeoutExpired):
             self._proc.kill()
         finally:
             self._proc = None
@@ -74,7 +74,7 @@ class MatlabWorker:
             return ""
         try:
             return self._proc.stdout.read()[-2000:]
-        except Exception:
+        except (OSError, ValueError):
             return ""
 
     # ------------------------------------------------------------------ jobs

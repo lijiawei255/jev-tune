@@ -31,7 +31,7 @@ def _has(mod: str) -> bool:
     try:
         importlib.import_module(mod)
         return True
-    except Exception:
+    except (ImportError, OSError):  # OSError: native-library load failure
         return False
 
 
@@ -43,18 +43,18 @@ def _n_actions(models_dir: Path) -> int:
             return int(
                 json.loads(meta.read_text(encoding="utf-8-sig")).get("n_actions", 5)
             )
-        except Exception:
+        except (OSError, ValueError, AttributeError):
             pass
     return 5
 
 
 def _matlab_found() -> bool:
     """Any MATLAB the runner can find: PATH, MATLAB_EXE, Program Files, registry."""
-    try:
-        from .domains.pid.matlab_runner import find_matlab
+    from .domains.pid.matlab_runner import find_matlab
 
+    try:
         return find_matlab().ok
-    except Exception:
+    except OSError:
         return shutil.which("matlab") is not None
 
 

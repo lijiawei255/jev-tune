@@ -205,7 +205,7 @@ def _status() -> dict:
 
         m = find_matlab()
         info["matlab"] = str(m.executable) if m.ok else None
-    except Exception:
+    except OSError:
         pass
     missing = [k for k, v in info["packages"].items() if not v]
     info["next"] = (
@@ -310,7 +310,7 @@ def _tune_demo(args: dict) -> dict:
     text = buf.getvalue().strip()
     try:
         return json.loads(text)
-    except Exception:
+    except ValueError:
         return {"ok": code == 0, "raw": text}
 
 
