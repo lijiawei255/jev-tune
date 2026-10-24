@@ -16,8 +16,8 @@
 #define JEV_HEAD_H
 
 #include <float.h>
-#if FLT_RADIX != 2 || FLT_MANT_DIG != 24 || DBL_MANT_DIG < 53
-#error "jev_head requires binary32 float and at least binary64 double precision"
+#if FLT_RADIX != 2 || FLT_MANT_DIG != 24
+#error "jev_head requires binary32 float"
 #endif
 
 #define JEV_N_FEATS 20
@@ -114,7 +114,7 @@ void jev_abstain(jev_action *act, const jev_probs *p, const jev_policy *pol,
  * vetoes and flags escalation; Noul has main-reason precedence. */
 typedef struct {
     int enabled;
-    double qhat[3];      /* retain near-one calibration quantiles exactly */
+    float p_min[3];      /* inclusion threshold p >= p_min; exporter maps qhat exactly */
     int k_max;
     int mode;           /* zero initialization defaults to MONITOR */
 } jev_conformal;

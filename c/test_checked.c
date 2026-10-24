@@ -20,7 +20,7 @@ int main(void) {
     jev_logits z = {{{0}}, {0}, 0};
     jev_probs p;
     jev_policy pol = {0, 0, 0};
-    jev_conformal cp = {1, {0.8, 0.8, 0.8}, 3, JEV_CP_MONITOR};
+    jev_conformal cp = {1, {.2f, .2f, .2f}, 3, JEV_CP_MONITOR};
     float t[3] = {1,1,1}, bad[] = {NAN, INFINITY, -INFINITY};
     float bad_t[] = {0, -1, NAN, INFINITY, -INFINITY};
     int i, j, ax, k;
@@ -58,8 +58,8 @@ int main(void) {
     CHECK(jev_decide_checked(&s,t,&pol,&cp,&a)!=0 && closed(&a)); pol.tau_esc=0;
     pol.tau_noul=NAN; CHECK(jev_decide_checked(&s,t,&pol,&cp,&a)!=0 && closed(&a)); pol.tau_noul=0;
     for(j=0;j<3;++j) for(i=0;i<5;++i) {
-        cp.qhat[j]=bad_t[i]; if(i==0) cp.qhat[j]=2;
-        CHECK(jev_decide_checked(&s,t,&pol,&cp,&a)!=0 && closed(&a)); cp.qhat[j]=.8;
+        cp.p_min[j]=bad_t[i]; if(i==0) cp.p_min[j]=2;
+        CHECK(jev_decide_checked(&s,t,&pol,&cp,&a)!=0 && closed(&a)); cp.p_min[j]=.2f;
     }
     cp.k_max=0; CHECK(jev_decide_checked(&s,t,&pol,&cp,&a)!=0 && closed(&a)); cp.k_max=3;
     cp.mode=2; CHECK(jev_decide_checked(&s,t,&pol,&cp,&a)!=0 && closed(&a)); cp.mode=0;

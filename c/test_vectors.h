@@ -475,7 +475,7 @@ static const float JEV_TV_TAU_NOUL = 0.0f;
 #define JEV_TV_CP_ENABLED 1
 #define JEV_TV_CP_MODE 0
 #define JEV_TV_CP_K_MAX 3
-static const double JEV_TV_CP_QHAT[3] = {0x1.d046e2620ee22p-1, 0x1.c0c34f116e60ap-1, 0x1.d05250f14a344p-1};
+static const float JEV_TV_CP_PMIN[3] = {0x1.7dc8ee0000000p-4f, 0x1.f9e5880000000p-4f, 0x1.7d6d7a0000000p-4f};
 
 
 #endif

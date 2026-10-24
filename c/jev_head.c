@@ -144,19 +144,19 @@ void jev_forward(const jev_state *s, jev_logits *out) {
     out->noul_logit = NAN;
 }
 
-static void softmax(const float *z, int n, double t, float *p) {
-    double mx = z[0], sum = 0.0, v[JEV_K];
+static void softmax(const float *z, int n, float t, float *p) {
+    float mx = z[0], sum = 0.0f, v[JEV_K];
     int i;
-    if (!isfinite(t) || t <= 0 || !finite_array(z, n)) {
+    if (!isfinite(t) || t <= 0.0f || !finite_array(z, n)) {
         for (i = 0; i < n; ++i) p[i] = NAN;
         return;
     }
     for (i = 1; i < n; ++i) if (z[i] > mx) mx = z[i];
     for (i = 0; i < n; ++i) {
-        v[i] = exp(((double)z[i] - mx) / t);
+        v[i] = expf((z[i] - mx) / t);
         sum += v[i];
     }
-    for (i = 0; i < n; ++i) p[i] = (float)(v[i] / sum);
+    for (i = 0; i < n; ++i) p[i] = v[i] / sum;
 }
 
 void jev_answer(const jev_logits *logits, const float temperature[3],
@@ -164,9 +164,9 @@ void jev_answer(const jev_logits *logits, const float temperature[3],
     int ax;
     for (ax = 0; ax < 3; ++ax)
         softmax(logits->choice[ax], JEV_K, temperature[ax], out->choice[ax]);
-    softmax(logits->score, JEV_N_SCORE, 1.0, out->score);
+    softmax(logits->score, JEV_N_SCORE, 1.0f, out->score);
     out->noul = isfinite(logits->noul_logit) ?
-        (float)(1.0 / (1.0 + exp(-(double)logits->noul_logit))) : NAN;
+        1.0f / (1.0f + expf(-logits->noul_logit)) : NAN;
 }
 
 /* The Python vocabulary: multiplicative steps around 1.0, log-spaced. */
@@ -274,7 +274,7 @@ int jev_apply_conformal(jev_action *act, const jev_probs *p,
     if (cp != 0 && cp->enabled) {
         invalid = (cp->mode != JEV_CP_MONITOR && cp->mode != JEV_CP_HARD_HOLD) || cp->k_max < 1;
         for (ax = 0; ax < 3; ++ax)
-            invalid |= !isfinite(cp->qhat[ax]) || cp->qhat[ax] < 0.0 || cp->qhat[ax] > 1.0;
+            invalid |= !isfinite(cp->p_min[ax]) || cp->p_min[ax] < 0.0f || cp->p_min[ax] > 1.0f;
     }
     if (invalid) {
         act->conformal_applied = 0;
@@ -295,7 +295,7 @@ int jev_apply_conformal(jev_action *act, const jev_probs *p,
     for (ax = 0; ax < 3; ++ax) {
         int n = 0, positive = 0, negative = 0, reason = 0;
         for (i = 0; i < JEV_K; ++i) {
-            int selected = act->conformal_applied && (1.0 - (double)p->choice[ax][i]) <= cp->qhat[ax];
+            int selected = act->conformal_applied && p->choice[ax][i] >= cp->p_min[ax];
             act->conformal_set[ax][i] = selected;
             if (selected) {
                 n++;
@@ -464,7 +464,7 @@ int jev_decide_checked(const jev_state *s, const float temperature[3],
     for (ax = 0; ax < 2; ++ax)
         if (!finite_array(s->curves[ax], JEV_N_CURVE)) return -JEV_INVALID_INPUT;
     for (ax = 0; ax < 3; ++ax)
-        if (!isfinite(temperature[ax]) || temperature[ax] <= 0) return -JEV_INVALID_INPUT;
+        if (!isfinite(temperature[ax]) || temperature[ax] <= 0.0f) return -JEV_INVALID_INPUT;
     if (pol && (!isfinite(pol->tau_act) || !isfinite(pol->tau_esc) ||
         !isfinite(pol->tau_noul) || pol->tau_act < 0 || pol->tau_act > 1 ||
         pol->tau_esc < 0 || pol->tau_esc > pol->tau_act ||
@@ -477,7 +477,7 @@ int jev_decide_checked(const jev_state *s, const float temperature[3],
             if ((cp->mode != JEV_CP_MONITOR && cp->mode != JEV_CP_HARD_HOLD) || cp->k_max < 1)
                 return invalid_action(out, JEV_INVALID_POLICY);
             for (ax = 0; ax < 3; ++ax)
-                if (!isfinite(cp->qhat[ax]) || cp->qhat[ax] < 0 || cp->qhat[ax] > 1)
+                if (!isfinite(cp->p_min[ax]) || cp->p_min[ax] < 0.0f || cp->p_min[ax] > 1.0f)
                     return invalid_action(out, JEV_INVALID_POLICY);
         }
     }

@@ -26,7 +26,7 @@ int main(void) {
     pol.tau_noul = JEV_TV_TAU_NOUL;
     cp.enabled = JEV_TV_CP_ENABLED; cp.k_max = JEV_TV_CP_K_MAX;
     cp.mode = JEV_TV_CP_MODE;
-    for (a = 0; a < 3; ++a) cp.qhat[a] = JEV_TV_CP_QHAT[a];
+    for (a = 0; a < 3; ++a) cp.p_min[a] = JEV_TV_CP_PMIN[a];
 
     for (c = 0; c < JEV_TV_N; ++c) {
         jev_state s;

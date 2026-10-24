@@ -18,7 +18,7 @@ int main(void) {
         cp.enabled = (int)JEV_PC_CP_ENABLED[c][0];
         cp.k_max = (int)JEV_PC_CP_K_MAX[c][0];
         cp.mode = (int)JEV_PC_CP_MODE[c][0];
-        for (ax = 0; ax < 3; ++ax) cp.qhat[ax] = JEV_PC_CP_QHAT[c][ax];
+        for (ax = 0; ax < 3; ++ax) cp.p_min[ax] = JEV_PC_CP_PMIN[c][ax];
         for (ax = 0; ax < 3; ++ax)
             for (i = 0; i < JEV_K; ++i) p.choice[ax][i] = JEV_PC_PROBS[c][ax * JEV_K + i];
         for (i = 0; i < JEV_N_SCORE; ++i) p.score[i] = JEV_PC_SCORE[c][i];
@@ -73,7 +73,7 @@ int main(void) {
         cp.enabled = 1; cp.k_max = 3;
         p.noul = p.score[0] = 1.0f;
         for (ax = 0; ax < 3; ++ax) {
-            cp.qhat[ax] = .75;
+            cp.p_min[ax] = .25f;
             for (i = 3; i < JEV_K; ++i) p.choice[ax][i] = .25f;
         }
         jev_decode(&p, &a);
@@ -84,7 +84,7 @@ int main(void) {
         for (error_case = 0; error_case < 4; ++error_case) {
             int escalations = 0;
             cp.mode = error_case == 0 ? 99 : (error_case == 1 ? JEV_CP_OFF : JEV_CP_MONITOR);
-            cp.qhat[0] = error_case == 2 ? NAN : .75;
+            cp.p_min[0] = error_case == 2 ? NAN : .25f;
             cp.k_max = error_case == 3 ? 0 : 3;
             jev_decode(&p, &a);
             if (jev_apply_conformal(&a, &p, &cp, &escalations) != -1 ||
