@@ -209,7 +209,9 @@ def test_recalibration_receipt_cannot_hide_objective_work(tmp_path, monkeypatch)
 def test_runtime_bundle_requires_public_proof_and_includes_every_source_file(tmp_path, monkeypatch):
     monkeypatch.setattr(release, "ROOT", tmp_path)
     required = [release.HOSTED_FAILURE, release.RECORDED_EVIDENCE,
-                "docs/NUMERICAL_REPRODUCIBILITY.md", *release.PROTOCOLS[-2:]]
+                "research/results/calibration_runtime_observations_v0100.json",
+                "docs/NUMERICAL_REPRODUCIBILITY.md", "docs/RUNTIME_OBSERVATIONS.md",
+                *release.PROTOCOLS[2:]]
     for name in required:
         path = tmp_path / name
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -219,9 +221,14 @@ def test_runtime_bundle_requires_public_proof_and_includes_every_source_file(tmp
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("preserved failure\n")
     assert set(required + [extra]) <= set(release.runtime_evidence_names())
-    (tmp_path / release.RECORDED_EVIDENCE).unlink()
-    with pytest.raises(AssertionError, match="Required numerical-runtime evidence missing"):
-        release.runtime_evidence_names()
+    for name in required:
+        path = tmp_path / name
+        original = path.read_bytes()
+        path.unlink()
+        with pytest.raises(AssertionError, match="Required numerical-runtime evidence missing") as error:
+            release.runtime_evidence_names()
+        assert name in str(error.value)
+        path.write_bytes(original)
 
 
 def test_prior_hosted_failure_cost_is_bound_to_its_real_log_not_local_receipts(tmp_path, monkeypatch):
