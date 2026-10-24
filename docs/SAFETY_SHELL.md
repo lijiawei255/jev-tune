@@ -21,6 +21,18 @@ system. Its actual acceptance, objective spend and failures are generated in
 [NONPID_TRANSFER](NONPID_TRANSFER.md) and the
 [primary JSON](../research/results/nonpid_transfer/report.json).
 
+The [numerical comparison](NUMERICAL_REPRODUCIBILITY.md) has a specific scope:
+its step delta is the original comparison machine's common decoding of the two
+archived logits/temperature inputs. It does not measure actions actually
+executed on two machines or compare complete closed-loop trajectories. A
+successful strict comparison replay supports only the recorded versions,
+platform and commit; future numerical backends require fresh verification.
+The independent recorded-evidence audit remains conditional on its stated
+arithmetic assumptions, and the original strict refit failures remain preserved.
+The default hosted check of the derived comparison also failed. The separate
+[post-incident observation audit](RUNTIME_OBSERVATIONS.md) preserves that failure
+and verifies newly archived outputs; it does not rename strict replay as passed.
+
 ### Five implemented capabilities and their evidence
 
 | Capability | Actual implementation and evidence | Boundary that remains with the new domain |
@@ -155,6 +167,13 @@ Shell（校准决策与安全边界参考壳）**：类型化回答、外围校�
 标签和加法执行器。它验证组件复用，不构成视觉、机器人行为、生理机制或临床系统
 证据。实际验收、目标调用开销与失败结论由[NONPID_TRANSFER](NONPID_TRANSFER.md)
 及[主实验JSON](../research/results/nonpid_transfer/report.json)生成。
+
+[数值比较](NUMERICAL_REPRODUCIBILITY.md)中的step差异，是原比较机器对两端归档
+logits/温度输入的统一解码差异，不是两台机器实际执行动作之差，也没有比较完整闭环
+轨迹。严格比较重算通过只支持所记录的版本、平台及commit；未来数值后端仍须重新
+验证。独立记录证据审计继续受明确算术假设限制，原严格重新拟合失败仍完整保留。
+派生比较在默认托管环境的严格检查也失败；独立的[事后观察审计](RUNTIME_OBSERVATIONS.md)
+保留该失败并核验新归档输出，不能将它改称严格重放通过。
 
 ### 五项已实现能力及证据
 

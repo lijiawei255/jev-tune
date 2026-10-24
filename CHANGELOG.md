@@ -7,6 +7,20 @@ file that produced them is named next to them.
 
 ## English
 
+## [0.10.0] - 2026-10-24
+
+* Publish the separable calibrated decision and safety shell, frozen-model peripheral calibration, and a trained non-PID reference-denoising transfer study. Preserve its `negative_stop` result and stop policy deepening; see `docs/NONPID_TRANSFER.md` and `docs/RECALIBRATION.md`.
+* Harden checked C99 inference and MATLAB numeric handling. Keep measured host parity, latency and resources distinct from target-board or physical-safety guarantees.
+* Preserve the strict cross-CPU temperature-refit and derived-comparison failures. Add independent, explicitly conditional Decimal audits of the original probabilities, calibration, full sets, actual action chains, terminal cache semantics, measured candidates and accounting, plus separately frozen post-incident runtime observations. Do not change the original checkers, tolerances or experiment results.
+* Rebuild negative tests for numerical envelopes, positive but incorrect temperatures, source and evidence mutations, cache termination, jointly altered feedback/costs and publication bindings.
+* Distribute the formal weights, source, original generated test models and pinned synthetic data. Remove personal-directory dependencies from helpers and examples, replace the discovery illustration with an original generated model, and document current-tree rights boundaries. Retain Git history as requested; do not distribute the original benchmark or geometry.
+* Record failed and successful verification work separately from acquisition, retain source-bound receipts and publish bilingual evidence with checksum-verified release assets.
+
+## [0.9.0] - 2026-10-24
+
+* Pause complex risk research while preserving its results and reproduction entry points. Return the mainline to real-model adaptation, out-of-domain boundaries and complete simulation-budget comparisons.
+* Add practical adaptation, accounting and preservation checks. Keep learned-risk deployment disabled; see `docs/MODEL_ADAPTATION.md`, `docs/PRACTICAL_BUDGET.md` and the versioned release evidence.
+
 ## [0.8.0] - 2026-10-24
 
 * Preserve the previous failed risk study and add a reproducible raw-trajectory diagnosis of training-state shift, reached-sample scarcity and the fixed-path acceptance conflict.
@@ -339,6 +353,20 @@ six-method benchmark, the robustness study (200/200 plants not worse than the
 start) and the scale economics. See the release notes.
 
 ## 简体中文
+
+## [0.10.0] - 2026-10-24
+
+* 发布可拆解校准决策与安全边界参考壳、冻结模型的外围标定，以及真实训练的非PID参考去噪迁移实验。保留`negative_stop`结果并停止策略深化，见`docs/NONPID_TRANSFER.md`与`docs/RECALIBRATION.md`。
+* 加固C99检查入口和MATLAB数值处理，将宿主对齐、延迟和资源实测与目标板或物理安全保证严格区分。
+* 保留严格跨CPU温度重新拟合及派生比较失败，新增明确受条件限制的独立Decimal审计，核验原概率、校准、完整集合、实际动作链、终止缓存语义、实测候选和计账，并单独冻结事后运行观测。不修改原检查器、容差或实验结果。
+* 加固数值包络、有限正值错误温度、源码与证据篡改、缓存终止、反馈与成本联合伪造，以及发布绑定等负测。
+* 分发正式权重、源码、原创生成测试模型与固定合成数据；移除辅助程序和示例对个人目录的依赖，发现动画改用原创生成模型，说明当前公开树的权利边界。按用户要求保留Git历史，不分发原始基准模型或几何文件。
+* 将失败及成功复核计算与前瞻采集分开计账，保留绑定源码的凭据，并分发中英文证据及经过校验和核对的发布附件。
+
+## [0.9.0] - 2026-10-24
+
+* 暂停复杂风险研究并保留结果与复现入口，主线转回真实模型适配、域外失效边界和完整仿真预算对照。
+* 增加实际适配、计账与历史保留检查，学习风险头部署继续关闭，见`docs/MODEL_ADAPTATION.md`、`docs/PRACTICAL_BUDGET.md`及相应版本的发布证据。
 
 ## [0.8.0] - 2026-10-24
 

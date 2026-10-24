@@ -518,13 +518,13 @@ def transfer_shell_evidence() -> list[dict]:
     """Audit original recorded evidence; strict cross-CPU refit is a separate failure.
 
     The post-incident obligation is specified in 52 and its frozen protocol.
-    A pass here never reclassifies the retained 46/48 failures as passing.
+    A pass here never reclassifies retained 46/48/54 failures as passing.
     """
     rows = []
     for identifier, name, entry, source in (
         ('recorded_transfer', '52_verify_recorded_transfer', 'check', 'research/results/nonpid_transfer/report.json'),
         ('recorded_recalibration', '52_verify_recorded_transfer', 'check_recalibration', 'research/results/recalibration_benchmark.json'),
-        ('runtime_boundary', '54_compare_calibration_runtimes', 'check', 'docs/NUMERICAL_REPRODUCIBILITY.md'),
+        ('runtime_boundary', '58_verify_runtime_observations', 'check', 'research/results/calibration_runtime_observations_v0100.json'),
         ('recorded_audit_summary', '56_summarize_recorded_evidence', 'check', 'research/results/recorded_evidence_audit_v0100.json'),
         ('49_sync_shell_docs', '49_sync_shell_docs', 'check', 'docs/SAFETY_SHELL.md'),
         ('50_open_source_inventory', '50_open_source_inventory', 'check', 'research/results/open_source_inventory_v0100.json'),

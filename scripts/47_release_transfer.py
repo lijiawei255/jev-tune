@@ -21,7 +21,8 @@ CLAIMS = AUDIT + "v0100_final_claims.json"
 REPORT = "research/results/release_verification.json"
 NONPID = "research/results/nonpid_transfer/"
 PROTOCOLS = ["research/protocols/nonpid_transfer_v0100.json", "research/protocols/shell_recalibration_v0100.json",
-             "research/protocols/calibration_runtime_v0100.json", "research/protocols/recorded_evidence_audit_v0100.json"]
+             "research/protocols/calibration_runtime_v0100.json", "research/protocols/recorded_evidence_audit_v0100.json",
+             "research/protocols/runtime_comparison_observations_v0100.json"]
 RECEIPT_KINDS = {"strict_nonpid": AUDIT + "nonpid_transfer_verification",
                  "recorded_transfer": AUDIT + "recorded_transfer_verification",
                  "recorded_recalibration": AUDIT + "recorded_recalibration_verification"}
@@ -191,7 +192,8 @@ def hosted_failure():
 def runtime_evidence_names():
     files = [p.relative_to(ROOT).as_posix() for p in sorted((ROOT / "research/results/calibration_runtime_sources").rglob("*")) if p.is_file()]
     files += [p.relative_to(ROOT).as_posix() for p in sorted((ROOT / "research/results").glob("calibration_runtime*.json")) if p.is_file()]
-    required = [HOSTED_FAILURE, RECORDED_EVIDENCE, "docs/NUMERICAL_REPRODUCIBILITY.md", *PROTOCOLS[-2:]]
+    required = [HOSTED_FAILURE, RECORDED_EVIDENCE, "research/results/calibration_runtime_observations_v0100.json",
+                "docs/NUMERICAL_REPRODUCIBILITY.md", "docs/RUNTIME_OBSERVATIONS.md", *PROTOCOLS[2:]]
     for name in required:
         assert (ROOT / name).is_file(), "Required numerical-runtime evidence missing: " + name
     assert files, "Original-machine numerical evidence is missing"

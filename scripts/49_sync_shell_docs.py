@@ -58,9 +58,13 @@ def block(root, zh=False, *, readme=False):
                  "默认CP仍为完整集合monitor，显式hard_hold可事前否决；测后rollback是领域恢复提案，并非物理安全证明。\n\n"
                  "数值复现范围：原46/48在原机严格通过、跨CPU严格失败的结果完整保留；本机通过不等于跨CPU通过。"
                  "独立52核验的是受明确算术假设限制的原记录证据，使用独立检查过的原概率重建动作链，"
-                 "不恢复逐位重放，不证明训练历史的因果真实性，不承诺不同CPU的动作或轨迹等价。\n\n"
+                 "不恢复逐位重放，不证明训练历史的因果真实性，不承诺不同CPU的动作或轨迹等价。"
+                 "数值诊断中的step差异，是原比较机器对两端归档logits/T的统一解码差异，"
+                 "不是两台机器实际输出动作之差。54的派生浮点汇总在默认托管环境也未能严格重算；"
+                 "新57/58保存默认两端的事后观察并独立核验，不把54失败改称通过，不保证未来后端逐位一致。\n\n"
                  f"见[外壳与迁移边界]({prefix}SAFETY_SHELL.md)、[完整非PID证据]({prefix}NONPID_TRANSFER.md)、"
                  f"[少样本重标定]({prefix}RECALIBRATION.md)、[数值复现与证据边界]({prefix}NUMERICAL_REPRODUCIBILITY.md)、"
+                 f"[事后观察与独立数值核验]({prefix}RUNTIME_OBSERVATIONS.md)、"
                  f"[宿主资源指标]({prefix}COMPUTE.md)。")
     else:
         prose = (f"**Scope: a decomposable Calibrated Decision & Safety Shell with a PID testbed.** "
@@ -81,10 +85,15 @@ def block(root, zh=False, *, readme=False):
                  "those failures remain preserved. A local pass is not a cross-CPU pass. The separate 52 audit checks original-record "
                  "evidence under explicit arithmetic assumptions and reconstructs its action chain from independently checked recorded "
                  "probabilities. It does not recover bitwise replay, prove the causal history of training, or promise equivalent actions "
-                 "or trajectories across CPUs.\n\n"
+                 "or trajectories across CPUs. The diagnostic step delta applies both archived logits/T inputs to the original "
+                 "comparison machine's decoder; it is not a difference between actions actually executed on two machines. "
+                 "Strict recomputation of 54's derived floating summaries also failed in the default hosted environment. "
+                 "New 57/58 preserve and independently audit post-incident observations from both default environments; "
+                 "they do not turn 54's failure into a pass or establish future backend identity.\n\n"
                  f"See [shell and transfer boundaries]({prefix}SAFETY_SHELL.md), [complete non-PID evidence]({prefix}NONPID_TRANSFER.md), "
                  f"[small-sample recalibration]({prefix}RECALIBRATION.md), [numerical reproducibility and evidence boundaries]"
-                 f"({prefix}NUMERICAL_REPRODUCIBILITY.md), and [host resources]({prefix}COMPUTE.md).")
+                 f"({prefix}NUMERICAL_REPRODUCIBILITY.md), [post-incident observation audit]({prefix}RUNTIME_OBSERVATIONS.md), "
+                 f"and [host resources]({prefix}COMPUTE.md).")
     return prose
 
 
