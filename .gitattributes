@@ -1,2 +1,3 @@
 # Retained machine evidence must keep its exact LF bytes, including log spaces.
 research/results/calibration_runtime_sources/windows_failure_log.txt -text -whitespace
+research/results/calibration_runtime_sources/** -text -whitespace

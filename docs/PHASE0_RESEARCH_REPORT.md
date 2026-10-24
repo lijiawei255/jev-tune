@@ -475,12 +475,22 @@ pip install "C:\Program Files\MATLAB\R2024b\extern\engines\python"  # matlab.eng
 | E15 | **本机实测**：Simulink 逐次运行开销 | `research/bench/bench_run.m` + `bench_log_1s.txt` / `bench_log_15s.txt` |
 
 ## 附录 B：本机 benchmark 复现
+
+This historical benchmark used a private benchmark, which is not distributed.
+The command must be run from the repository root with your own permitted model;
+the private model's original timing is not reproducible from this public checkout
+alone. MATLAB is discovered through `PATH`; no developer checkout path is needed.
+
+历史测试使用未分发的私有基准模型。请在仓库根目录运行，并自行提供有权使用的模型；
+仅凭本公开仓库不能复现该私有模型的原始计时。MATLAB通过`PATH`发现，不依赖开发者目录。
+
 ```powershell
 # 1) 复制模型到 ASCII 路径（Simulink 要求文件名为合法标识符）
 Copy-Item "...\model_workspace\motor_valve_model.slx" "research\bench\_tmp\jevbench_model.slx"
 # 2) 后台跑，避免阻塞交互式 MATLAB 会话
-& "C:\Program Files\MATLAB\R2024b\bin\matlab.exe" -batch `
-  "addpath('C:\workspace\jev-tune\research\bench'); bench_run(15,5,'bench_log_15s.txt')"
+$taskMatlab = (Get-Command matlab -ErrorAction Stop).Source
+& $taskMatlab -batch `
+  "addpath(fullfile(pwd,'research','bench')); bench_run(15,5,'bench_log_15s.txt')"
 ```
 
 > 原始日志：`research/bench/bench_log_1s.txt`、`bench_log_15s.txt`（每次运行的逐次耗时都在里面）。

@@ -101,9 +101,9 @@ def test_stale_renderer_is_structured_failure_in_json_mode(tmp_path, monkeypatch
 def test_new_shell_checker_reports_missing_evidence_as_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(module, 'ROOT', tmp_path)
     rows = module.transfer_shell_evidence()
-    assert len(rows) == 4 and all(row['ok'] is False for row in rows)
-    assert {r['id'] for r in rows} == {'shell:46_verify_nonpid_transfer',
-        'shell:48_recalibration_benchmark', 'shell:49_sync_shell_docs',
+    assert len(rows) == 6 and all(row['ok'] is False for row in rows)
+    assert {r['id'] for r in rows} == {'shell:recorded_transfer',
+        'shell:recorded_recalibration', 'shell:runtime_boundary', 'shell:recorded_audit_summary', 'shell:49_sync_shell_docs',
         'shell:50_open_source_inventory'}
     assert all('FileNotFoundError' in row['detail'] for row in rows)
 

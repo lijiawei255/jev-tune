@@ -56,8 +56,12 @@ def block(root, zh=False, *, readme=False):
                  "非PID研究没有替换PID模型或默认策略；本版本另外加固了C/MATLAB输入与数值处理。"
                  "C99 checked入口拒绝非法状态/温度/策略及数值失败，清空旧动作并全轴保持。"
                  "默认CP仍为完整集合monitor，显式hard_hold可事前否决；测后rollback是领域恢复提案，并非物理安全证明。\n\n"
+                 "数值复现范围：原46/48在原机严格通过、跨CPU严格失败的结果完整保留；本机通过不等于跨CPU通过。"
+                 "独立52核验的是受明确算术假设限制的原记录证据，使用独立检查过的原概率重建动作链，"
+                 "不恢复逐位重放，不证明训练历史的因果真实性，不承诺不同CPU的动作或轨迹等价。\n\n"
                  f"见[外壳与迁移边界]({prefix}SAFETY_SHELL.md)、[完整非PID证据]({prefix}NONPID_TRANSFER.md)、"
-                 f"[少样本重标定]({prefix}RECALIBRATION.md)、[宿主资源指标]({prefix}COMPUTE.md)。")
+                 f"[少样本重标定]({prefix}RECALIBRATION.md)、[数值复现与证据边界]({prefix}NUMERICAL_REPRODUCIBILITY.md)、"
+                 f"[宿主资源指标]({prefix}COMPUTE.md)。")
     else:
         prose = (f"**Scope: a decomposable Calibrated Decision & Safety Shell with a PID testbed.** "
                  f"A new non-PID offline denoising task includes three genuinely trained models and independent testing; "
@@ -73,8 +77,14 @@ def block(root, zh=False, *, readme=False):
                  "this release separately hardens C/MATLAB input and numeric handling. The C99 checked entry rejects invalid states/temperatures/policies and "
                  "numeric failures, clears stale actions and holds every axis. Default CP retains complete monitor sets; explicit "
                  "hard_hold can veto before actuation. Post-measurement rollback is domain-owned recovery, not a physical-safety proof.\n\n"
+                 "Numerical replay scope: the original strict 46/48 checks passed on the original machine and failed across CPUs; "
+                 "those failures remain preserved. A local pass is not a cross-CPU pass. The separate 52 audit checks original-record "
+                 "evidence under explicit arithmetic assumptions and reconstructs its action chain from independently checked recorded "
+                 "probabilities. It does not recover bitwise replay, prove the causal history of training, or promise equivalent actions "
+                 "or trajectories across CPUs.\n\n"
                  f"See [shell and transfer boundaries]({prefix}SAFETY_SHELL.md), [complete non-PID evidence]({prefix}NONPID_TRANSFER.md), "
-                 f"[small-sample recalibration]({prefix}RECALIBRATION.md), and [host resources]({prefix}COMPUTE.md).")
+                 f"[small-sample recalibration]({prefix}RECALIBRATION.md), [numerical reproducibility and evidence boundaries]"
+                 f"({prefix}NUMERICAL_REPRODUCIBILITY.md), and [host resources]({prefix}COMPUTE.md).")
     return prose
 
 

@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "study_type": "post_incident_recorded_evidence_audit",
+  "strict_cross_cpu_refit_passed": false,
+  "trigger": "research/results/calibration_runtime_ci_failure_v0100.json",
+  "timing": "Post-incident rules and implementation are committed before the first full execution of the new audit. Original-machine diagnostic arrays and traces were collected after the incident. This is not prospective preregistration of the original experiment or a new independent test.",
+  "proposition": "Consistency of the original recorded measurements, fixed models, calibration, complete sets, operating decisions, costs and acceptance under explicitly conditional arithmetic assumptions",
+  "excluded_propositions": [
+    "Original strict 46/48 cross-CPU refit recovered",
+    "Bitwise or full closed-loop trajectory equivalence on another numerical backend",
+    "Causal proof of historical training execution",
+    "New independent samples, policy superiority, reached-state CP coverage or deployment authorization"
+  ],
+  "unchanged": [
+    "Original 45/46/48 and their frozen source manifests and numerical tolerances",
+    "Original primary and small-sample protocols, raw evidence, model weights, T, q, labels, sizes and test populations",
+    "Original negative_stop policy acceptance and paused complex risk research"
+  ],
+  "numeric_obligations": [
+    "80-digit outward Decimal interval forward equations from binary64 weights, normalization and features",
+    "Operation-count gamma bounds for dot products and sums; relative rounding and amplified absolute underflow terms; reject unresolved overflow or invalid domains",
+    "Explicit conditional elementary-function and backend assumptions retained in every certificate and release",
+    "Actual post-incident original-host golden traces: all 60 geometries, NLL enclosures, branches and returned T verified",
+    "Independent inverse-temperature convex NLL minimizer enclosure, recorded objective gap, and rounding-budget propagation; no enlarged T tolerance",
+    "Clipped NLL regions excluded by separately outward lower-bounded convex tangents with deterministic bisection; unresolved bounds reject",
+    "Strict finite-sample CP rank and exact recorded q from the independent CP population; interval order-statistic certificate and complete recorded sets",
+    "Recorded probabilities independently enclosed before they reconstruct any executed action",
+    "Every recorded operating state, feedback chain, typed proposal, hold/escalation mode, bounded update, actual measurement, cache, stop and returned best point verified",
+    "For a budget stop, interval propagation includes terminal log1p feedback and proves the next proposal cannot equal any cached tuple; unresolved cache boundaries reject",
+    "Independent objective/filter, MSE, observation and teacher replay for all recorded candidates; exact baseline proposal/request reconstruction",
+    "All nine supplemental calibration rows, split/model/source bindings, observed clock samples, statistics and diagnostics checked without refitting or substituting clocks"
+  ],
+  "execution": {
+    "numeric_workers_max": 4,
+    "worker_objective_evaluations": 0,
+    "worker_gradient_steps": 0,
+    "parent_objective_evaluations": "Count every actual independent filter replay, including work before failures",
+    "roster": "Every recorded case; no performance-based selection",
+    "receipts": "Immutable UUID success/failure receipts; collect all worker outcomes and preserve source hashes before/after",
+    "source_freeze": "Require committed audit implementation and this source manifest before complete execution"
+  },
+  "acceptance": "All specified original-record obligations must pass. A passing conditional audit is a new, explicitly named proposition and never reclassifies the retained strict replay failures as passes.",
+  "failure_action": "Preserve the failure and costs. Do not change policy, thresholds, sample sizes, tolerances or source data to obtain a pass. Any audit implementation repair requires a documented new frozen revision before another full execution.",
+  "source_hashes": {
+    "scripts/52_verify_recorded_transfer.py": "78ef285f9da951381f9ea67e5ffa28cdb03dc45b5304cd46e2d0588c3d5bc910",
+    "scripts/calibration_numeric_audit.py": "7ffd16e7c6119aa2f6fe05c2189fb47902ed1dcc64b87b7fca4a6d1e319add84",
+    "scripts/46_verify_nonpid_transfer.py": "f146e2c31f7c0c6122d3bbdda749787f37daa7c99e21155084ec05ea1c0f1b27",
+    "scripts/48_recalibration_benchmark.py": "f139a76ed9fee3829aff5427adfc6f181803b46fa77bf8e136ddbec8bcc0a01d",
+    "scripts/53_archive_original_calibration.py": "48d31a5dd16f5ac42ad2ac452ae2bd109ee440aed4d501da0283c723d19bce7d",
+    "scripts/55_archive_supplemental_arrays.py": "ac60a703dc89f1b4c9b526c2ffb536902a73474333889f32737af7e66bc7513f",
+    "scripts/54_compare_calibration_runtimes.py": "925f7fd5f77f262b3a9460531339de39863657d442bad93d5e05324a48516d4c",
+    "scripts/56_summarize_recorded_evidence.py": "93bdd3c1e0677aa8d1a8480895d6c7488e589ff7400f525e90836200f17b6741",
+    "tests/test_recorded_transfer.py": "e2c246eded0a588607135d3009d26ba320ad447ee2b7cd51678118eacc16cd87",
+    "tests/test_numeric_audit.py": "cb71491c6b252f5b7782976bd5626d6debd108d05ea10fec7b1a4b36d68acca7",
+    "tests/test_runtime_boundary.py": "cad55937be1b6149063f6c9097e45b24d374bf35cf55937cda0adce8354ac0bc",
+    "tests/test_recorded_summary.py": "b9c1c8d0a92415538e116acad93004179df0d65314e6165e91c5a3f9188cb369"
+  },
+  "frozen_before_first_full_execution_utc": "2026-10-24T07:24:29.975451+00:00",
+  "numeric_assumptions": "Independent Decimal audit, not a replacement inference/calibration runtime.\n\nArithmetic assumes IEEE binary64 round-to-nearest (including fused/reordered\ndot products bounded by gamma(2*n+1)), gradual underflow, and faithful (<= one\nulp) exp/tanh/log/log1p implementations. Decimal exp/ln are correctly rounded; their\nadjacent Decimal numbers enclose the real result. Certificates are conditional\non those explicit elementary-function assumptions, not bitwise replay proofs.\nNo bound is fitted to observed residuals. All public results are JSON-safe."
+}

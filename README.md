@@ -5,7 +5,9 @@
 
 Using 16, 32 or 64 labeled states in EACH independent temperature/CP split (32, 64 or 128 total), the nine host fit-time medians span 4.601500–5.744300 ms. Label acquisition, inference, communication and device execution are excluded. This does not validate cross-day, VLA, clinical or target-board operation. The non-PID study did not replace the PID model or default policy; this release separately hardens C/MATLAB input and numeric handling. The C99 checked entry rejects invalid states/temperatures/policies and numeric failures, clears stale actions and holds every axis. Default CP retains complete monitor sets; explicit hard_hold can veto before actuation. Post-measurement rollback is domain-owned recovery, not a physical-safety proof.
 
-See [shell and transfer boundaries](docs/SAFETY_SHELL.md), [complete non-PID evidence](docs/NONPID_TRANSFER.md), [small-sample recalibration](docs/RECALIBRATION.md), and [host resources](docs/COMPUTE.md).
+Numerical replay scope: the original strict 46/48 checks passed on the original machine and failed across CPUs; those failures remain preserved. A local pass is not a cross-CPU pass. The separate 52 audit checks original-record evidence under explicit arithmetic assumptions and reconstructs its action chain from independently checked recorded probabilities. It does not recover bitwise replay, prove the causal history of training, or promise equivalent actions or trajectories across CPUs.
+
+See [shell and transfer boundaries](docs/SAFETY_SHELL.md), [complete non-PID evidence](docs/NONPID_TRANSFER.md), [small-sample recalibration](docs/RECALIBRATION.md), [numerical reproducibility and evidence boundaries](docs/NUMERICAL_REPRODUCIBILITY.md), and [host resources](docs/COMPUTE.md).
 <!-- transfer-shell:en:end -->
 
 # jev-tune

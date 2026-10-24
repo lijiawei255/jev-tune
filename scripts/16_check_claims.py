@@ -515,26 +515,32 @@ def practical_evidence() -> list[dict]:
 
 
 def transfer_shell_evidence() -> list[dict]:
-    """Independently audit the new domain and preserve negative acceptance."""
+    """Audit original recorded evidence; strict cross-CPU refit is a separate failure.
+
+    The post-incident obligation is specified in 52 and its frozen protocol.
+    A pass here never reclassifies the retained 46/48 failures as passing.
+    """
     rows = []
-    for name, source in (
-        ('46_verify_nonpid_transfer', 'research/results/nonpid_transfer/report.json'),
-        ('48_recalibration_benchmark', 'research/results/recalibration_benchmark.json'),
-        ('49_sync_shell_docs', 'docs/SAFETY_SHELL.md'),
-        ('50_open_source_inventory', 'research/results/open_source_inventory_v0100.json'),
+    for identifier, name, entry, source in (
+        ('recorded_transfer', '52_verify_recorded_transfer', 'check', 'research/results/nonpid_transfer/report.json'),
+        ('recorded_recalibration', '52_verify_recorded_transfer', 'check_recalibration', 'research/results/recalibration_benchmark.json'),
+        ('runtime_boundary', '54_compare_calibration_runtimes', 'check', 'docs/NUMERICAL_REPRODUCIBILITY.md'),
+        ('recorded_audit_summary', '56_summarize_recorded_evidence', 'check', 'research/results/recorded_evidence_audit_v0100.json'),
+        ('49_sync_shell_docs', '49_sync_shell_docs', 'check', 'docs/SAFETY_SHELL.md'),
+        ('50_open_source_inventory', '50_open_source_inventory', 'check', 'research/results/open_source_inventory_v0100.json'),
     ):
         try:
             spec = importlib.util.spec_from_file_location(name, ROOT/'scripts'/(name+'.py'))
             module = importlib.util.module_from_spec(spec)
             sys.modules[name] = module
             spec.loader.exec_module(module)
-            result = module.check(root=ROOT)
+            result = getattr(module, entry)(root=ROOT)
             assert result and result['ok'] is True
             extra = result.get('additional_verification_objective_evaluations', 0)
             ok, detail = True, f'independent evidence verified; additional_verification_objective_evaluations={extra}'
         except Exception as exc:
             ok, detail = False, f'{type(exc).__name__}: {exc}'
-        rows.append({'id':'shell:'+name, 'text':'Calibrated shell and measured non-PID transfer',
+        rows.append({'id':'shell:'+identifier, 'text':'Recorded shell evidence; original strict CPU refit failure remains retained',
                      'ok':ok, 'value':None, 'source':source, 'detail':detail})
     return rows
 

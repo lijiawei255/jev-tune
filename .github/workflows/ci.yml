@@ -73,7 +73,7 @@ jobs:
           PY
           pip install pillow matplotlib onnxruntime
           pip install -e . --no-deps
-      - name: Refit and independently verify published evidence and claims
+      - name: Independently audit recorded evidence and published claims
         env:
           PYTHONPATH: src
           PYTHONUTF8: "1"
@@ -81,7 +81,30 @@ jobs:
           MKL_NUM_THREADS: "1"
           OPENBLAS_NUM_THREADS: "1"
           NUMEXPR_NUM_THREADS: "1"
-        run: python scripts/16_check_claims.py
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import subprocess
+          import sys
+          output = Path('.local-audit')
+          output.mkdir(exist_ok=True)
+          stdout = output / 'hosted_claims.json'
+          stderr = output / 'hosted_claims.stderr.txt'
+          with stdout.open('w', encoding='utf-8') as out, stderr.open('w', encoding='utf-8') as err:
+              result = subprocess.run([sys.executable, 'scripts/16_check_claims.py', '--json'],
+                                      stdout=out, stderr=err)
+          print(stdout.read_text(encoding='utf-8'))
+          print(stderr.read_text(encoding='utf-8'), file=sys.stderr)
+          raise SystemExit(result.returncode)
+          PY
+      - name: Preserve scientific evidence receipts including failures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scientific-evidence-${{ github.run_id }}
+          path: .local-audit/
+          include-hidden-files: true
+          if-no-files-found: warn
 
   c-parity:
     runs-on: ubuntu-latest

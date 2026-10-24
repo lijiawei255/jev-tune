@@ -5,7 +5,9 @@
 
 每个独立温度/CP分区分别16、32、64个标注状态（合计32、64、128）时，九项组合的宿主纯拟合中位耗时范围为4.601500–5.744300 ms。标签采集、推理、通信和设备执行不在该拟合计时内；这不证明跨天、VLA、临床或目标板有效性。非PID研究没有替换PID模型或默认策略；本版本另外加固了C/MATLAB输入与数值处理。C99 checked入口拒绝非法状态/温度/策略及数值失败，清空旧动作并全轴保持。默认CP仍为完整集合monitor，显式hard_hold可事前否决；测后rollback是领域恢复提案，并非物理安全证明。
 
-见[外壳与迁移边界](docs/SAFETY_SHELL.md)、[完整非PID证据](docs/NONPID_TRANSFER.md)、[少样本重标定](docs/RECALIBRATION.md)、[宿主资源指标](docs/COMPUTE.md)。
+数值复现范围：原46/48在原机严格通过、跨CPU严格失败的结果完整保留；本机通过不等于跨CPU通过。独立52核验的是受明确算术假设限制的原记录证据，使用独立检查过的原概率重建动作链，不恢复逐位重放，不证明训练历史的因果真实性，不承诺不同CPU的动作或轨迹等价。
+
+见[外壳与迁移边界](docs/SAFETY_SHELL.md)、[完整非PID证据](docs/NONPID_TRANSFER.md)、[少样本重标定](docs/RECALIBRATION.md)、[数值复现与证据边界](docs/NUMERICAL_REPRODUCIBILITY.md)、[宿主资源指标](docs/COMPUTE.md)。
 <!-- transfer-shell:zh:end -->
 
 # jev-tune
