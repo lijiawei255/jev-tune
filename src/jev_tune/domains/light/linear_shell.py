@@ -1,7 +1,12 @@
-"""Two additive toy parameters; no PID, simulator, pretrained model or hardware."""
+"""Ordered numeric instance: two additive parameters, expectation decode + Hold.
+
+Contrast with vla_mask.py: ordered numeric payloads may be averaged; categorical
+tokens may not. No PID, simulator, pretrained model or hardware.
+"""
 import numpy as np
-from jev_tune.decode import AbstainPolicy, decide
-from jev_tune.primitives import Answer, Choice, Noul, Option
+
+from ...core.policy import AbstainPolicy, decide
+from ...core.primitives import Answer, Choice, Noul, Option
 
 
 def toy_step(state):
