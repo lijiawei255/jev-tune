@@ -120,21 +120,30 @@ def cmd_status(args) -> int:
     return code
 
 
+def _head_kind() -> str | None:
+    """Torch checkpoint when torch is installed, otherwise the identical ONNX graph."""
+    models = REPO / "models"
+    if _has("torch") and (models / "jev_head.pt").is_file():
+        return "torch"
+    return "onnx" if (models / "jev_head.onnx").is_file() else None
+
+
 def cmd_demo(args) -> int:
     """Three held-out plants: head vs Z-N vs CMA-ES, ~20 s on CPU."""
     import numpy as np
-    import torch
 
-    from jev_tune.baselines import run_cmaes, run_zn, zn_gains
-    from jev_tune.evaluate import evaluate_head
-    from jev_tune.model import JevHead
-    from jev_tune.plants import HELDOUT_FAMILIES, sample_plants, ultimate_gain
+    from .domains.pid.baselines import run_cmaes, run_zn, zn_gains
+    from .domains.pid.evaluate import evaluate_head
+    from .domains.pid.plants import HELDOUT_FAMILIES, sample_plants, ultimate_gain
 
-    weights = REPO / "models/jev_head.pt"
-    if not weights.is_file():
-        msg = "models/jev_head.pt not found — run scripts/01_make_dataset.py then 02_train.py"
+    from .domains.pid.decision import load_backend
+
+    kind = _head_kind()
+    if kind is None:
+        msg = "models/jev_head.pt or .onnx not found: run scripts/01_make_dataset.py then 02_train.py"
         print(json.dumps({"ok": False, "next": msg}) if args.json else msg)
         return 2
+    head = load_backend(REPO / "models", kind=kind)
 
     plants = sample_plants(
         args.plants, seed=args.seed, families=HELDOUT_FAMILIES, heldout=True
@@ -142,9 +151,6 @@ def cmd_demo(args) -> int:
     ku, tu = ultimate_gain(plants)
     gzn = np.column_stack([0.6 * ku, 1.2 * ku / tu, 0.075 * ku * tu])
 
-    from .domains.pid.decision import load_backend
-
-    head = load_backend(weights.parent)
     zn = run_zn(plants)
     cma = run_cmaes(plants, zn_gains(plants), budget=20, lam=4, seed=args.seed)
     hr = evaluate_head(
@@ -492,16 +498,18 @@ def cmd_loop(args) -> int:
     see the loop work, and so CI exercises the decision path on every push.
     """
     from .domains.pid.evaluate import evaluate_head
-    from .domains.pid.model import JevHead
     from .domains.pid.plants import make_plant, ultimate_gain
 
     import numpy as np
 
-    weights = REPO / "models/jev_head.pt"
-    if not weights.is_file():
-        msg = "models/jev_head.pt not found: run scripts/01_make_dataset.py then 02_train.py"
+    from .domains.pid.decision import load_backend
+
+    kind = _head_kind()
+    if kind is None:
+        msg = "models/jev_head.pt or .onnx not found: run scripts/01_make_dataset.py then 02_train.py"
         print(json.dumps({"ok": False, "next": msg}) if args.json else msg)
         return 2
+    head = load_backend(REPO / "models", kind=kind)
 
     def _coef(text: str) -> list[float]:
         return [float(x) for x in str(text).replace(",", " ").split()]
@@ -516,11 +524,14 @@ def cmd_loop(args) -> int:
         name=args.name,
     )
     ku, tu = ultimate_gain(plant)
+    if not (np.isfinite(ku).all() and np.isfinite(tu).all()):
+        result = {"ok": False, "code": "no_ultimate_gain",
+                  "error": "the plant has no finite ultimate gain (no phase crossover)",
+                  "next": "add the real transport delay with --delay, or tune it in MATLAB"}
+        print(json.dumps(result) if args.json else f"error: {result['error']}; {result['next']}")
+        return 2
     gzn = np.array([[0.6 * ku[0], 1.2 * ku[0] / tu[0], 0.075 * ku[0] * tu[0]]])
 
-    from .domains.pid.decision import load_backend
-
-    head = load_backend(weights.parent)
     result = evaluate_head(
         head,
         plant,

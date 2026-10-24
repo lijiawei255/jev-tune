@@ -1,34 +1,30 @@
-"""jev-tune: System-1 (Jev-style) decision head for control-parameter autotuning.
+"""jev-tune: Jev-inspired calibrated decision & safety shell.
 
-Runtime contract: every decision is expressed as one of three Jev primitives --
-``Choice`` (pick one of K), ``Score`` (ordered rubric), ``Noul`` (calibrated
-yes/no).  There is no parallel "regress the gain directly" pathway.
+``jev_tune.core`` is the domain-agnostic shell (numpy only): typed
+``Choice`` / ``Score`` / ``Noul`` answers, temperature + split-conformal
+calibration, a-priori Hold and the deterministic ``SafetyGate``.
+``jev_tune.domains.pid`` is the complete PID testbed; ``jev_tune.domains.light``
+holds small pure-Python instances. Names below are resolved lazily so importing
+the core never loads the PID simulator.
 """
+from importlib import import_module
 
-from .domains.pid.plants import PlantSet, sample_plants, simulate, gains_to_params, METRIC_NAMES
-from .domains.pid.metrics import cost_from_metrics, is_failed
-from .domains.pid.state import build_state, FEATURE_NAMES, N_FEATURES
-from .core.primitives import Choice, Score, Noul, Answer, softmax
-from .domains.pid.action import ActionSpace, decode_choice, apply_step
+_LAZY = {
+    "PlantSet": "domains.pid.plants", "sample_plants": "domains.pid.plants",
+    "simulate": "domains.pid.plants", "gains_to_params": "domains.pid.plants",
+    "METRIC_NAMES": "domains.pid.plants",
+    "cost_from_metrics": "domains.pid.metrics", "is_failed": "domains.pid.metrics",
+    "build_state": "domains.pid.state", "FEATURE_NAMES": "domains.pid.state",
+    "N_FEATURES": "domains.pid.state",
+    "Choice": "core.primitives", "Score": "core.primitives", "Noul": "core.primitives",
+    "Answer": "core.primitives", "softmax": "core.primitives",
+    "ActionSpace": "domains.pid.action", "decode_choice": "domains.pid.action",
+    "apply_step": "domains.pid.action",
+}
+__all__ = sorted(_LAZY)
 
-__all__ = [
-    "PlantSet",
-    "sample_plants",
-    "simulate",
-    "gains_to_params",
-    "compute_metrics",
-    "cost_from_metrics",
-    "is_failed",
-    "METRIC_NAMES",
-    "build_state",
-    "FEATURE_NAMES",
-    "N_FEATURES",
-    "Choice",
-    "Score",
-    "Noul",
-    "Answer",
-    "softmax",
-    "ActionSpace",
-    "decode_choice",
-    "apply_step",
-]
+
+def __getattr__(name):
+    if name not in _LAZY:
+        raise AttributeError(f"module 'jev_tune' has no attribute {name!r}")
+    return getattr(import_module(f".{_LAZY[name]}", __name__), name)

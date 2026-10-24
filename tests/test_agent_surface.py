@@ -178,3 +178,9 @@ def test_plot_without_traces_still_succeeds(tmp_path):
         {"model": "x.slx", "history": [{"J": 1.0}]}, tmp_path / "empty.png"
     )
     assert out.is_file()
+
+
+def test_loop_rejects_a_plant_without_ultimate_gain_before_tuning(capsys):
+    from jev_tune import cli
+    assert cli.main(["loop", "--num", "1", "--den", "1 0.6 1", "--delay", "0", "--json"]) == 2
+    assert json.loads(capsys.readouterr().out)["code"] == "no_ultimate_gain"

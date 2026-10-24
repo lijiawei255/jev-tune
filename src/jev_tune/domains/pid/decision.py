@@ -119,6 +119,22 @@ def tuner_questions(space: ActionSpace | None = None) -> tuple[Question, ...]:
     return tuple(qs)
 
 
+def _assemble(qs, options, choice_p, score_logits, noul_p) -> Answer:
+    """One typed Answer from calibrated choice probabilities; identical for every backend."""
+    steps, dist, p_true, noul_prompt = {}, None, None, "healthy"
+    for q in qs:
+        if q.kind == "choice":
+            axis = AXES.index(q.id.split(":", 1)[1])
+            steps[q.id] = Choice(question=q.prompt, options=options[axis], probs=choice_p[:, axis])
+        elif q.kind == "score":
+            dist = Score(q.prompt, list(q.levels), softmax(score_logits, axis=-1))
+        elif q.kind == "noul":
+            p_true, noul_prompt = noul_p, q.prompt
+    if len(steps) != len(AXES):
+        raise UnknownQuestion(f"a complete step needs all of {list(AXES)}; got {sorted(steps)}")
+    return Answer(choice=[steps[f"step:{a}"] for a in AXES], score=dist, noul=Noul(noul_prompt, p_true))
+
+
 @runtime_checkable
 class DecisionBackend(Protocol):
     """Anything that can answer the tuner's typed questions."""
@@ -230,34 +246,8 @@ class NumericBackend:
         if any(not self._torch.isfinite(out[key]).all() for key in ("choice", "score", "noul")):
             raise ValueError("backend logits must be finite")
         self._h = out["h"]
-
-        steps, dist, p_true = {}, None, None
-        noul_prompt = "healthy"
-        choice_p = self._choice_probs(out["choice"].numpy())
-        for q in qs:
-            if q.kind == "choice":
-                axis = AXES.index(q.id.split(":", 1)[1])
-                steps[q.id] = Choice(
-                    question=q.prompt,
-                    options=self._options[axis],
-                    probs=choice_p[:, axis],
-                )
-            elif q.kind == "score":
-                dist = Score(
-                    q.prompt, list(q.levels), softmax(out["score"].numpy(), axis=-1)
-                )
-            elif q.kind == "noul":
-                p_true = self._torch.sigmoid(out["noul"]).numpy()
-                noul_prompt = q.prompt
-        if len(steps) != len(AXES):
-            raise UnknownQuestion(
-                f"a complete step needs all of {list(AXES)}; got {sorted(steps)}"
-            )
-        return Answer(
-            choice=[steps[f"step:{a}"] for a in AXES],
-            score=dist,
-            noul=Noul(noul_prompt, p_true),
-        )
+        return _assemble(qs, self._options, self._choice_probs(out["choice"].numpy()),
+                         out["score"].numpy(), self._torch.sigmoid(out["noul"]).numpy())
 
     def action_value(self, deltas: np.ndarray) -> np.ndarray:
         d = self._torch.as_tensor(np.asarray(deltas), dtype=self._torch.float32)
@@ -333,29 +323,9 @@ class OnnxBackend:
         logits = {"choice": out[0], "score": out[1], "noul": out[2]}
         if any(not np.isfinite(z).all() for z in logits.values()):
             raise ValueError("backend logits must be finite")
-        steps, dist, p_true = {}, None, None
-        noul_prompt = "healthy"
-        choice_p = self._choice_probs(logits["choice"])
-        for q in qs:
-            if q.kind == "choice":
-                axis = AXES.index(q.id.split(":", 1)[1])
-                steps[q.id] = Choice(
-                    question=q.prompt,
-                    options=self._options[axis],
-                    probs=choice_p[:, axis],
-                )
-            elif q.kind == "score":
-                dist = Score(
-                    q.prompt, list(q.levels), softmax(logits["score"], axis=-1)
-                )
-            elif q.kind == "noul":
-                p_true = 1.0 / (1.0 + np.exp(-logits["noul"]))
-                noul_prompt = q.prompt
-        return Answer(
-            choice=[steps[f"step:{a}"] for a in AXES],
-            score=dist,
-            noul=Noul(noul_prompt, p_true),
-        )
+        noul_p = 1.0 / (1.0 + np.exp(-np.asarray(logits["noul"], dtype=np.float64)))
+        return _assemble(qs, self._options, self._choice_probs(logits["choice"]),
+                         logits["score"], noul_p)
 
     def action_value(self, deltas):
         raise NotImplementedError(
