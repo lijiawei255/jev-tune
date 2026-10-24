@@ -1,13 +1,5 @@
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-**Agent checkout:** use the [lightweight Git clone commands](docs/DISTRIBUTION.md#reuse-the-framework)
-before the first clone, then read `AGENTS.md`. They retain all formal weights without downloading research records.
-**Download for reuse:** [v0.10.1 source ZIP](https://github.com/lijiawei255/jev-tune/archive/refs/tags/v0.10.1.zip)
-keeps the complete implementation, tests, documentation and formal weights.
-Experiment records are optional [Release attachments](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1),
-with SHA-256 verification and automatic restoration. See [downloads and reproduction](docs/DISTRIBUTION.md).
-Ordinary Git clones still include the retained research records and history.
-
 <!-- transfer-shell:en:start -->
 **Scope: a decomposable Calibrated Decision & Safety Shell with a PID testbed.** A new non-PID offline denoising task includes three genuinely trained models and independent testing; policy-benefit acceptance is `negative_stop`. At budget20, learned mean MSE spans 0.01555577–0.01582834, versus simplex 0.01423997. Stable benefit was not established; this policy investigation stops. Prospective acquisition used 76683 objective calls; standalone training/calibration labels cost 27345 per model. Negative raw evidence, frozen protocols and reproduction remain available; complex risk research stays paused.
 
@@ -17,6 +9,20 @@ Numerical replay scope: the original strict 46/48 checks passed on the original 
 
 See [shell and transfer boundaries](docs/SAFETY_SHELL.md), [complete non-PID evidence](docs/NONPID_TRANSFER.md), [small-sample recalibration](docs/RECALIBRATION.md), [numerical reproducibility and evidence boundaries](docs/NUMERICAL_REPRODUCIBILITY.md), [post-incident observation audit](docs/RUNTIME_OBSERVATIONS.md), and [host resources](docs/COMPUTE.md).
 <!-- transfer-shell:en:end -->
+
+**Distribution candidate:** ordinary `git clone https://github.com/lijiawei255/jev-tune.git`
+retains the complete implementation, tests, documentation, formal PID artifacts and six non-PID
+model/calibration JSON files. Research records are restored from pinned Release attachments only
+when needed; runtime reuse needs no research-data download. No sparse-clone flags are required
+for the candidate history. Then read [`AGENTS.md`](AGENTS.md).
+**Current status: local phase 1 only; the remote and public tags/Releases are unchanged.**
+These clone instructions describe the approved-transition target, not today's remote download size.
+Before pytest or claims, restore data with `python scripts/59_research_data.py --fetch all`,
+then historical sources with `python scripts/history_sources.py --root . --restore-pinned`.
+For a new verification checkout use script 60; see [distribution, history mapping and reproduction](docs/DISTRIBUTION.md).
+The privacy scan follows phase 1; any cleanup needs user approval. Data externalization is not anonymization.
+
+
 
 # jev-tune
 

@@ -579,6 +579,8 @@ def transfer_shell_evidence() -> list[dict]:
             spec.loader.exec_module(module)
             result = getattr(module, entry)(root=ROOT)
             assert result and result['ok'] is True
+            if identifier == 'distribution':
+                assert result.get('payloads_verified') is True, 'Full claims require every pinned data payload restored and verified'
             extra = result.get('additional_verification_objective_evaluations', 0)
             ok, detail = True, f'independent evidence verified; additional_verification_objective_evaluations={extra}'
         except Exception as exc:

@@ -43,3 +43,15 @@ def test_light_archive_missing_evidence_is_an_explicit_failure(tmp_path, monkeyp
     monkeypatch.setattr(sys, 'argv', ['16_check_claims.py', '--json'])
     assert module.main() == 2
     assert '59_research_data.py --fetch all' in capsys.readouterr().err
+
+
+@pytest.mark.parametrize('complete', [True, False])
+def test_full_claims_require_payloads_beyond_source_metadata(tmp_path, monkeypatch, complete):
+    (tmp_path/'scripts').mkdir()
+    (tmp_path/'scripts/61_check_distribution.py').write_text(
+        'def check(root):\n    return '+repr({'ok': True, 'payloads_verified': complete})+'\n')
+    monkeypatch.setattr(module, 'ROOT', tmp_path)
+    row = next(row for row in module.transfer_shell_evidence() if row['id'] == 'shell:distribution')
+    assert row['ok'] is complete
+    if not complete:
+        assert 'every pinned data payload' in row['detail']

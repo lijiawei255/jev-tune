@@ -4,16 +4,19 @@
 
 ## English
 
-This inventories the latest source tree and v0.10.0 release, not Git history cleansing. A normal clone includes the formal trained weights, complete implementation and tests. The ignored synthetic PID datasets are distributed separately; the data ZIP includes LICENSE, NOTICE.md and the machine inventory. Without these NPZ files, --check still validates pins and any locally present files. Packaging requires all four exact files.
+The unchanged v0.10.0 machine inventory binds its original artifacts, not the later history transition. A normal clone includes the formal trained weights, complete implementation and tests. The ignored synthetic PID datasets are distributed separately; the data ZIP includes LICENSE, NOTICE.md and the machine inventory. Without these NPZ files, --check still validates pins and any locally present files. Packaging requires all four exact files.
 
-Starting with v0.10.1, source ZIPs retain the complete implementation and all formal weights, including the six non-PID JSON artifacts, but omit the other experimental records. Those records are pinned Release attachments with automatic SHA-256 restoration; ordinary Git clones still contain them. This v0.10.0 inventory remains the original artifact binding. See [downloads, full reproduction and privacy boundaries](DISTRIBUTION.md). The source ZIP alone cannot run the complete scientific audit: restore evidence and obtain real historical Git objects with scripts/60_reproduce_release.py.
+The local v0.10.1 candidate moves experimental payloads out of reachable Git history, so after approved publication an ordinary clone needs no sparse/partial flags. Complete source and formal weights, including the six non-PID JSON artifacts, remain in Git and source ZIPs. The latest 449 research files and four PID files are recoverable from pinned Release attachments without changing existing archive/member hashes; earlier blob versions have a separate historical-data index. The [history mapping](../research/distribution/history_rewrite_v0101.json) records the preserved original commit metadata and parent graph; changed trees have new commit identities, while the initial signed commit retains its original identity and signature. Current scope is local phase 1: the remote and public tags/Releases are unchanged, and the privacy scan follows phase 1; any cleanup needs user approval. Data externalization does not anonymize original records.
+
+Runtime reuse needs no research-data download. Before pytest or claims, run `python scripts/59_research_data.py --fetch all`, then `python scripts/history_sources.py --root . --restore-pinned`; both support `--from-dir` for offline pinned assets. The source capsule imports selected original source/tree objects without changing refs, not the complete old history. Old script-42 maintenance commands are not promised to work directly; current script-44/16 frozen verification uses the required restored evidence. Use script 60 for a new verification checkout. See [distribution, reproduction and privacy boundaries](DISTRIBUTION.md).
 
 | Component / 内容 | Distribution / 分发 |
 | :--- | :--- |
 | Formal PID model artifacts and non-PID models | Git: seven models files plus six non-PID JSON artifacts |
 | Generated demo model | `matlab/make_demo_model.m`; generate locally, no private SLX included |
 | Complete implementation and tests | `src/`, `matlab/`, `scripts/`, `tests/` |
-| Original public research trajectories | `research/results/`; prior release assets remain versioned |
+| Research records and earlier versions | Pinned Release data bundles; [latest-data manifest](../research/distribution/research_data_v0101.json) and [historical-data index](../research/distribution/historical_data_v0101.json) |
+| Selected original producer sources | [Historical source capsule](../research/distribution/historical_sources_v0101.json); source/tree objects, not complete old history |
 | Pinned synthetic PID data | Release-only [pid_synthetic_data_v0.10.0.zip](https://github.com/lijiawei255/jev-tune/releases/download/v0.10.0/pid_synthetic_data_v0.10.0.zip); four relative NPZ paths |
 
 | Data / 数据 | Bytes / 字节 | SHA-256 |
@@ -66,16 +69,19 @@ The historical response figures (`tuning.gif`, `before_after.png`, `convergence.
 
 ## 简体中文
 
-清单范围为当前源码树与v0.10.0发布，不声称清理Git历史。普通clone已包含正式训练权重、完整实现与测试；被忽略的合成PID数据通过独立附件提供，ZIP内含LICENSE、NOTICE.md与机器清单。缺少NPZ时仍可运行--check，核对校准pin，存在本地文件则额外校验；打包必须四文件全部逐字节匹配。
+未改动的v0.10.0机器清单绑定原产物，不是后续历史切换的证明。普通clone包含正式训练权重、完整实现与测试；被忽略的合成PID数据通过独立附件提供，ZIP内含LICENSE、NOTICE.md与机器清单。缺少NPZ时仍可运行--check，核对校准pin，存在本地文件则额外校验；打包必须四文件全部逐字节匹配。
 
-从v0.10.1起，源码ZIP保留完整实现及全部正式权重（含六份非PID模型/校准JSON），其他实验记录通过固定哈希的Release附件按需恢复；普通Git克隆仍含原记录。本v0.10.0清单继续绑定原产物，不改旧证据。详见[分发、完整复现与隐私边界](DISTRIBUTION.md)。仅源码ZIP不能执行完整科学审计，须恢复证据并通过scripts/60_reproduce_release.py获取真实历史Git对象。
+本地v0.10.1候选从可达Git历史移出实验载荷，经批准发布后普通克隆无需稀疏/部分克隆参数；完整源码与正式权重（含六份非PID模型/校准JSON）继续保留在Git及源码ZIP。最新449份研究文件和四份PID文件按固定Release附件恢复，既有整包/成员哈希不变，更早blob版本由独立历史数据索引覆盖。[历史映射](../research/distribution/history_rewrite_v0101.json)记录保留的原提交元数据及父节点关系；树变化的提交获得新身份，初始签名提交保留原SHA及签名。当前仅本地阶段一，远端及公开tag/Release尚未改变，阶段一后自动扫描隐私，任何脱敏清理须另行批准；数据外置不等于匿名化。
+
+运行复用无需研究数据。pytest或claims前先运行`python scripts/59_research_data.py --fetch all`，再运行`python scripts/history_sources.py --root . --restore-pinned`；两者均支持`--from-dir`离线固定附件。源码胶囊导入选定原源码/tree对象，不改变refs，也不等于完整旧历史；旧42维护命令不保证直接可用，当前44/16冻结核验使用恢复后的所需证据。新目录完整核验使用60脚本，详见[分发、复现与隐私边界](DISTRIBUTION.md)。
 
 | 内容 | 分发方式 |
 | :--- | :--- |
 | 正式PID模型产物与非PID模型 | Git内7份正式模型产物（含元数据和校准）及6份非PID模型/校准JSON |
 | 生成的演示模型 | 本地运行matlab/make_demo_model.m，不附私有SLX |
 | 完整实现与测试 | src/、matlab/、scripts/、tests/ |
-| 已公开研究原始轨迹 | research/results/及保留版本的历史release附件 |
+| 研究记录及更早版本 | 固定Release数据附件；[最新数据清单](../research/distribution/research_data_v0101.json)与[历史数据索引](../research/distribution/historical_data_v0101.json) |
+| 选定原生产源码 | [历史源码胶囊](../research/distribution/historical_sources_v0101.json)，提供源码/tree对象，不等于完整旧历史 |
 | 已固定hash的合成PID数据 | Release附件[pid_synthetic_data_v0.10.0.zip](https://github.com/lijiawei255/jev-tune/releases/download/v0.10.0/pid_synthetic_data_v0.10.0.zip)，含4份保持相对路径的NPZ |
 
 | Data / 数据 | Bytes / 字节 | SHA-256 |

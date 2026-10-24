@@ -16,16 +16,26 @@ def git(root, *args):
     return subprocess.check_output(['git', '-C', str(root), *args], text=True).strip()
 
 
-def tiny_repo(tmp_path, *, restore='pass', tests='pass', claims='pass'):
+def tiny_repo(tmp_path, *, restore='pass', tests='pass', claims='pass', history_cleaned=False, history_restore='pass'):
     root = tmp_path/'source'; root.mkdir(); (root/'scripts').mkdir(); (root/'src').mkdir()
     subprocess.run(['git', 'init', '-q', str(root)], check=True)
     (root/'tracked.txt').write_text('untouched')
     (root/'.gitignore').write_text('.local-audit/\n__pycache__/\n')
+    distribution=root/'research/distribution';distribution.mkdir(parents=True)
+    (distribution/'research_data_v0101.json').write_text(json.dumps({'history_cleaned':history_cleaned}))
     code = "import json, pathlib, sys\n"
     if restore == 'fail': code += "print(json.dumps({'ok':False}));sys.exit(3)\n"
     elif restore == 'mutation': code += "pathlib.Path('tracked.txt').write_text('changed')\nprint(json.dumps({'ok':True}))\n"
-    else: code += "print(json.dumps({'ok':True,'objective_evaluations':0,'gradient_steps':0}))\n"
+    else: code += "pathlib.Path('.local-audit/data-restored.marker').write_text('true')\nprint(json.dumps({'ok':True,'objective_evaluations':0,'gradient_steps':0}))\n"
     (root/'scripts/59_research_data.py').write_text(code)
+    if history_cleaned:
+        (distribution/'historical_sources_v0101.json').write_text(json.dumps({'sha256':'c'*64}))
+        code="import json,pathlib,os,sys,subprocess\nassert pathlib.Path('.local-audit/data-restored.marker').is_file()\nassert os.environ['GIT_NO_LAZY_FETCH']=='1' and os.environ['GIT_NO_REPLACE_OBJECTS']=='1'\n"
+        if history_restore=='fail':code+="print(json.dumps({'ok':False}));sys.exit(5)\n"
+        elif history_restore=='mutation':code+="pathlib.Path('tracked.txt').write_text('historical restore source mutation')\n"
+        elif history_restore=='refs':code+="subprocess.check_call(['git','update-ref','refs/tags/unexpected', 'HEAD'])\n"
+        code+="print(json.dumps({'ok':True,'capsule_sha256':"+repr('0'*64 if history_restore=='hash' else 'c'*64)+",'objects':4,'source_paths':2,'objective_evaluations':0,'gradient_steps':"+('1' if history_restore=='gradient' else '0')+"}))\n"
+        (root/'scripts/history_sources.py').write_text(code)
     code = "import pathlib,sys\nassert pathlib.Path.cwd().joinpath('tracked.txt').is_file()\n"
     code += "assert __import__('os').environ['PYTHONPATH']==str(pathlib.Path.cwd()/'src')\n"
     code += "p=next(a.split('=',1)[1] for a in sys.argv if a.startswith('--junitxml='))\n"
@@ -71,6 +81,34 @@ def test_prepare_real_full_clone_refuses_existing_destination(tmp_path):
     assert result['commands'][-1]['argv'][1:] == ['scripts/59_research_data.py','--root', str(destination), '--fetch','all']
     with pytest.raises(ValueError, match='already exists'): reproducer.reproduce(args(source, destination))
     assert (source/'tracked.txt').read_text() == 'untouched'
+
+
+def test_cleaned_prepare_restores_data_before_pinned_history_without_changing_refs(tmp_path):
+    source=tiny_repo(tmp_path,history_cleaned=True);destination=tmp_path/'cleaned_prepare'
+    result=reproducer.reproduce(args(source,destination))
+    assert result['ok'] and result['prepared'] and result['history_cleaned']
+    assert result['historical_sources']['capsule_sha256']=='c'*64
+    assert result['historical_source_refs_unchanged'] and result['tracked_content_unchanged']
+    assert result['commands'][-2]['argv'][1]==reproducer.RESTORE
+    assert result['commands'][-1]['argv'][1]==reproducer.HISTORY_RESTORE
+    assert result['verification_accounting']['additional_objective_evaluations']==0
+
+
+@pytest.mark.parametrize('failure',['fail','hash','gradient','mutation','refs'])
+def test_cleaned_history_failure_blocks_tests_claims_and_prepared_state(tmp_path,failure):
+    source=tiny_repo(tmp_path,history_cleaned=True,history_restore=failure)
+    result=reproducer.reproduce(args(source,tmp_path/'bad_history',verify=True))
+    assert result['ok'] is False and result['prepared'] is False and result['verified'] is False
+    assert not any('pytest' in row['argv'] or 'scripts/16_check_claims.py' in row['argv'] for row in result['commands'])
+    assert result['verification_accounting']['additional_objective_evaluations']==0
+
+
+def test_cleaned_verify_keeps_all_existing_receipt_bindings(tmp_path):
+    source=tiny_repo(tmp_path,history_cleaned=True)
+    result=reproducer.reproduce(args(source,tmp_path/'cleaned_verified',verify=True))
+    assert result['ok'] and result['verified'] and result['historical_source_refs_unchanged']
+    assert result['pytest']['tests']==7 and result['claims']['total']==1
+    assert result['verification_accounting']['additional_objective_evaluations']==13
 
 
 def test_verify_records_actual_synthetic_counts_logs_and_receipts(tmp_path):

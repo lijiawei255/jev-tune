@@ -7,6 +7,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  git-payload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject accidental release-only data and large historical blobs
+        run: python scripts/63_check_git_payload.py
+
   pytest:
     runs-on: ubuntu-latest
     strategy:
@@ -16,12 +25,21 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
+
+      # Release assets are immutable inputs. Missing assets must fail visibly;
+      # they are never replaced by skipped scientific assertions.
+      - name: Restore the pinned evidence and original source proofs
+        run: |
+          python scripts/59_research_data.py --fetch all
+          python scripts/history_sources.py --root . --restore-pinned
 
       - name: Install CPU dependencies
         run: |
@@ -57,6 +75,10 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+      - name: Restore the pinned evidence and original source proofs
+        run: |
+          python scripts/59_research_data.py --fetch all
+          python scripts/history_sources.py --root . --restore-pinned
       - name: Install the recorded scientific dependency versions
         run: |
           python -m pip install --upgrade pip
@@ -151,6 +173,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Check that the documented commands exist
         run: |
           set -e
@@ -160,4 +184,6 @@ jobs:
           test -f NOTICE.md
           test -f CONTRIBUTING.md
       - name: Verify the real source ZIP and pinned attachment coverage
-        run: python scripts/61_check_distribution.py
+        run: |
+          python scripts/history_sources.py --root . --restore-pinned
+          python scripts/61_check_distribution.py

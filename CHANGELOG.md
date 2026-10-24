@@ -9,7 +9,8 @@ file that produced them is named next to them.
 
 ## [0.10.1] - 2026-10-24
 
-* Keep reusable source, tests, documentation and all formal weights in the default source ZIP; distribute experiment records as optional hash-bound Release attachments. Preserve every original data blob, historical tag and previous release.
+* Keep reusable source, tests, documentation and all formal weights in ordinary clones and source ZIPs. Strip only Release-bound experimental paths from Git history, preserving all existing commits, author/committer dates, messages and ordered merge parents. Preserve the unchanged original signed initial commit exactly; record rewritten commit/tag mappings.
+* Retain original experimental bytes and all historical data variants in hash-bound bundles. Restore selected original source objects without adding public old-history refs; keep full original backups local. Compliance/privacy history review is a separate approval stage.
 * Add safe, idempotent data restoration, offline packaging and a full-history reproduction bootstrap. Check real source archives and reject incomplete test/claims runs; retain scientific failures and their original verification boundaries.
 * Document partial-clone versus source-ZIP behavior and the privacy review boundary: synthetic raw scans found no listed benchmark or personal-record indicators, while original measurement provenance retains local environment paths.
 
@@ -362,7 +363,8 @@ start) and the scale economics. See the release notes.
 
 ## [0.10.1] - 2026-10-24
 
-* 默认源码ZIP保留可复用代码、测试、文档及全部正式权重；实验记录改由固定哈希的Release附件按需获取。所有原始数据Git blob、旧tag与旧发布均保留。
+* 普通克隆与源码ZIP保留可复用代码、测试、文档及全部正式权重；Git历史只剥离Release分发的实验路径，保留全部既有提交、作者/提交者原始日期、说明及有序合并父链。未受影响的原始签名初始提交逐字节保留，记录提交/tag的新旧映射。
+* 原始实验字节及全部历史数据变体保存在固定哈希附件中；按需恢复选定原始源码对象，不增加公开旧历史refs，完整原历史备份仅留本地。合规/隐私历史审查属于另行批准阶段。
 * 新增安全幂等的数据恢复、离线打包及完整历史复现入口。验证真实源码包，拒绝不完整的测试或claims结果；保留科学失败及原验证边界。
 * 说明部分克隆与源码ZIP的差异，以及隐私审查范围：合成原始数据未命中所列基准和个人记录标识，原测量来源元数据仍含本机环境路径。
 

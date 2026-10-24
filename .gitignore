@@ -279,3 +279,16 @@ research/sim_batch_*/
 research/sim_w*/
 research/sim_reuse/
 research/demo_model/
+
+# Release-only experimental evidence and local verification work.
+# 正式权重以外的实验记录只通过固定哈希的Release附件分发。
+/.local-audit/
+/research/results/**
+!/research/results/nonpid_transfer/
+/research/results/nonpid_transfer/*
+!/research/results/nonpid_transfer/model_101.json
+!/research/results/nonpid_transfer/model_202.json
+!/research/results/nonpid_transfer/model_303.json
+!/research/results/nonpid_transfer/calibration_101.json
+!/research/results/nonpid_transfer/calibration_202.json
+!/research/results/nonpid_transfer/calibration_303.json

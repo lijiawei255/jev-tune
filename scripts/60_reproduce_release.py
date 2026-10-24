@@ -14,6 +14,9 @@ import xml.etree.ElementTree as ET
 OFFICIAL = 'https://github.com/lijiawei255/jev-tune.git'
 RELEASE_REF = 'v0.10.1'
 RESTORE = 'scripts/59_research_data.py'
+DATA_MANIFEST = 'research/distribution/research_data_v0101.json'
+HISTORY_RESTORE = 'scripts/history_sources.py'
+HISTORY_MANIFEST = 'research/distribution/historical_sources_v0101.json'
 
 
 def now():
@@ -59,7 +62,7 @@ def receipt_costs(root, before):
         rows.append({'path': name, 'sha256': digest, 'status': value.get('status'),
                      'ok': value.get('ok'), 'additional_objective_evaluations': count})
     return {'receipts': rows, 'additional_objective_evaluations': sum(row['additional_objective_evaluations'] for row in rows),
-            'scope': 'Actual additional verification work, including failed receipts; not independent samples'}
+            'scope': 'Recorded-evidence audit receipts only, including failures; not independent samples. Unit-test and demo work is outside this objective ledger.'}
 
 
 
@@ -162,15 +165,18 @@ def reproduce(args):
               'commands': []}
     before = receipts_before = None
     try:
-        # No --depth, --single-branch or --filter: historical verifier blobs remain available.
+        # Ordinary clone: in cleaned mode all reachable commits contain source
+        # only. Original verifier source objects are an explicit pinned restore.
         clone = ['git', 'clone', '-c', 'core.autocrlf=false', '--no-local', '--', source, str(destination)]
         row = {'argv': clone, 'cwd': str(destination.parent), 'started_utc': now()}
         report['commands'].append(row)
         result = subprocess.run(clone, cwd=destination.parent, capture_output=True, text=True, encoding='utf-8', errors='replace')
         row.update(returncode=result.returncode, stdout=result.stdout, stderr=result.stderr, completed_utc=now())
-        if result.returncode: raise RuntimeError('Full clone failed')
+        if result.returncode: raise RuntimeError('Git clone failed')
         audit = destination/'.local-audit'; audit.mkdir(exist_ok=True)
         env = os.environ.copy(); env['PYTHONPATH'] = str(destination/'src')
+        env['GIT_NO_LAZY_FETCH'] = '1'
+        env['GIT_NO_REPLACE_OBJECTS'] = '1'
         removed = sorted(name for name in env if name.startswith('PYTEST_'))
         for name in removed: env.pop(name)
         report['removed_environment_variable_names'] = removed
@@ -190,6 +196,11 @@ def reproduce(args):
         report['actual_HEAD'] = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=destination, text=True).strip()
         if subprocess.check_output(['git', 'rev-parse', '--is-shallow-repository'], cwd=destination, text=True).strip() != 'false':
             raise ValueError('Full Git history is required')
+        manifest = json.loads((destination/DATA_MANIFEST).read_text(encoding='utf-8'))
+        history_cleaned = manifest.get('history_cleaned', False)
+        if type(history_cleaned) is not bool:
+            raise ValueError('Committed history_cleaned mode must be boolean')
+        report['history_cleaned'] = history_cleaned
         before = tracked_hashes(destination); report['tracked_hashes_before'] = before
         if report_path.is_relative_to(destination) and report_path.relative_to(destination).as_posix() in before:
             raise ValueError('Report would overwrite tracked source')
@@ -201,6 +212,31 @@ def reproduce(args):
         if report['restoration'].get('ok') is not True:
             raise ValueError('Data restoration did not report success')
         if tracked_hashes(destination) != before: raise ValueError('Restore changed tracked content')
+        if history_cleaned:
+            if HISTORY_RESTORE not in before or HISTORY_MANIFEST not in before:
+                raise ValueError('Cleaned release lacks committed historical-source restore/pins')
+            pins = json.loads((destination/HISTORY_MANIFEST).read_text(encoding='utf-8'))
+            refs_before = subprocess.check_output(['git','show-ref'], cwd=destination, env=env)
+            history = [sys.executable, HISTORY_RESTORE, '--root', str(destination), '--restore-pinned']
+            if args.from_dir:
+                history += ['--from-dir', str(Path(args.from_dir).expanduser().resolve())]
+            output, _ = run(history, 'restore_historical_sources')
+            value = json.loads(output)
+            report['historical_sources'] = value
+            if (value.get('ok') is not True or value.get('capsule_sha256') != pins['sha256']
+                    or type(value.get('objective_evaluations')) is not int or value['objective_evaluations'] != 0
+                    or type(value.get('gradient_steps')) is not int or value['gradient_steps'] != 0):
+                raise ValueError('Pinned historical-source restoration did not report valid success/accounting')
+            refs_after = subprocess.check_output(['git','show-ref'], cwd=destination, env=env)
+            report['historical_source_refs_unchanged'] = refs_before == refs_after
+            if refs_before != refs_after:
+                raise ValueError('Historical-source restore changed refs/tags/HEAD')
+            if subprocess.check_output(['git','rev-parse','HEAD'], cwd=destination, text=True, env=env).strip() != report['actual_HEAD']:
+                raise ValueError('Historical-source restore changed HEAD')
+            if tracked_hashes(destination) != before:
+                raise ValueError('Historical-source restore changed tracked content')
+        else:
+            report['historical_sources'] = {'required':False, 'scope':'Legacy full-history release; explicit cleaned mode not enabled'}
         report['prepared'] = True
         if args.verify:
             junit = audit/'reproduction_pytest.xml'

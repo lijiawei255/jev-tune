@@ -1,25 +1,36 @@
 # Agent guide
 
-## Lightweight initial clone / 首次轻量克隆
+## Initial clone and optional evidence / 首次克隆与按需证据
 
-For a new framework checkout, run these commands before tuning. Do not change an
-existing user's checkout into sparse mode. A plain clone still retrieves the
-retained large research records/history; `--depth 1` alone is insufficient.
-Both blob filtering and the exact sparse selection are needed. This keeps all
-source and formal PID/non-PID weights. Use `v0.10.1` instead of `main` for that
-frozen release. Complete historical scientific verification intentionally uses
-the separate full-history `scripts/60_reproduce_release.py` entry point.
-
-首次获取框架时使用以下命令，不要擅自把用户既有检出改为稀疏模式。普通克隆仍获取大型
-研究记录/历史，仅`--depth 1`不够；需要同时过滤blob并精确稀疏选择，保留全部源码及正式
-PID/非PID权重。固定发布可把`main`改成`v0.10.1`。完整历史科学核验另用
-`scripts/60_reproduce_release.py`，有意获取完整历史和证据。详见[分发说明](docs/DISTRIBUTION.md)。
+The local v0.10.1 candidate removes experimental payloads from reachable Git
+history. After an approved remote transition, ordinary clone needs no special
+flags and retains complete source, formal PID artifacts and six non-PID
+model/calibration JSON files:
 
 ```sh
-git clone -c core.autocrlf=false --filter=blob:none --sparse --depth 1 --branch main https://github.com/lijiawei255/jev-tune.git
+git clone https://github.com/lijiawei255/jev-tune.git
 cd jev-tune
-git sparse-checkout set --no-cone '/*' '!/research/results/**' '/research/results/nonpid_transfer/' '!/research/results/nonpid_transfer/*' '/research/results/nonpid_transfer/model_*.json' '/research/results/nonpid_transfer/calibration_*.json'
 ```
+
+Current scope is local phase 1: the remote/public tags/Releases are unchanged;
+the privacy scan follows phase 1; any cleanup awaits user approval. Do not claim today's remote is already small,
+rewrite an existing user's checkout, or publish this transition automatically.
+Runtime use needs no research records. Before pytest or scientific claims run
+`python scripts/59_research_data.py --fetch all`, followed by
+`python scripts/history_sources.py --root . --restore-pinned`; both accept `--from-dir`
+for pinned offline assets. Script 60 prepares a new checkout and performs complete
+verification. The source capsule supplies selected original source/tree objects,
+not complete old Git history. Script-42 maintenance commands are not promised to
+work directly; use the current script-44/16 frozen verifiers after restoration.
+See [distribution and history boundaries](docs/DISTRIBUTION.md).
+
+本地v0.10.1候选从可达Git历史移出实验数据；经批准切换远端后，以上普通克隆无需特殊
+参数，保留完整源码、正式PID产物及六份非PID模型/校准JSON。当前仅本地阶段一，远端/
+公开tag/Release尚未改变，阶段一后自动扫描隐私，任何脱敏清理须另行批准；不能宣称当前远端已经缩小、重写用户
+既有检出或自动发布本次切换。运行使用不需要研究记录。pytest或科学claims前先执行59的
+`--fetch all`，再执行`history_sources.py --root . --restore-pinned`；两者均支持`--from-dir`离线附件。
+60脚本在新目录完成恢复与完整核验。源码胶囊只提供选定原源码/tree对象，并非完整旧Git
+历史；旧42维护命令不保证直接可用，恢复后使用当前44/16冻结核验入口。数据外置不等于匿名化。
 
 This file is for an automated assistant that a user pointed at this repository.
 It is written to be read top-to-bottom and executed without asking questions.

@@ -4,194 +4,266 @@
 
 ## English
 
+### Local candidate and publication status
+
+The v0.10.1 distribution change is currently a **local phase-1 candidate**. The
+remote repository and existing public tags/Releases have not been changed in this
+phase. The clone instructions below describe the candidate after an approved
+remote transition; they do not claim that today's remote is already small.
+Phase 2 scans history and proposes a cleanup plan; any redaction/removal needs
+user approval. This is not completed anonymization or privacy certification.
+
 ### Reuse the framework
 
-Download the [v0.10.1 source ZIP](https://github.com/lijiawei255/jev-tune/archive/refs/tags/v0.10.1.zip).
-It contains the complete source, tests, bilingual documentation, C99/MATLAB bridges,
-formal PID weights and the six small non-PID model/calibration JSON files in their
-original locations. It excludes the other experimental records under
-`research/results/`; no runtime needs to download those records merely to use the
-shell or the shipped models. Existing demo/setup commands remain unchanged.
-`scripts/61_check_distribution.py` checks a real `git archive` ZIP, every included
-source blob, all retained formal weights, and the data-to-attachment mapping.
-The source ZIP has a 5,000,000-byte acceptance budget; the final measured size is
-reported in the Release verification evidence.
-
-No files are deleted from Git, no history is rewritten, and no old tag or Release
-is changed. `export-ignore` affects source archives, not `git clone`. A plain clone
-still downloads research data. A shallow clone alone still checks out the current
-large records. For an editable framework checkout without fetching research blobs:
+The candidate removes experimental payloads from reachable Git history. A new
+ordinary clone needs no partial-clone or sparse-checkout flags:
 
 ```sh
-git clone -c core.autocrlf=false --filter=blob:none --sparse --depth 1 --branch v0.10.1 https://github.com/lijiawei255/jev-tune.git
+git clone https://github.com/lijiawei255/jev-tune.git
 cd jev-tune
-git sparse-checkout set --no-cone '/*' '!/research/results/**' '/research/results/nonpid_transfer/' '!/research/results/nonpid_transfer/*' '/research/results/nonpid_transfer/model_*.json' '/research/results/nonpid_transfer/calibration_*.json'
 ```
 
-These patterns retain all source and formal weights while excluding experimental
-records, including the non-PID raw/report files. Both partial clone and sparse
-checkout are required: filtering alone may fetch large data during checkout.
-Replace the version with `main` for current development. This is the recommended
-Agent checkout; give the Agent these commands before its first clone, then ask it
-to read `AGENTS.md`. Instructions inside a repository cannot retroactively speed
-up a completed ordinary clone. Plain full clones remain large; no repository-side
-setting can force all clients to use these options. Partial-clone size depends on
-Git/server behavior and is distinct from the source-ZIP budget. See the official
-[clone](https://git-scm.com/docs/git-clone) and
-[sparse checkout](https://git-scm.com/docs/git-sparse-checkout) documentation.
+The clone and source ZIP retain the complete implementation, tests, bilingual
+documentation, C99/MATLAB bridges, formal PID artifacts in `models/`, and the six
+non-PID model/calibration JSON files in `research/results/nonpid_transfer/`.
+Runtime use of the shell and shipped models needs no research-data download.
+Other experimental records and their older blob versions are restored from pinned
+Release attachments when needed. Setup must not rewrite an existing user's checkout.
 
-### Obtain experimental evidence only when needed
+The [history mapping](../research/distribution/history_rewrite_v0101.json) records
+the original 83 commits and candidate identities. Author/committer metadata,
+dates, messages, encoding and ordered parent/merge relationships are preserved.
+Changed trees give their commits new identities. The initial signed commit is
+retained byte-for-byte with its original identity and signature; this does not
+preserve the identities or signatures of modified commits. The current removed
+roster contains 443 experimental records; the six formal JSON files remain in
+Git. Earlier names and versions are covered by the historical-data index.
 
-The [committed manifest](../research/distribution/research_data_v0101.json) pins
-fixed Release URLs, whole-archive SHA-256/size and every member's relative path,
-SHA-256/size. `historical` contains earlier risk trajectories; `current` contains
-non-PID raw data and calibration arrays; `evidence` contains the remaining reports,
-measurements and provenance. `pid` reuses the unchanged v0.10.0 synthetic-data ZIP.
-All three new research bundles preserve the original v0.10.0 Git-blob bytes;
-formal non-PID weights also have recoverable copies in `evidence`.
+`scripts/61_check_distribution.py` checks reachable source history, a real
+`git archive` ZIP, included source bytes, formal weights and attachment mapping.
+It distinguishes optional missing data from verified restored payloads. Exact
+archive sizes, hashes and verification outcomes belong to machine reports;
+source file counts do not establish download size.
 
-From an extracted source ZIP or matching checkout:
+### Restore the latest experimental evidence
+
+The [data manifest](../research/distribution/research_data_v0101.json) pins fixed
+Release URLs, whole-archive SHA-256/size and every member's path, SHA-256/size.
+It covers 449 research files and four synthetic PID NPZ files. The six formal JSON
+files also have recovery copies in `evidence`; identical source copies are reused.
+
+| Group | Contents |
+| :--- | :--- |
+| `historical` | Earlier risk trajectories |
+| `current` | Non-PID raw records and calibration arrays |
+| `evidence` | Reports, measurements and provenance records |
+| `pid` | The unchanged, pinned v0.10.0 synthetic-data ZIP |
+
+Existing archive and member pins remain unchanged. From the repository root:
 
 ```sh
 python scripts/59_research_data.py --fetch all
 python scripts/59_research_data.py --check all
-# Offline: place the pinned ZIP attachments in a separate directory first.
+# Offline: use the pinned attachments downloaded to another directory.
 python scripts/59_research_data.py --fetch all --from-dir downloaded-attachments
 ```
 
-Replace `all` with `historical`, `current`, `evidence` or `pid` for one group.
-The restorer verifies all required selected bundles and every member before
-installing any new data. It rejects unsafe paths, links, extra/duplicate/case-colliding entries,
-corruption and pre-existing different files. Identical existing files are reused.
-Each file is installed atomically; installation failure rolls back every new file
-installed by this invocation. Pre-existing files remain. No existing file is overwritten.
-Metadata-only LICENSE/NOTICE copies in bundles are checked but never replace the
-checkout's current notices. The committed manifest is the integrity trust root;
-hashes do not establish the causal history of data collection or provide a signature.
+Replace `all` with a group name to restore only that group. All selected required
+archives and members are verified before new data files are published. Unsafe
+paths, links, unknown/duplicate/case-colliding entries, corruption and existing
+different files are rejected. Identical files are reused; existing files are
+never overwritten. A publication failure rolls back files created by that call.
+Bundle LICENSE/NOTICE metadata is checked without replacing current notices.
+Restoration preserves original bytes and line endings. Hashes establish file
+identity relative to the committed manifest, not training-process causality or
+completeness of the original acquisition ledger.
 
-Data restoration uses exact original Git-blob bytes, including line endings.
-New attributes disable text conversion for these records. If an older checkout
-converted JSON line endings, restoration rejects that different file; use the new
-release in a new directory instead of forcing an overwrite. The frozen evidence,
-original failure results and scientific tolerances are unchanged.
+### Historical sources and older data versions
 
-### Complete verification
+Frozen verification reads selected original producer sources. Before pytest or
+claims, restore the pinned
+[historical source capsule](../research/distribution/historical_sources_v0101.json):
 
-Full scientific verification needs the data **and real Git history** for historical
-producer sources. Restoring attachments into a source ZIP does not create that
-history. Missing evidence fails explicitly; it is never counted as a skipped pass.
-Install the documented Python/development dependencies, then use a new directory:
+```sh
+python scripts/history_sources.py --root . --restore-pinned
+# Offline: this directory must also contain the pinned source capsule.
+python scripts/history_sources.py --root . --restore-pinned --from-dir downloaded-attachments
+```
+
+The capsule contains selected source blobs, original commit metadata and complete
+trees for five original commits and 33 selected source paths, without experimental
+data payloads. Verified objects are imported without changing refs, tags or HEAD.
+The promisor pack permits required source/tree queries; it is **not the complete
+old Git history**. Verification disables lazy fetching and Git replacement objects.
+
+The [historical-data index](../research/distribution/historical_data_v0101.json)
+maps original commit/path/blob identities to the unchanged latest-data bundles or
+`historical_data_variants_v0.10.1.zip`. Restore an older commit's records to a new
+directory outside the checkout:
+
+```sh
+python scripts/64_restore_historical_data.py --commit ORIGINAL_COMMIT_SHA --destination ../jev-historical-records --from-dir downloaded-attachments
+```
+
+This verifies original blob identities without inserting data into Git. Omit
+`--from-dir` for pinned Release downloads. It restores records, not a complete old
+runnable environment. The old script-42 `--prepare` and `--check-baseline`
+maintenance paths are not promised to work directly with the reduced historical
+object set. Use the current script-44 frozen-research verifier and script-16 claims
+entry point after restoring their required evidence.
+
+### Complete verification in a new directory
+
+Install the documented Python/development dependencies, then run:
 
 ```sh
 python scripts/60_reproduce_release.py --destination jev-tune-full-verification --verify
+# Offline: supply all data ZIPs and the source capsule in one directory.
+python scripts/60_reproduce_release.py --destination jev-tune-offline-verification --verify --from-dir downloaded-attachments
 ```
 
-This clones the fixed official release with full history, restores any missing
-data, runs the complete `tests` suite with coverage and JUnit, and runs the complete
-claims check. It reuses the current Python environment; it does not prove a clean
-dependency installation. Existing destination/report files are refused. Reports,
-logs and actual extra verification costs are retained under the new checkout's
-`.local-audit/`. Partial test selection from `PYTEST_*` environment variables is
-removed. Every registered claim ID and both newly executed recorded-evidence
-receipts are required. A failure remains a failure. This verifies the documented
-conditional original-record evidence, not the earlier failed strict cross-CPU
-temperature refit or equivalent future physical trajectories.
+The wrapper uses a new ordinary clone of the fixed official release, restores data
+and historical source objects, then runs the complete tests with coverage/JUnit
+and the complete claims check. The official-version command applies after approved
+publication; local phase-1 acceptance explicitly supplies local `--source` and
+`--ref`. It reuses the current Python environment, not a clean dependency install.
+Existing destinations/reports are refused. Logs, receipts and actual additional
+verification costs remain under the new checkout's `.local-audit/`.
+Partial `PYTEST_*` selection is removed; missing claims, skips or failed checks
+cannot count as success.
 
-### Data provenance and privacy boundary
+For manual verification, restore data first, the source capsule second, then run
+`python -m pytest tests` and `python scripts/16_check_claims.py --json`. A source
+ZIP has no Git repository: restoring data alone cannot satisfy historical source
+checks. This verifies conditional original-record evidence; preserved strict
+cross-CPU failures remain failures, and future physical trajectory equivalence
+is not established.
 
-The raw-data review successfully parsed all 330 tracked compressed JSON files,
-checking 1,925,949 string values and all field names, and loaded all seven tracked
-NPZ files with `allow_pickle=False`: 1,662 numeric/boolean arrays, no object or text
-arrays. The scan found no listed email, credential/patient/name field, student-ID,
-personal absolute-path or motor-valve benchmark/reference/reference indicators in that raw population.
-The generating code uses seeded synthetic plants/signals. This is a bounded scan
-and provenance review, not a legal certification or proof that arbitrary numeric
-data can never identify a person.
+### Privacy and rights boundary
 
-Original measurement/provenance JSON and verification logs can contain the local
-username, temporary directories, Python/MATLAB/library paths and host information.
-These remain in the optional evidence attachment and retained Git records; they
-are not anonymized or runtime path dependencies. The private benchmark,
-geometry and teaching documents are not distributed in the current source tree
-or new attachments. Historical Git commits remain outside that current-tree claim.
-See [OPEN_SOURCE](OPEN_SOURCE.md) and [NOTICE](../NOTICE.md) for rights boundaries.
+Moving records out of Git is distribution work, not anonymization. Original
+measurement/provenance records and logs can contain host information and local
+paths; their bytes remain in optional attachments. The pending privacy review
+must assess retained source/history, metadata and attachments separately.
+No complete privacy cleanup is claimed. Private models, geometry and teaching
+materials are excluded from the intended public payload; see
+[OPEN_SOURCE](OPEN_SOURCE.md) and [NOTICE](../NOTICE.md) for bounded rights and
+provenance statements. The original v0.10.0 inventory remains an unchanged
+artifact binding, separate from new history/distribution evidence.
 
 ## 简体中文
 
+### 本地候选与发布状态
+
+v0.10.1分发调整目前仅为**本地阶段一候选**。本阶段尚未修改远端仓库、既有公开tag或
+Release。下方普通克隆命令描述经批准切换后的候选方案，不表示当前远端已经缩小。
+阶段二自动扫描历史并提出清理方案；任何脱敏/移除须经用户批准，不能称为已匿名化或通过隐私认证。
+
 ### 复用框架
 
-下载[v0.10.1源码ZIP](https://github.com/lijiawei255/jev-tune/archive/refs/tags/v0.10.1.zip)。
-它保留完整代码、测试、中英文文档、C99/MATLAB桥、正式PID权重，以及原目录中的六份小型
-非PID模型/校准JSON；`research/results/`下其他实验记录从默认源码包排除。使用外壳及正式
-模型不需要先下载这些记录，现有演示与安装命令继续适用。
-`scripts/61_check_distribution.py`验证真实`git archive` ZIP、每个源码blob、正式权重及
-数据到附件的映射。源码ZIP验收预算为5,000,000字节，最终实测大小见Release验证证据。
-
-没有从Git删除文件、重写历史、修改旧tag或旧Release。`export-ignore`只影响源码压缩包，
-普通`git clone`仍会下载研究数据；仅加`--depth 1`也仍会检出当前大型记录。需要可编辑的
-框架检出且避免获取研究blob时，可以使用：
+候选方案从可达Git历史移出实验数据，新获取仓库只需普通克隆，无需部分克隆或稀疏参数：
 
 ```sh
-git clone -c core.autocrlf=false --filter=blob:none --sparse --depth 1 --branch v0.10.1 https://github.com/lijiawei255/jev-tune.git
+git clone https://github.com/lijiawei255/jev-tune.git
 cd jev-tune
-git sparse-checkout set --no-cone '/*' '!/research/results/**' '/research/results/nonpid_transfer/' '!/research/results/nonpid_transfer/*' '/research/results/nonpid_transfer/model_*.json' '/research/results/nonpid_transfer/calibration_*.json'
 ```
 
-这些规则保留全部源码与正式权重，排除包括非PID raw/report在内的实验记录。部分克隆和稀疏
-检出必须配合，仅过滤blob仍可能在检出时下载大数据。开发版可把版本改成`main`。推荐Agent
-采用这一入口：第一次克隆前就把命令交给Agent，再让它读取`AGENTS.md`。仓库内的说明不能
-追溯加速已经完成的普通克隆，服务端也不能强制所有客户端使用选项；普通全量克隆仍大。
-部分克隆实际体积依赖Git与服务器行为，不属于源码ZIP体积保证。参见官方[clone](https://git-scm.com/docs/git-clone)
-及[sparse checkout](https://git-scm.com/docs/git-sparse-checkout)说明。
+克隆及源码ZIP保留完整实现、测试、中英文文档、C99/MATLAB桥、`models/`中的正式PID产物，
+以及`research/results/nonpid_transfer/`内六份正式非PID模型/校准JSON。使用外壳与正式
+模型不需要研究数据。其余实验记录及历史blob版本按需从固定Release附件恢复，安装不能
+擅自重写用户既有检出。
 
-### 按需获取实验记录
+[历史映射](../research/distribution/history_rewrite_v0101.json)记录原83个提交与候选身份，
+保留作者/提交者元数据、日期、消息、编码和有序父节点/合并关系；树变化的提交获得新身份。
+初始签名提交逐字节保留，原SHA及签名不变；不表示其他被修改提交仍保留原SHA或签名。
+当前路径清单移出443份实验记录，六份正式JSON继续留在Git，更早异名和版本由历史数据
+索引覆盖。
 
-[提交的清单](../research/distribution/research_data_v0101.json)固定Release地址、整包SHA-256/
-大小，以及每个成员的相对路径、SHA-256和大小。`historical`为早期风险轨迹；`current`为非PID
-原始数据和校准数组；`evidence`为其余报告、测量及来源记录；`pid`复用未改动的v0.10.0合成
-数据ZIP。三个新研究附件保留原v0.10.0 Git blob字节；`evidence`也含正式非PID权重的恢复副本。
+`scripts/61_check_distribution.py`检查可达源码历史、真实`git archive` ZIP、所含源码字节、
+正式权重及附件映射，并区分“缺少可选数据”与“已核验恢复的数据”。精确压缩包大小、哈希
+及验收结论以机器报告为准，不从源码文件数推断下载体积。
 
-在解压的源码ZIP或对应检出根目录运行：
+### 恢复最新实验记录
+
+[数据清单](../research/distribution/research_data_v0101.json)固定Release地址、整包SHA-256/
+大小及每个成员的路径、SHA-256/大小，覆盖449份研究文件和四份合成PID NPZ。六份正式
+JSON在`evidence`中也有恢复副本，现存源码副本完全相同时直接复用。
+
+| 分组 | 内容 |
+| :--- | :--- |
+| `historical` | 早期风险轨迹 |
+| `current` | 非PID原始记录及校准数组 |
+| `evidence` | 报告、测量和来源记录 |
+| `pid` | 未改动且固定哈希的v0.10.0合成数据ZIP |
+
+原整包和成员pin保持不变。在仓库根目录运行：
 
 ```sh
 python scripts/59_research_data.py --fetch all
 python scripts/59_research_data.py --check all
-# 离线：先将固定版本的ZIP附件放到独立目录。
+# 离线：先把固定附件放在另一目录。
 python scripts/59_research_data.py --fetch all --from-dir downloaded-attachments
 ```
 
-`all`可替换为`historical`、`current`、`evidence`或`pid`。本次选中且需要恢复的所有附件在安装前
-先验证整包及全部成员；拒绝危险路径、链接、多余/重复/大小写冲突成员、损坏包和现存不同文件，
-同内容则复用。每个文件原子安装，安装失败撤回本次调用新建的全部文件，既有文件保留且不覆盖。
-附件内仅作元数据的LICENSE/NOTICE会核验但不替换当前声明。完整性信任起点是提交的清单，
-哈希不是签名，也不证明数据采集过程的因果真实性。
+可将`all`换成单个分组名。所需的全部选中附件及成员先核验，再安装任何新数据；拒绝
+危险路径、链接、未知/重复/大小写冲突成员、损坏包及现存不同内容文件。相同文件复用，
+既有文件不覆盖；安装失败撤回本次新建文件。附件LICENSE/NOTICE元数据仅核对，不替换
+当前声明。恢复保留原字节及换行；哈希证明相对于提交清单的文件身份，不证明训练因果
+过程或原始采集账本完整性。
 
-恢复要求精确原Git blob字节，包括换行。新属性对这些记录关闭文本转换；旧检出若转换了JSON
-换行，会被明确拒绝覆盖，应在新目录使用新发布。冻结证据、原失败结论及科学容差均不改变。
+### 历史源码与更早的数据版本
 
-### 完整验证
+冻结核验需要选定的原生产源码。运行pytest或claims前，恢复固定的
+[历史源码胶囊](../research/distribution/historical_sources_v0101.json)：
 
-完整科学核验同时需要数据和真实Git历史，用于读取历史生产源码。仅向源码ZIP恢复附件不能
-补出历史；缺证据会明确失败，不计为跳过后通过。安装文档所列Python/开发依赖后，指定新目录：
+```sh
+python scripts/history_sources.py --root . --restore-pinned
+# 离线：同一目录还需包含固定源码胶囊。
+python scripts/history_sources.py --root . --restore-pinned --from-dir downloaded-attachments
+```
+
+胶囊含五个原提交、33条选定源码路径所需的源码blob、原提交元数据及完整tree，不含实验
+数据载荷。恢复器导入已核验Git对象，不改变refs、tag或HEAD。形成的promisor pack允许
+所需源码/tree查询，**不等于完整旧Git历史**。核验禁用惰性拉取和Git replacement对象。
+
+[历史数据索引](../research/distribution/historical_data_v0101.json)将原提交/路径/blob身份
+映射到未改动的最新数据包或`historical_data_variants_v0.10.1.zip`。可把某旧提交记录恢复
+到检出之外的新目录：
+
+```sh
+python scripts/64_restore_historical_data.py --commit ORIGINAL_COMMIT_SHA --destination ../jev-historical-records --from-dir downloaded-attachments
+```
+
+此操作验证原blob身份，不向Git插入数据；省略`--from-dir`从固定Release地址下载。
+恢复的是记录，并非完整旧运行环境。不能保证旧42脚本的`--prepare`、`--check-baseline`
+维护入口能直接使用精简后的历史对象集；恢复所需证据后使用当前44脚本冻结研究核验器
+和16脚本claims入口。
+
+### 在新目录完整验证
+
+安装文档所列Python/开发依赖后运行：
 
 ```sh
 python scripts/60_reproduce_release.py --destination jev-tune-full-verification --verify
+# 离线：同一目录提供全部数据ZIP和源码胶囊。
+python scripts/60_reproduce_release.py --destination jev-tune-offline-verification --verify --from-dir downloaded-attachments
 ```
 
-脚本完整克隆固定官方版本、恢复缺失数据，执行全部`tests`、覆盖率/JUnit及完整claims检查。
-它复用当前Python环境，不证明全新依赖安装；拒绝既有目标目录或报告。日志、报告及实际新增
-核验成本保存在新检出的`.local-audit/`。清除`PYTEST_*`选测环境变量，要求全部注册claims ID
-及本次新执行的主/补充证据收据；失败如实保留。它核验已有明确边界的条件性原记录证据，
-不将早先严格跨CPU温度重拟合失败或未来物理轨迹等价改称通过。
+脚本普通克隆固定官方版本到新目录，依次恢复数据及历史源码对象，再执行全部测试、覆盖率/
+JUnit和完整claims检查。该固定发布命令适用于经批准发布后；本地阶段一验收显式提供
+本地`--source`及`--ref`。脚本复用现有Python环境，不证明全新依赖安装；拒绝既有目标目录
+或报告。日志、收据和实际新增核验成本留在新检出的`.local-audit/`；清除`PYTEST_*`选测
+设置，缺claims、跳过或失败不能计为通过。
 
-### 数据来源与隐私边界
+手动核验时，先恢复数据，再恢复源码胶囊，随后运行`python -m pytest tests`与
+`python scripts/16_check_claims.py --json`。源码ZIP没有Git仓库，仅恢复数据无法满足历史
+源码检查。审计核验条件性原记录证据，不把保留的严格跨CPU失败改称通过，也不证明未来
+物理轨迹等价。
 
-原始数据审查成功解析全部330份tracked压缩JSON，检查1,925,949个字符串值及全部字段名；
-七份tracked NPZ用`allow_pickle=False`实际载入，共1,662个数值/布尔数组，无对象或文本数组。
-该原始数据群未命中所列邮箱、凭证/患者/姓名字段、学号、个人绝对路径或其他识别标记；生成链使用固定随机种子的合成对象/信号。这是有范围的扫描及来源审查，
-并非法律认证，也不能证明任意数值数据永远无法关联个人。
+### 隐私与权利边界
 
-原测量/来源JSON及验证日志可能含本机用户名、临时目录、Python/MATLAB/运行库路径和宿主
-信息，保留在按需证据附件与Git记录中，没有匿名化；这些不是运行路径依赖。当前源码树及
-新附件不分发私有基准模型、几何或教学文档，历史Git提交不在这一当前树声明范围内。
-权利边界见[OPEN_SOURCE](OPEN_SOURCE.md)及[NOTICE](../NOTICE.md)。
+将记录移出Git是分发调整，不是匿名化。原测量/来源记录和日志可能含宿主信息与本地路径，
+原字节仍保留在按需附件。阶段二扫描需分别检查保留源码/历史、元数据及附件；清理方案待批准，不能
+宣称已经彻底清理。拟公开载荷排除私有模型、几何和教学材料；有范围的权利和来源说明见
+[OPEN_SOURCE](OPEN_SOURCE.md)及[NOTICE](../NOTICE.md)。原v0.10.0清单仍只绑定原产物，
+保持不变，独立于新的历史及分发证据。

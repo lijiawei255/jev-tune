@@ -279,6 +279,57 @@ def test_repackage_is_exact_and_output_must_be_ignored(repository):
         data.package(root / ".local-audit/repackaged", root, bad)
 
 
+def test_cleaned_repackage_uses_restored_bytes_without_original_git_objects(repository, tmp_path):
+    root, manifest, packages, original = repository
+    frozen = copy.deepcopy(manifest)
+    frozen["history_cleaned"] = True
+    cleaned = tmp_path / "cleaned"
+    cleaned.mkdir()
+    git(cleaned, "init", "-q")
+    git(cleaned, "config", "core.autocrlf", "false")
+    for name, payload in original.items():
+        path = cleaned / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(payload)
+    (cleaned / ".gitignore").write_text(".local-audit/\n" + "\n".join(row["path"] for row in installed_rows(frozen)) + "\n")
+    # Published notice can evolve; old package metadata must come from the
+    # pinned original ZIP rather than overwriting this current source file.
+    (cleaned / "NOTICE.md").write_bytes(b"new current source notice\n")
+    descriptor = cleaned / data.MANIFEST
+    descriptor.parent.mkdir(parents=True, exist_ok=True)
+    descriptor.write_text(json.dumps(frozen), encoding="utf-8")
+    git(cleaned, "add", ".")
+    git(cleaned, "-c", "user.name=Clean fixture", "-c", "user.email=clean@example.invalid", "commit", "-qm", "Clean source-only history")
+    absent = subprocess.run(["git", "cat-file", "-e", manifest["source_revision"] + "^{commit}"], cwd=cleaned, capture_output=True)
+    assert absent.returncode != 0
+    result = data.package(cleaned / ".local-audit/repackaged", cleaned, frozen, from_dir=packages)
+    assert result["ok"]
+    for name in result["archives"]:
+        path = Path(name)
+        assert path.read_bytes() == (packages / path.name).read_bytes()
+    assert (cleaned / "NOTICE.md").read_bytes() == b"new current source notice\n"
+    rebuilt = data.build_manifest(cleaned, cleaned / ".local-audit/rebuilt", from_dir=packages)
+    assert rebuilt == frozen
+    assert data.check(cleaned)["ok"]
+
+
+def test_cleaned_packaging_requires_exact_restore_first(repository):
+    root, manifest, packages, original = repository
+    frozen = copy.deepcopy(manifest)
+    frozen["history_cleaned"] = True
+    remove_optional(root, manifest)
+    with pytest.raises(ValueError, match="restore with 59_research_data.py --fetch"):
+        data.package(root / ".local-audit/not-restored", root, frozen, from_dir=packages)
+    assert not list((root / ".local-audit/not-restored").glob("*.zip"))
+
+
+def test_history_mode_cannot_be_truthy_string(repository):
+    root, manifest, packages, original = repository
+    invalid = {**manifest, "history_cleaned": "true"}
+    with pytest.raises(ValueError, match="explicit boolean"):
+        data.fetch(root, invalid, from_dir=packages)
+
+
 def test_source_blob_mutation_rejected_by_builder(repository):
     root, manifest, packages, original = repository
     (root / "research/results/nonpid_transfer/raw.json.gz").write_bytes(b"changed")

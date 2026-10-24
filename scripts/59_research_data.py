@@ -126,6 +126,7 @@ def validate_manifest(manifest):
     require(isinstance(manifest, dict) and manifest.get("schema_version") == 1 and manifest.get("version") == VERSION,
             "Unsupported research-data manifest")
     require(manifest.get("repository") == REPOSITORY and manifest.get("hash_scope") == "exact_bytes", "Manifest repository/hash scope differs")
+    require(type(manifest.get("history_cleaned", False)) is bool, "history_cleaned must be an explicit boolean when present")
     require(re.fullmatch(r"[0-9a-f]{40}", manifest.get("source_revision", "")), "Manifest needs full source revision")
     groups = manifest.get("groups")
     require(isinstance(groups, dict) and groups and set(groups) <= GROUPS, "Invalid data groups")
@@ -372,7 +373,7 @@ def _write_zip(target, rows, providers):
                     shutil.copyfileobj(stream, writer, CHUNK)
 
 
-def build_manifest(root, output_dir, *, revision="HEAD", pid_archive=None):
+def build_manifest(root, output_dir, *, revision="HEAD", pid_archive=None, from_dir=None):
     """Build real deterministic ZIPs; caller freezes the returned external JSON.
 
     Research members are exact committed Git blob bytes. Optional PID members
@@ -381,6 +382,14 @@ def build_manifest(root, output_dir, *, revision="HEAD", pid_archive=None):
     """
     import io
     root = Path(root).resolve()
+    # A cleaned tree cannot rediscover the removed dataset roster from Git.
+    # Preserve the frozen external contract, including original OIDs strictly
+    # as archived provenance, and reconstruct only the pinned existing bytes.
+    if (root / MANIFEST).is_file():
+        frozen = load_manifest(root)
+        if frozen.get("history_cleaned") is True:
+            package(output_dir, root, frozen, from_dir=from_dir)
+            return frozen
     output = _ignored_output(root, output_dir)
     revision = _git(root, "rev-parse", revision + "^{commit}").decode().strip()
     tree = _git(root, "ls-tree", "-rz", "--full-tree", revision, "--", "research").split(b"\0")
@@ -425,7 +434,7 @@ def build_manifest(root, output_dir, *, revision="HEAD", pid_archive=None):
         oid = _git(root, "rev-parse", revision + ":" + name).decode().strip()
         licenses.append(_row(name, data, False, {"kind": "git_blob", "revision": revision, "oid": oid}))
         providers[name] = lambda data=data: io.BytesIO(data)
-    manifest = {"schema_version": 1, "version": VERSION, "repository": REPOSITORY,
+    manifest = {"schema_version": 1, "version": VERSION, "repository": REPOSITORY, "history_cleaned": False,
                 "source_revision": revision, "hash_scope": "exact_bytes", "groups": {}}
     for group, rows in groups.items():
         if not rows:
@@ -488,17 +497,25 @@ def package(output_dir, root=ROOT, manifest=None, groups="all", from_dir=None):
                 verify_archive(source, contract)
                 shutil.copyfile(source, staged)
             else:
-                providers = {}
-                for row in contract["files"]:
-                    if group == "evidence" or not row["install"]:
-                        data = _git(root, "show", row["source"]["revision"] + ":" + row["path"])
-                        require(len(data) == row["size_bytes"] and hashlib.sha256(data).hexdigest() == row["sha256"], "Committed package source differs")
-                        providers[row["path"]] = lambda data=data: io.BytesIO(data)
-                    else:
+                # All installable members must have been restored first.
+                # Original source_revision/OIDs are archival provenance and
+                # never a requirement to retain old data blobs in Git.
+                with ExitStack() as stack:
+                    providers, metadata_archive = {}, None
+                    for row in contract["files"]:
                         path = destination(root, row["path"])
-                        require(_identity(path, row), "Package source missing/changed: " + row["path"])
-                        providers[row["path"]] = lambda path=path: path.open("rb")
-                _write_zip(staged, contract["files"], providers)
+                        if _identity(path, row):
+                            providers[row["path"]] = lambda path=path: path.open("rb")
+                        elif row["install"]:
+                            raise ValueError("Package source missing/changed: " + row["path"] + "; restore with 59_research_data.py --fetch " + group)
+                        else:
+                            require(from_dir is not None, "Pinned original LICENSE/NOTICE bytes require --from-dir release ZIPs")
+                            if metadata_archive is None:
+                                original = Path(from_dir).resolve() / contract["asset"]
+                                verify_archive(original, contract)
+                                metadata_archive = stack.enter_context(zipfile.ZipFile(original))
+                            providers[row["path"]] = lambda name=row["path"], archive=metadata_archive: archive.open(name)
+                    _write_zip(staged, contract["files"], providers)
             verify_archive(staged, contract)
             os.link(staged, target)
             results.append(str(target))

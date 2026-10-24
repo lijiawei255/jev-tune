@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "asset": "historical_sources_v0.10.1.zip",
+  "url": "https://github.com/lijiawei255/jev-tune/releases/download/v0.10.1/historical_sources_v0.10.1.zip",
+  "sha256": "902e274484b40ee258de03bbbf8bfcabb17b652a210bce2c34464344d46affe2",
+  "size_bytes": 140398,
+  "requirements": {
+    "111005e3d2660e8d7c19caaddbd3150749d8ff07": [
+      "LICENSE",
+      "NOTICE.md"
+    ],
+    "2308c0d3369ae9a240308114a84b6147d4650718": [
+      "research/protocols/runtime_comparison_observations_v0100.json",
+      "scripts/45_nonpid_transfer.py",
+      "scripts/51_diagnose_calibration_runtime.py",
+      "scripts/54_compare_calibration_runtimes.py",
+      "scripts/57_observe_runtime_comparison.py",
+      "scripts/58_verify_runtime_observations.py",
+      "scripts/calibration_numeric_audit.py",
+      "src/jev_tune/decode.py",
+      "src/jev_tune/primitives.py",
+      "tests/test_runtime_observations.py"
+    ],
+    "e6f4f407823a54473e26a517d2b2fc05151f81f1": [
+      "research/protocols/runtime_comparison_observations_v0100.json",
+      "scripts/45_nonpid_transfer.py",
+      "scripts/51_diagnose_calibration_runtime.py",
+      "scripts/54_compare_calibration_runtimes.py",
+      "scripts/57_observe_runtime_comparison.py",
+      "scripts/58_verify_runtime_observations.py",
+      "scripts/calibration_numeric_audit.py",
+      "src/jev_tune/decode.py",
+      "src/jev_tune/primitives.py",
+      "tests/test_runtime_observations.py"
+    ],
+    "ec740012b44d9408e81b5fc1dbc9c9d739994864": [
+      "examples/denoise_transfer/task.py",
+      "research/protocols/nonpid_transfer_v0100.json",
+      "scripts/45_nonpid_transfer.py",
+      "scripts/46_verify_nonpid_transfer.py",
+      "src/jev_tune/calibration.py",
+      "src/jev_tune/decode.py",
+      "src/jev_tune/primitives.py",
+      "tests/test_frozen_calibration.py",
+      "tests/test_nonpid_transfer.py",
+      "tests/test_shell_contract.py"
+    ],
+    "f6aafde53b9a1c0c8efe040d3926c028cb3844ca": [
+      "research/protocols/practical_budget_v090.json"
+    ]
+  },
+  "scope": "Selected-path original source proof only; not complete old history or complete fsck proof. Omitted objects are unavailable, with lazy fetch disabled. Original commit/tree metadata is retained.",
+  "limitations": [
+    "Partial original-source object proof; not complete old history",
+    "No original experiment/model payloads or benchmark files",
+    "Original commit metadata/messages and tree entry names remain; privacy review is separate"
+  ]
+}

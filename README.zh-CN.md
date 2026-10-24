@@ -1,12 +1,5 @@
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-**Agent获取仓库：**第一次克隆前使用[轻量Git克隆命令](docs/DISTRIBUTION.md#复用框架)，再读取`AGENTS.md`；
-保留全部正式权重，避免下载研究记录。
-**下载复用框架：**[v0.10.1源码ZIP](https://github.com/lijiawei255/jev-tune/archive/refs/tags/v0.10.1.zip)
-保留完整代码、测试、文档和正式权重；实验记录通过[Release附件](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)
-按需下载，提供SHA-256校验与自动恢复。详见[分发与复现](docs/DISTRIBUTION.md)。
-普通Git克隆仍包含保留的研究记录和历史，不能把ZIP精简说成Git历史已经缩小。
-
 <!-- transfer-shell:zh:start -->
 **定位：以PID为验证床的可拆解 Calibrated Decision & Safety Shell。** 新增非PID离线去噪标定完成三个模型的真实训练与独立测试，策略收益验收为`negative_stop`；预算20时三模型平均MSE为0.01555577–0.01582834，simplex为0.01423997，没有稳定收益，停止本轮策略深化。前瞻采集实际76683次，单模型离线训练/校准标注成本27345次；原始负结果、冻结协议和复现入口保留，复杂风险研究仍暂停。
 
@@ -16,6 +9,17 @@
 
 见[外壳与迁移边界](docs/SAFETY_SHELL.md)、[完整非PID证据](docs/NONPID_TRANSFER.md)、[少样本重标定](docs/RECALIBRATION.md)、[数值复现与证据边界](docs/NUMERICAL_REPRODUCIBILITY.md)、[事后观察与独立数值核验](docs/RUNTIME_OBSERVATIONS.md)、[宿主资源指标](docs/COMPUTE.md)。
 <!-- transfer-shell:zh:end -->
+
+**分发候选：**普通`git clone https://github.com/lijiawei255/jev-tune.git`保留完整代码、测试、
+文档、正式PID产物及六份非PID模型/校准JSON。研究记录按需从固定Release附件恢复，
+运行复用不需要研究数据；候选历史无需稀疏克隆参数。随后读取[`AGENTS.md`](AGENTS.md)。
+**当前仅本地阶段一，远端及公开tag/Release尚未改变。**上述克隆说明描述经批准切换后的
+目标方案，不表示当前远端下载已经变小。运行pytest或claims前，先执行
+`python scripts/59_research_data.py --fetch all`恢复数据，再执行
+`python scripts/history_sources.py --root . --restore-pinned`恢复历史源码。新目录完整验证使用60脚本，
+详见[分发、历史映射及复现](docs/DISTRIBUTION.md)。阶段一后自动扫描隐私，任何脱敏清理须另行批准；数据外置不等于匿名化。
+
+
 
 # jev-tune
 

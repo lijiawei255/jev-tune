@@ -9,7 +9,10 @@ licences apply to the things it depends on.
 
 The inventory below covers the current source tree and new release assets.
 It is not a statement that earlier Git commits never contained excluded files;
-history has not been rewritten. The versioned file/hash inventory and data
+v0.10.1 separates experimental payloads from Git history while retaining commit
+metadata and topology. This data-only operation does not establish that all
+historical privacy or benchmark issues have been removed; that review is
+separate. The versioned file/hash inventory and data
 download entry are in [OPEN_SOURCE](docs/OPEN_SOURCE.md).
 
 ## What is in the repository
@@ -85,8 +88,10 @@ redistribute your trained specialists, your plant models, or your results.
 本仓库以 MIT 许可发布（见 `LICENSE`）。本文件说明：仓库里**有什么**、
 **特意没有什么**、以及依赖项各自适用什么许可。
 
-以下清单针对当前源码树和新发布附件，不表示早期Git提交从未包含排除项；本次未
-改写Git历史。逐文件哈希清单与数据下载入口见[OPEN_SOURCE](docs/OPEN_SOURCE.md)。
+以下清单针对当前源码树和新发布附件，不表示早期Git提交从未包含排除项。
+v0.10.1从Git历史中分离实验数据，保留提交元数据及拓扑关系。这一仅针对数据的处理不证明
+所有历史隐私或基准材料问题均已消除，相关审查另行进行。
+逐文件哈希清单与数据下载入口见[OPEN_SOURCE](docs/OPEN_SOURCE.md)。
 
 ### 仓库里有什么
 
