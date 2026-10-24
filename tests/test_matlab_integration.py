@@ -47,3 +47,27 @@ def test_discover_and_autotune(tmp_path):
     failed = [c for c in data["cases"] if not c["pass"]]
     assert not failed, failed
     assert len(data["cases"]) >= 4
+
+
+def test_registry_discovery_reads_machine_wide_installs(tmp_path, monkeypatch):
+    import sys
+    import types
+
+    from jev_tune.domains.pid import matlab_runner
+
+    exe = tmp_path / "R2025a" / "bin" / "matlab.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_text("")
+    fake = types.SimpleNamespace(HKEY_CURRENT_USER="HKCU", HKEY_LOCAL_MACHINE="HKLM")
+
+    def open_key(parent, name):
+        if parent == "HKCU":
+            raise OSError("no per-user install")
+        return (parent, name)
+
+    fake.OpenKey = open_key
+    fake.QueryInfoKey = lambda key: (1,) if key[0] == "HKLM" and key[1].endswith("MATLAB") else (0,)
+    fake.EnumKey = lambda key, i: "R2025a"
+    fake.QueryValueEx = lambda key, value: (str(tmp_path / "R2025a"), 1)
+    monkeypatch.setitem(sys.modules, "winreg", fake)
+    assert matlab_runner._registry_candidates() == [(exe, "registry:HKLM:R2025a")]

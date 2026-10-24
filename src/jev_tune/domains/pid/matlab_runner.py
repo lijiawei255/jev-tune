@@ -1,9 +1,8 @@
 """Locate and drive MATLAB without assuming a specific release or install path.
 
-The old code hard-coded ``C:\\Program Files\\MATLAB\\R2024b\\bin\\matlab.exe``.
-That is exactly the kind of assumption that breaks for anyone else, so discovery
-now goes: explicit override -> PATH -> registry (Windows) -> conventional roots,
-and the launcher picks ``-batch`` only when the release supports it.
+Discovery order: ``MATLAB_EXE`` -> ``PATH`` -> conventional install roots ->
+Windows registry (per-user and machine-wide). The launcher uses ``-batch`` only
+when the release supports it.
 """
 
 from __future__ import annotations
@@ -56,24 +55,7 @@ def _candidates() -> list[tuple[Path, str]]:
                 exe = release / "bin" / "matlab.exe"
                 if exe.is_file():
                     out.append((exe, f"scan:{release.name}"))
-        try:  # registry: HKCU\Software\MathWorks\MATLAB\<ver>\MATLABROOT
-            import winreg
-
-            key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\MathWorks\MATLAB")
-            n = winreg.QueryInfoKey(key)[0]
-            for i in range(n):
-                sub = winreg.EnumKey(key, i)
-                try:
-                    root, _ = winreg.QueryValueEx(
-                        winreg.OpenKey(key, sub), "MATLABROOT"
-                    )
-                    exe = Path(root) / "bin" / "matlab.exe"
-                    if exe.is_file():
-                        out.append((exe, f"registry:{sub}"))
-                except OSError:
-                    continue
-        except (ImportError, OSError):
-            pass
+        out.extend(_registry_candidates())
     elif system == "Darwin":
         base = Path("/Applications")
         if base.is_dir():
@@ -87,6 +69,30 @@ def _candidates() -> list[tuple[Path, str]]:
                 if exe.is_file():
                     out.append((exe, str(exe.parent.parent)))
 
+    return out
+
+
+def _registry_candidates() -> list[tuple[Path, str]]:
+    """<hive>\\SOFTWARE\\MathWorks\\MATLAB\\<release>\\MATLABROOT, user hive first."""
+    try:
+        import winreg
+    except ImportError:
+        return []
+    out: list[tuple[Path, str]] = []
+    for hive, label in ((winreg.HKEY_CURRENT_USER, "HKCU"), (winreg.HKEY_LOCAL_MACHINE, "HKLM")):
+        try:
+            key = winreg.OpenKey(hive, r"SOFTWARE\MathWorks\MATLAB")
+        except OSError:
+            continue
+        for i in range(winreg.QueryInfoKey(key)[0]):
+            release = winreg.EnumKey(key, i)
+            try:
+                root, _ = winreg.QueryValueEx(winreg.OpenKey(key, release), "MATLABROOT")
+            except OSError:
+                continue
+            exe = Path(root) / "bin" / "matlab.exe"
+            if exe.is_file():
+                out.append((exe, f"registry:{label}:{release}"))
     return out
 
 
