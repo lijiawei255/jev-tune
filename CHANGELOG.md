@@ -7,6 +7,11 @@ file that produced them is named next to them.
 
 ## English
 
+## [0.10.2] - 2026-10-25
+
+* Install the editable project with the setup script's selected Python and report that interpreter and the activation command. Fail immediately when a PowerShell installation command fails.
+* Clarify activation and independent-shell commands in both READMEs and the agent guide; list optional benchmark restoration directly in the guide. Add installation-only verification without rerunning scientific experiments.
+
 ## [0.10.1] - 2026-10-24
 
 * Keep reusable source, tests, documentation and all formal weights in ordinary clones and source ZIPs. Strip only Release-bound experimental paths from Git history, preserving all existing commits, author/committer dates, messages and ordered merge parents. Preserve the unchanged original signed initial commit exactly; record rewritten commit/tag mappings.
@@ -360,6 +365,11 @@ six-method benchmark, the robustness study (200/200 plants not worse than the
 start) and the scale economics. See the release notes.
 
 ## 简体中文
+
+## [0.10.2] - 2026-10-25
+
+* 安装脚本使用选定的Python安装可编辑项目，并输出解释器和激活命令；PowerShell安装命令失败时立即退出。
+* 中英文README及Agent指引补齐环境激活和独立终端命令，指引直接列出可选测试场恢复命令；新增安装专项验证，不重新运行科学实验。
 
 ## [0.10.1] - 2026-10-24
 

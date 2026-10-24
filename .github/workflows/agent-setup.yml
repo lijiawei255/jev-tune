@@ -1,0 +1,67 @@
+name: Agent setup
+
+on: workflow_dispatch
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run Unix setup and record its Python
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          bash scripts/agent_setup.sh | tee "$RUNNER_TEMP/agent-setup.log"
+          selected="$(sed -n 's/^\[setup\] python: //p' "$RUNNER_TEMP/agent-setup.log" | tail -n 1)"
+          test -x "$selected"
+          printf 'JEV_SETUP_PYTHON=%s\n' "$selected" >> "$GITHUB_ENV"
+      - name: Run Windows setup and record its Python
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP 'agent-setup.log'
+          & ./scripts/agent_setup.ps1 *>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $line = Select-String -Path $log -Pattern '^\[setup\] python: (.+)$' | Select-Object -Last 1
+          if (-not $line) { throw 'Setup did not report its Python' }
+          $selected = $line.Matches[0].Groups[1].Value
+          if (-not (Test-Path -LiteralPath $selected)) { throw 'Reported Python is absent' }
+          "JEV_SETUP_PYTHON=$selected" >> $env:GITHUB_ENV
+          Join-Path $env:ProgramFiles 'Git\bin' >> $env:GITHUB_PATH
+      - name: Check installed Unix environment in a fresh step
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          unset PYTHONPATH
+          "$JEV_SETUP_PYTHON" -m jev_tune.cli --help
+          "$JEV_SETUP_PYTHON" -m jev_tune.cli status --json
+          for script in 59_research_data.py history_sources.py 65_restore_benchmark.py; do
+            "$JEV_SETUP_PYTHON" "scripts/$script" --help
+          done
+          "$JEV_SETUP_PYTHON" -m pytest tests/test_agent_setup.py -q
+      - name: Check installed Windows environment in a fresh step
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Remove-Item Env:PYTHONPATH -ErrorAction SilentlyContinue
+          function Invoke-Check {
+            & $env:JEV_SETUP_PYTHON @args
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          Invoke-Check -m jev_tune.cli --help
+          Invoke-Check -m jev_tune.cli status --json
+          foreach ($script in '59_research_data.py', 'history_sources.py', '65_restore_benchmark.py') {
+            Invoke-Check "scripts/$script" --help
+          }
+          Invoke-Check -m pytest tests/test_agent_setup.py -q

@@ -275,10 +275,30 @@ network, the green **Code → Download ZIP** button gives the same tree.
 Point your assistant at [`AGENTS.md`](AGENTS.md). The short form:
 
 ```bash
-bash scripts/agent_setup.sh            # idempotent, no prompts
-python -m jev_tune.cli status --json   # exit 0 = ready, 2 = exact fix printed
-python -m jev_tune.cli discover --model YourModel.slx --json
-python -m jev_tune.cli matlab --model YourModel.slx --auto --json
+bash scripts/agent_setup.sh            # macOS / Linux / WSL; idempotent, no prompts
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\agent_setup.ps1
+```
+
+Setup installs the editable package in its selected Python environment. The setup
+subprocess does not activate the caller's shell. Before using bare `python`, run
+its printed `[setup] activate:` command in that shell (the selected conda environment
+or `.venv`). Agents using separate shells should use the exact `[setup] python:`
+path, also reported as `executable` in status JSON, for every Python command.
+Replace the example paths below with that reported executable:
+
+```bash
+"/path/from/setup/python" -m jev_tune.cli status --json   # exit 0 = ready, 2 = exact fix printed
+"/path/from/setup/python" -m jev_tune.cli discover --model YourModel.slx --json
+"/path/from/setup/python" -m jev_tune.cli matlab --model YourModel.slx --auto --json
+```
+
+```powershell
+& "C:/path/from/setup/python.exe" -m jev_tune.cli status --json
+& "C:/path/from/setup/python.exe" -m jev_tune.cli discover --model YourModel.slx --json
+& "C:/path/from/setup/python.exe" -m jev_tune.cli matlab --model YourModel.slx --auto --json
 ```
 
 Or register the MCP server so the agent can call it as a tool:

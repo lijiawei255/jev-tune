@@ -4,6 +4,11 @@ $repo = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 Set-Location $repo
 
 function Test-Cmd($name) { $null -ne (Get-Command $name -ErrorAction SilentlyContinue) }
+function Invoke-SetupPython {
+    & $py @args
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+}
+$activate = "(& conda 'shell.powershell' 'hook') | Out-String | Invoke-Expression; conda activate jev-tune"
 
 if (Test-Cmd conda) {
     $envs = conda env list 2>$null
@@ -17,22 +22,25 @@ if (Test-Cmd conda) {
         $venv = Join-Path $repo ".venv"
         if (-not (Test-Path $venv)) { python -m venv $venv }
         $py = Join-Path $venv "Scripts\python.exe"
+        $activate = "& '$($venv.Replace("'", "''"))\Scripts\Activate.ps1'"
     }
 } else {
     Write-Host "[setup] conda unavailable, using venv"
     $venv = Join-Path $repo ".venv"
     if (-not (Test-Path $venv)) { python -m venv $venv }
     $py = Join-Path $venv "Scripts\python.exe"
+    $activate = "& '$($venv.Replace("'", "''"))\Scripts\Activate.ps1'"
 }
 
 Write-Host "[setup] installing dependencies (CPU only)"
-& $py -m pip install --quiet --upgrade pip
+Invoke-SetupPython -m pip install --quiet --upgrade pip
 
 # torch CPU wheel first: the default index would pull ~2.5 GB of CUDA libs
-& $py -m pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
-& $py -m pip install --quiet numpy scipy scikit-learn pytest pyyaml matplotlib pillow onnx onnxruntime
+Invoke-SetupPython -m pip install --quiet torch --index-url https://download.pytorch.org/whl/cpu
+Invoke-SetupPython -m pip install --quiet numpy scipy scikit-learn pytest pyyaml matplotlib pillow onnx onnxruntime
+Invoke-SetupPython -m pip install --quiet --no-deps -e $repo
 
-$env:PYTHONPATH = Join-Path $repo "src"
+Write-Host "[setup] python: $py"
+Write-Host "[setup] activate: $activate"
 Write-Host "[setup] environment ready"
-& $py -m jev_tune.cli status --json
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+Invoke-SetupPython -m jev_tune.cli status --json

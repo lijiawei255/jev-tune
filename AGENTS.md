@@ -11,7 +11,8 @@ git clone https://github.com/lijiawei255/jev-tune.git
 cd jev-tune
 ```
 
-Runtime use needs no research records. Before pytest or scientific claims run
+Runtime use needs no research records. Restore the optional motor-valve benchmark
+separately with `python scripts/65_restore_benchmark.py`. Before pytest or scientific claims run
 `python scripts/59_research_data.py --fetch all`, followed by
 `python scripts/history_sources.py --root . --restore-pinned`; both accept `--from-dir`
 for pinned offline assets. Script 60 prepares a new checkout and performs complete
@@ -25,7 +26,8 @@ user's checkout, or publish a history transition without authorization.
 See [distribution and history boundaries](docs/DISTRIBUTION.md).
 
 v0.10.1分发从可达Git历史移出实验载荷。以上普通克隆无需特殊参数，保留完整源码、
-正式PID产物及六份非PID模型/校准JSON。运行复用不需要研究记录。pytest或科学claims前
+正式PID产物及六份非PID模型/校准JSON。运行复用不需要研究记录；可选电机阀门基准通过
+`python scripts/65_restore_benchmark.py`单独恢复。pytest或科学claims前
 先执行59的`--fetch all`，再执行`history_sources.py --root . --restore-pinned`；两者均
 支持`--from-dir`离线附件。60脚本在新目录完成恢复与完整核验。源码胶囊提供选定的原始
 科学源码/tree对象，并非完整旧Git历史；公开清单区分未改动的原对象与脱敏元数据派生件。
@@ -139,9 +141,29 @@ bash scripts/agent_setup.sh          # macOS / Linux / WSL
 powershell -ExecutionPolicy Bypass -File scripts\agent_setup.ps1
 ```
 
-Both scripts create the conda env `jev-tune` (Python 3.12) if missing, install
-the CPU dependency set, export `PYTHONPATH=src`, and finish by printing
-`python -m jev_tune.cli status --json`. Without conda they fall back to `.venv`.
+Both scripts create the conda env `jev-tune` (Python 3.12) if missing, or fall
+back to `.venv`. They install CPU dependencies and the editable project with
+`--no-deps` in that selected interpreter, then print status, `[setup] python:`
+and `[setup] activate:`. The subprocess does not activate the caller's shell.
+Before the bare `python` commands below, run the printed activation command in
+the current shell. For agents using separate shells, use the exact reported
+Python path (also `executable` in status JSON) for every Python command, including
+restoration. Replace these example paths with the actual executable:
+
+```bash
+"/path/from/setup/python" -m jev_tune.cli status --json
+```
+
+```powershell
+& "C:/path/from/setup/python.exe" -m jev_tune.cli status --json
+```
+
+两个脚本在缺少时创建conda环境`jev-tune`（Python 3.12），或回退到`.venv`；在所选解释器
+中先安装CPU依赖，再用`--no-deps`以editable方式安装项目，并输出status、`[setup] python:`
+和`[setup] activate:`。子进程不会激活调用者的shell。执行下文裸`python`前，先在当前
+shell执行输出的激活命令。Agent使用独立shell时，每条Python命令（包括恢复命令）均应
+显式调用所报告的解释器路径（status JSON的`executable`），按以上Bash或PowerShell
+写法替换示例路径，不能假定后续shell的PATH已切换。
 
 ## Verify
 

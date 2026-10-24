@@ -240,10 +240,29 @@ jev-tune matlab  --model C:/path/你的模型.slx --auto --plot before_after.png
 让你的助手读 [`AGENTS.md`](AGENTS.md)，简版就是：
 
 ```bash
-bash scripts/agent_setup.sh            # 幂等、无交互
-python -m jev_tune.cli status --json   # 退出码 0=就绪，2=缺什么会直接告诉你
-python -m jev_tune.cli discover --model 你的模型.slx --json
-python -m jev_tune.cli matlab --model 你的模型.slx --auto --json
+bash scripts/agent_setup.sh            # macOS / Linux / WSL；幂等、无交互
+```
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\agent_setup.ps1
+```
+
+安装脚本在所选Python环境中以editable方式安装项目，但子进程不会激活调用者的shell。
+使用裸`python`前，应在当前shell执行它输出的`[setup] activate:`命令，激活所选conda
+环境或`.venv`。Agent每次使用独立shell时，每条Python命令都应显式调用`[setup] python:`
+输出的解释器绝对路径；status JSON的`executable`也提供该路径。把以下示例路径换成
+实际输出的解释器：
+
+```bash
+"/path/from/setup/python" -m jev_tune.cli status --json   # 退出码 0=就绪，2=缺什么会直接告诉你
+"/path/from/setup/python" -m jev_tune.cli discover --model 你的模型.slx --json
+"/path/from/setup/python" -m jev_tune.cli matlab --model 你的模型.slx --auto --json
+```
+
+```powershell
+& "C:/path/from/setup/python.exe" -m jev_tune.cli status --json
+& "C:/path/from/setup/python.exe" -m jev_tune.cli discover --model 你的模型.slx --json
+& "C:/path/from/setup/python.exe" -m jev_tune.cli matlab --model 你的模型.slx --auto --json
 ```
 
 或者注册 MCP 服务器，让助手把它当工具直接调：
