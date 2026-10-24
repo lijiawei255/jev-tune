@@ -86,16 +86,18 @@ REASON_CP_DIRECTION = 6
 
 @dataclass(frozen=True)
 class ConformalPolicy:
-    """Report label-set uncertainty; optional hard holds are a separate policy.
+    """Split-CP label sets plus an empty/large/mixed-direction veto.
 
-    ``monitor`` preserves the numeric proposal. ``hard_hold`` applies the
-    historical empty/large/mixed-direction veto. Neither mode is a safety bound.
+    The generic shell defaults to ``hard_hold``: the veto acts before actuation.
+    ``monitor`` keeps the numeric proposal and only records would_hold; the PID
+    checkpoint loader selects it explicitly (see ``from_calibration``) because it
+    gives the lower final cost there. Neither mode is a safety bound.
     """
 
     q_hat: tuple[float, ...]
     alpha: float = 0.10
     k_max: int = 3
-    mode: str = "monitor"
+    mode: str = "hard_hold"
 
     def __post_init__(self):
         q = np.asarray(self.q_hat, dtype=float)

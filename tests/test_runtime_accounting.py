@@ -264,7 +264,7 @@ def test_backend_monitor_is_action_equivalent_to_cp_off_and_hard_hold_is_explici
 
     simulation(lambda ids, g: 1 / g[:, 0])
     policy = Policy()
-    policy.conformal = ConformalPolicy((1.,) * 3)
+    policy.conformal = ConformalPolicy((1.,) * 3, mode="monitor")
     monitor = run(policy=policy)
     off = run(policy=policy, conformal=None, abstain=None)
     hard = run(policy=policy, conformal="hard_hold")

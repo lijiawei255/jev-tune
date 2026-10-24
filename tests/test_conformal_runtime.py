@@ -90,12 +90,12 @@ def test_noul_override_and_cp_reason_remain_separate(mode):
     assert d.conformal_would_hold.all()
 
 
-def test_calibration_without_mode_defaults_to_monitor_and_explicit_mode_is_validated(tmp_path):
+def test_shell_defaults_to_hard_hold_but_pid_calibration_without_mode_monitors(tmp_path):
     import json
     from jev_tune.domains.pid.decision import read_conformal
 
     data = {"split_conformal": {"qhat_per_axis": [.8], "alpha": .1, "k_max": 3}}
-    assert ConformalPolicy((.8,)).mode == "monitor"
+    assert ConformalPolicy((.8,)).mode == "hard_hold"
     assert ConformalPolicy.from_calibration(data).mode == "monitor"
     (tmp_path / "calibration.json").write_text(json.dumps(data), encoding="utf-8")
     assert read_conformal(tmp_path).mode == "monitor"

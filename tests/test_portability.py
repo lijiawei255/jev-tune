@@ -16,7 +16,7 @@ def test_committed_vectors_match_current_model_and_policy():
     from jev_tune.core.policy import decide
 
     artifact = json.loads((ROOT / "c/test_vectors.json").read_text())
-    assert artifact["schema_version"] == 4
+    assert artifact["schema_version"] == 5
     assert artifact["model_sha256"] == hashlib.sha256((ROOT / "models/jev_head.pt").read_bytes()).hexdigest()
     backend = load_backend(ROOT / "models")
     config = artifact["configuration"]

@@ -31,7 +31,7 @@ from jev_tune.domains.pid.decision import read_conformal, read_temperature
 from jev_tune.core.policy import AbstainPolicy, ConformalPolicy, decide
 from jev_tune.domains.pid.action import ActionSpace, apply_step
 from jev_tune.domains.pid.model import JevHead
-from jev_tune.core.primitives import softmax
+from jev_tune.core.primitives import conformal_inclusion_threshold, softmax
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -68,21 +68,13 @@ def _c_array(name: str, values: np.ndarray) -> str:
     return f"static const float {name}[{flat.size}] = {{{body}}};\n"
 
 
-def _c_double(name: str, values, *, rows=False) -> str:
-    """CP quantiles must retain binary64 precision, particularly near one."""
-    a = np.asarray(values, dtype=float)
-    if not rows:
-        return f"static const double {name}[{a.size}] = {{" + ", ".join(float(x).hex() for x in a.flat) + "};\n"
-    a = a.reshape(a.shape[0], -1)
-    body = ",\n    ".join("{" + ", ".join(float(x).hex() for x in row) + "}" for row in a)
-    return f"static const double {name}[{a.shape[0]}][{a.shape[1]}] = {{\n    {body}\n}};\n"
-
-
 def _conformal_config(cp):
-    return {"enabled": cp is not None, "qhat_per_axis": list(cp.q_hat) if cp else [0.] * 3,
+    qhat = list(cp.q_hat) if cp else [0.] * 3
+    return {"enabled": cp is not None, "qhat_per_axis": qhat,
+            "p_min_per_axis": conformal_inclusion_threshold(qhat).tolist(),
             "alpha": cp.alpha if cp else .1, "k_max": cp.k_max if cp else 3,
             "mode": cp.mode if cp else "monitor",
-            "inclusion": "(1 - p) <= qhat; equivalent to p >= 1-qhat",
+            "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
             "would_hold": "empty or size > k_max or both positive and negative payloads",
             "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
             "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"}
@@ -339,10 +331,10 @@ def main():
         _c_array("JEV_DEFAULT_TEMPERATURE", temperature),
         _c_array("JEV_DEFAULT_POLICY", list(config["policy"].values())),
         f'#define JEV_DEFAULT_CP_ENABLED {int(conformal is not None)}',
-        f'#define JEV_DEFAULT_CP_MODE {int(config["conformal"]["mode"] == "hard_hold")}',
+        "#define JEV_DEFAULT_CP_MODE 1 /* JEV_CP_HARD_HOLD: embedded default vetoes before actuation */",
         f'#define JEV_DEFAULT_CP_K_MAX {config["conformal"]["k_max"]}',
-        f'#define JEV_DEFAULT_CP_ALPHA {config["conformal"]["alpha"]}',
-        _c_double("JEV_DEFAULT_CP_QHAT", config["conformal"]["qhat_per_axis"]),
+        f'#define JEV_DEFAULT_CP_ALPHA {config["conformal"]["alpha"]}f',
+        _c_array("JEV_DEFAULT_CP_PMIN", config["conformal"]["p_min_per_axis"]),
         "#endif",
     ]), encoding="utf-8")
 
@@ -433,12 +425,12 @@ def main():
 
     payload = {
         "generated_by": "scripts/18_export_c.py",
-        "schema_version": 4,
+        "schema_version": 5,
         "model_sha256": model_hash,
         "configuration_sha256": hashlib.sha256(json.dumps(config, sort_keys=True).encode()).hexdigest(),
         "calibration_sha256": hashlib.sha256((models / "calibration.json").read_bytes().replace(b"\r\n", b"\n")).hexdigest() if (models / "calibration.json").is_file() else None,
         "hash_normalization": "CRLF to LF for text files; binary files byte-exact; configuration sorted JSON",
-        "numeric_format": {"weights_and_C_arrays": "IEEE754 binary32", "conformal_quantiles": "IEEE754 binary64", "JSON_reference": "Python floats; compare with supplied tolerances"},
+        "numeric_format": {"weights_and_C_arrays": "IEEE754 binary32", "conformal_threshold": "IEEE754 binary32 p_min, exact image of binary64 qhat", "JSON_reference": "Python floats; compare with supplied tolerances"},
         "configuration": config,
         "model": str(models / "jev_head.pt"),
         "source_rows": source_rows,
@@ -506,7 +498,7 @@ def main():
         f'#define JEV_TV_CP_ENABLED {int(conformal is not None)}',
         f'#define JEV_TV_CP_MODE {int(config["conformal"]["mode"] == "hard_hold")}',
         f'#define JEV_TV_CP_K_MAX {config["conformal"]["k_max"]}',
-        _c_double("JEV_TV_CP_QHAT", config["conformal"]["qhat_per_axis"]),
+        _c_array("JEV_TV_CP_PMIN", config["conformal"]["p_min_per_axis"]),
         "",
         "#endif",
     ]
@@ -541,7 +533,7 @@ def main():
         "JEV_AC_EXPECTED": [c["expected"] for c in ac],
     }.items():
         policy_header.append(_c_2d(name, np.asarray(values)))
-    policy_header.append(_c_double("JEV_PC_CP_QHAT", [c["conformal"]["qhat_per_axis"] for c in pc], rows=True))
+    policy_header.append(_c_2d("JEV_PC_CP_PMIN", np.array([c["conformal"]["p_min_per_axis"] for c in pc])))
     (out / "test_policy.h").write_text("\n".join(policy_header), encoding="utf-8")
 
     # ---- feature-assembly and resampling vectors (separate harness)
@@ -612,11 +604,18 @@ def _verify(out: Path) -> int:
         "-Wextra",
         "-Wno-unused-parameter",
     ]
+    strict = subprocess.run([gcc, "-std=c99", "-Wall", "-Wextra", "-Wdouble-promotion", "-Werror",
+                             "-c", str(out / "jev_head.c"), "-o", str(out / "jev_head.o")],
+                            capture_output=True, text=True)
+    if strict.returncode != 0:
+        print(strict.stderr)
+        return 1
     rc = 0
     for src, exe in (
         ("test_forward.c", "test_forward.exe"),
         ("test_features.c", "test_features.exe"),
         ("test_policy.c", "test_policy.exe"),
+        ("test_checked.c", "test_checked.exe"),
     ):
         cmd = common + [
             "-o",

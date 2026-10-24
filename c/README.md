@@ -57,8 +57,8 @@ jev_action action;
 jev_policy policy = {JEV_DEFAULT_POLICY[0], JEV_DEFAULT_POLICY[1],
                      JEV_DEFAULT_POLICY[2]};
 jev_conformal cp = {JEV_DEFAULT_CP_ENABLED,
-                    {JEV_DEFAULT_CP_QHAT[0], JEV_DEFAULT_CP_QHAT[1],
-                     JEV_DEFAULT_CP_QHAT[2]}, JEV_DEFAULT_CP_K_MAX, JEV_DEFAULT_CP_MODE};
+                    {JEV_DEFAULT_CP_PMIN[0], JEV_DEFAULT_CP_PMIN[1],
+                     JEV_DEFAULT_CP_PMIN[2]}, JEV_DEFAULT_CP_K_MAX, JEV_DEFAULT_CP_MODE};
 int escalations = 0;
 int status = jev_decide_checked(&s, JEV_DEFAULT_TEMPERATURE, &policy, &cp, &action);
 /* On nonzero status all axes are held/escalated; notify the supervisor. */
@@ -73,7 +73,7 @@ escalates every axis, with reason 8/9/10. No stale action survives. NULL policy/
 disables that policy; disabled CP fields are ignored. Inputs/output must not overlap.
 Low-level routines remain unchecked: callers own pointer/input validity. Forward
 emits all-NaN logits on non-finite intermediates; answer emits NaN for invalid
-rows/temperatures. Softmax centers before dividing and uses double intermediates;
+rows/temperatures. Everything is binary32 (`expf`, no `double`); softmax centers before dividing;
 all positive finite float temperatures, including subnormals, are accepted without
 a floor. Do not compile with fast-math or finite-math-only, which defeat these checks.
 The core uses fixed-size arrays and no allocation. `test_checked.c` exercises
@@ -87,15 +87,18 @@ were vetoed. A confident ×1 choice has a zero step and is **not** abstention.
 and negative gain steps in the set. Noul takes precedence over CP, then legacy
 thresholds. An escalation is a flag for the caller, not an implemented supervisor. Invalid CP configuration returns -1 and holds every axis with reason7 (Noul reason3 takes precedence); valid calls return0.
 
-The default is temperature scaling plus split-conformal prediction sets,
-in monitor mode (zero-initialized mode), with alpha=0.10 and `k_max=3`. Membership uses `(1-p) <= qhat`, equivalent to
-`p >= 1-qhat`, including equality. Complete sets and `conformal_would_hold`/`conformal_reason`
+The embedded default (`jev_config.h`) is temperature scaling plus split-conformal
+prediction sets in `JEV_CP_HARD_HOLD` mode, with alpha=0.10 and `k_max=3`; a
+zero-initialized `mode` is still `JEV_CP_MONITOR`. Membership is `p >= p_min`
+in float32. The exporter computes `p_min` from the binary64 `qhat` with
+`jev_tune.core.primitives.conformal_inclusion_threshold`, so for every float32
+probability the set equals the Python rule `(1-p) <= qhat`, including equality. Complete sets and `conformal_would_hold`/`conformal_reason`
 are reported independently of actuation. Only explicit `JEV_CP_HARD_HOLD`
 holds empty, oversized or contradictory axes and flags escalation. `proposed` always uses the full calibrated
 distribution; CP never truncates or renormalizes it. Default legacy p_max and
 Noul thresholds are zero; explicit callers may still layer them on top.
-`qhat` is binary64 even though model weights and activations are binary32:
-rounding a near-one quantile to float32 can turn a small set into all options.
+Do not round `qhat` to float32 and compare `1-p`: a near-one quantile rounds to
+1 and turns a small set into all options (fixture `cp_near_one_quantile`).
 
 The calibration target is marginal coverage of teacher action labels per axis
 under the split-conformal assumptions. It is not a bound on harmful steps,
@@ -163,7 +166,7 @@ hash and whether hardware was tested. There are no registered community ports.
 无效）、-10（计算非有限），完整清空动作并保持、升级所有轴，reason为8/9/10，旧动作
 不会残留。NULL策略表示关闭，关闭的CP字段忽略；输入输出内存不得重叠。
 底层函数仍由调用者负责指针和输入合法性。前向遇到非有限中间值时输出全部NaN，answer
-遇到无效温度或logits行时将该概率行置NaN。softmax先中心化再除温度，使用double中间量，
+遇到无效温度或logits行时将该概率行置NaN。全部为binary32（`expf`，无`double`），softmax先中心化再除温度，
 接受所有正有限float温度（含次正规数），不设温度下限。不得启用fast-math或
 finite-math-only编译选项。核心只用定长数组，不分配内存。`test_checked.c`覆盖故障与
 极端温度；`tests/test_checked_shell.py`编译全部四个检查程序，原有向量容差不变。
@@ -173,11 +176,12 @@ finite-math-only编译选项。核心只用定长数组，不分配内存。`tes
 1旧把握度阈值、2旧升级标志、3 Noul否决、4 CP集合为空、5集合超过k_max、6集合同时
 包含正负增益步长。原因优先级为Noul、CP、旧阈值。升级只是供调用者处理的标志，没有上层接管器。无效CP配置返回-1并保持全部轴，reason7（Noul的reason3优先）；有效调用返回0。
 
-默认使用温度缩放加完整split-conformal集合的monitor模式（mode零初始化），alpha=0.10、k_max=3。成员规则为
-`(1-p) <= qhat`，数学上等价于`p >= 1-qhat`，含等号。完整集合及conformal_would_hold/conformal_reason
+嵌入式默认配置（`jev_config.h`）为温度缩放加split-conformal集合的`JEV_CP_HARD_HOLD`模式，alpha=0.10、k_max=3；
+mode零初始化仍为`JEV_CP_MONITOR`。成员规则为float32的`p >= p_min`；导出脚本用
+`conformal_inclusion_threshold`由binary64 qhat计算p_min，对每个float32概率与Python规则`(1-p) <= qhat`集合完全一致，含等号。完整集合及conformal_would_hold/conformal_reason
 独立于执行记录；仅显式JEV_CP_HARD_HOLD在空集、过宽或方向冲突时保持该轴并升级。`proposed`仍由完整校准分布计算；CP不截断、不重新归一化。
 旧p_max与Noul阈值默认均为0，显式调用者可叠加旧策略。模型权重和激活为binary32，
-但qhat保留binary64：接近1的分位数若舍入成float32的1，会错误地将所有选项纳入集合。
+不要把qhat舍入为float32后比较`1-p`：接近1的分位数会变成1，错误地纳入所有选项（向量`cp_near_one_quantile`）。
 
 校准目标是split-conformal假设下，每轴教师动作标签的边际覆盖率，不是有害动作、
 闭环稳定性或分布变化对象上的安全界限。

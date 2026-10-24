@@ -18,7 +18,10 @@ test_policy: test_policy.c jev_head.c jev_head.h jev_head_weights.h test_policy.
 test_checked: test_checked.c jev_head.c jev_head.h jev_head_weights.h
 	$(CC) $(CFLAGS) -o $@ test_checked.c jev_head.c $(LDLIBS)
 
-check: all
+strict: jev_head.c jev_head.h jev_head_weights.h
+	$(CC) -std=c99 -Wall -Wextra -Wpedantic -Wdouble-promotion -Werror -c jev_head.c -o jev_head.o
+
+check: strict all
 	./test_forward
 	./test_features
 	./test_policy
@@ -27,4 +30,4 @@ check: all
 clean:
 	rm -f test_forward test_features test_policy test_checked *.exe *.o
 
-.PHONY: all check clean
+.PHONY: all strict check clean
