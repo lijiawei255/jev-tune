@@ -22,8 +22,11 @@ REPO = Path(__file__).resolve().parents[2]
 REQUIRED = {
     "numpy": "numpy",
     "scipy": "scipy",
-    "sklearn": "scikit-learn",
-    "torch": "torch",
+    "onnxruntime": "onnxruntime",
+}
+OPTIONAL = {  # capability -> (module, pip name)
+    "train": ("torch", "torch"),
+    "bayes_opt_baseline": ("sklearn", "scikit-learn"),
 }
 
 
@@ -64,7 +67,7 @@ def cmd_status(args) -> int:
         "executable": sys.executable,
         "conda_env": os.environ.get("CONDA_DEFAULT_ENV", ""),
         "packages": {m: _has(m) for m in REQUIRED},
-        "onnxruntime": _has("onnxruntime"),
+        "optional": {cap: _has(mod) for cap, (mod, _) in OPTIONAL.items()},
         "matlab": _matlab_found(),
         "assets": {
             "head_weights": (REPO / "models/jev_head.pt").is_file(),
@@ -91,7 +94,7 @@ def cmd_status(args) -> int:
             "to tune Simulink models; the Python commands work either way"
         )
         code = 2
-    elif not info["assets"]["head_weights"]:
+    elif not (info["assets"]["head_weights"] or info["assets"]["onnx"]):
         info["next"] = "python scripts/01_make_dataset.py && python scripts/02_train.py"
         code = 2
     else:
@@ -110,7 +113,9 @@ def cmd_status(args) -> int:
             )
         )
         print(
-            f"onnxruntime {'ok' if info['onnxruntime'] else 'missing'}   matlab {'ok' if info['matlab'] else 'missing'}"
+            "optional    "
+            + "  ".join(f"{k}={'ok' if v else '-'}" for k, v in info["optional"].items())
+            + f"   matlab {'ok' if info['matlab'] else 'missing'}"
         )
         print(
             f"assets      "

@@ -190,7 +190,7 @@ def _status() -> dict:
         "ok": True,
         "python": sys.version.split()[0],
         "packages": {
-            m: _has(m) for m in ("numpy", "scipy", "sklearn", "torch", "onnxruntime")
+            m: _has(m) for m in ("numpy", "scipy", "onnxruntime")
         },
         "assets": {
             "head": (models / "jev_head.pt").is_file(),
@@ -212,7 +212,7 @@ def _status() -> dict:
         "pip install " + " ".join(missing)
         if missing
         else "python -m jev_tune.cli demo"
-        if info["assets"]["head"]
+        if info["assets"]["head"] or info["assets"]["onnx"]
         else "python scripts/01_make_dataset.py && python scripts/02_train.py"
     )
     return info
