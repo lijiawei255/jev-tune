@@ -116,7 +116,7 @@ MATLAB 相关工作需要 R2019a+ 与 Simulink；`jev-tune matlab --probe` 会�
 
 | 方向 | 需要什么 | 规模 |
 | :--- | :--- | :--- |
-| **类型化接口 vs 回归头** | 同样的特征、同样的专家数据、同样的训练预算，用 `choice / score / noul` 对照"直接回归增益增量"。这是项目唯一没做的对照（见 `docs/CLAIMS.md` 的 "What is not tested"） | 小 |
+| **类型化接口 vs 回归头** | 同样的特征、同样的专家数据、同样的训练预算，用 `choice / score / noul` 对照"直接回归增益增量"。这是项目唯一没做的对照（见 [`docs/CLAIMS.md`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/CLAIMS.md) 的 "What is not tested"） | 小 |
 | **本地语言模型基线** | 在同一回路里跑 1.5B–4B 本地模型，把"语言层"和"网络往返"拆成两个数 | 中 |
 | **一个不是我们的模型** | 在第三方 `.slx` 上跑一遍并公开表格；报告里最有价值的是 `jev-tune doctor --model` 的输出 | 小 |
 | **目标函数预设** | 在阶跃指标之外，加跟踪 / 扰动抑制指标（见 `metrics.py`） | 中 |

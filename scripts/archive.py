@@ -2,7 +2,7 @@
 
 Main keeps the runtime shell. Frozen protocols, historical evidence, negative
 results and their verifiers live unchanged at the Git tag below; their data
-lives in that tag's pinned Release attachments. This script never edits the
+lives in the hash-pinned v0.10.0/v0.10.1 Release attachments. This script never edits the
 current checkout: it opens the tag in a separate worktree and runs the
 archived verifiers there, so hashes recorded by the frozen studies stay valid.
 """

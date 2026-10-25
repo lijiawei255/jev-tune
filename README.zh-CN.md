@@ -1,48 +1,36 @@
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-<!-- transfer-shell:zh:start -->
-**定位：以PID为验证床的可拆解 Calibrated Decision & Safety Shell。** 新增非PID离线去噪标定完成三个模型的真实训练与独立测试，策略收益验收为`negative_stop`；预算20时三模型平均MSE为0.01555577–0.01582834，simplex为0.01423997，没有稳定收益，停止本轮策略深化。前瞻采集实际76683次，单模型离线训练/校准标注成本27345次；原始负结果、冻结协议和复现入口保留，复杂风险研究仍暂停。
-
-每个独立温度/CP分区分别16、32、64个标注状态（合计32、64、128）时，九项组合的宿主纯拟合中位耗时范围为4.601500–5.744300 ms。标签采集、推理、通信和设备执行不在该拟合计时内；这不证明跨天、VLA、临床或目标板有效性。非PID研究没有替换PID模型或默认策略；本版本另外加固了C/MATLAB输入与数值处理。C99 checked入口拒绝非法状态/温度/策略及数值失败，清空旧动作并全轴保持。默认CP仍为完整集合monitor，显式hard_hold可事前否决；测后rollback是领域恢复提案，并非物理安全证明。
-
-数值复现范围：原46/48在原机严格通过、跨CPU严格失败的结果完整保留；本机通过不等于跨CPU通过。独立52核验的是受明确算术假设限制的原记录证据，使用独立检查过的原概率重建动作链，不恢复逐位重放，不证明训练历史的因果真实性，不承诺不同CPU的动作或轨迹等价。数值诊断中的step差异，是原比较机器对两端归档logits/T的统一解码差异，不是两台机器实际输出动作之差。54的派生浮点汇总在默认托管环境也未能严格重算；新57/58保存默认两端的事后观察并独立核验，不把54失败改称通过，不保证未来后端逐位一致。
-
-见[外壳与迁移边界](docs/SAFETY_SHELL.md)、[完整非PID证据](docs/NONPID_TRANSFER.md)、[少样本重标定](docs/RECALIBRATION.md)、[数值复现与证据边界](docs/NUMERICAL_REPRODUCIBILITY.md)、[事后观察与独立数值核验](docs/RUNTIME_OBSERVATIONS.md)、[宿主资源指标](docs/COMPUTE.md)。
-<!-- transfer-shell:zh:end -->
-
-**分发：**普通`git clone https://github.com/lijiawei255/jev-tune.git`保留完整代码、测试、
-文档、正式PID产物及六份非PID模型/校准JSON。研究记录按需从固定Release附件恢复，
-运行复用不需要研究数据，无需稀疏克隆参数。随后读取[`AGENTS.md`](AGENTS.md)。
-可选电机阀门模型与记录结果通过`python scripts/65_restore_benchmark.py`恢复，见
-[固定清单](research/distribution/motor_valve_benchmark_v0101.json)。
-运行pytest或claims前，先执行`python scripts/59_research_data.py --fetch all`恢复数据，
-再执行`python scripts/history_sources.py --root . --restore-pinned`恢复历史源码。公开清单
-区分未改动的原始科学对象与脱敏元数据派生件。新目录完整验证使用60脚本；发布验收以
-真实固定附件与核验收据为准。详见[分发、历史映射及复现](docs/DISTRIBUTION.md)。
-
 # jev-tune
 
-<!-- practical-mainline:zh:start -->
-**当前主线：真实模型适配、适用边界与仿真预算收益。**
-暂停深化联合风险研究，保留未通过验收的结论、原始轨迹、冻结协议及复现脚本；风险头继续保留研究模式，不进入生产默认路径。完整CP集合及既有覆盖边界保持不变。
-当前检出用`python scripts/44_verify_historical_research.py --check`在隔离的历史源码视图中核验冻结研究。原研究命令保留在v0.8.0，不能偷偷用今天修复后的运行时代替原记录源码。
-
-实用审查优先保证控制器转换等价、测量对象明确、代价按真实时间计算、失败状态准确，以及仿真计账完整。见[MODEL_ADAPTATION](docs/MODEL_ADAPTATION.md)和[PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md)。生成的Simulink回归模型用于验证适配器行为，不证明未见外部模型或硬件上的调参效果。
-
-下方旧MATLAB代价、轨迹及动画为历史记录：按实际时间网格积分的修正已改变目标，旧记录不代表当前性能测量。
-为保留各任务原件及配置语义，跨任务模型与扫描缓存已停用；历史热启动吞吐表不代表当前实现。
-<!-- practical-mainline:zh:end -->
-
-
-> **受Jev启发，与TypeSafe AI无隶属、背书或赞助关系。** 本项目使用自己训练的数值头，不含Jev/Laya权重或API。[English](README.md)
-
 [![tests](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml/badge.svg)](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23624699.svg)](https://doi.org/10.5281/zenodo.23624699)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)](pyproject.toml)
-[![MATLAB](https://img.shields.io/badge/MATLAB-R2024b%20%E5%AE%9E%E6%B5%8B-orange)](docs/SCALE.md)
-[![measured latency](https://img.shields.io/badge/latency-host%20measured-blue)](docs/COMPUTE.md)
-[![model size](https://img.shields.io/badge/model-200%20KB-lightgrey)](docs/STEP1_RESULTS.md)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![MATLAB](https://img.shields.io/badge/MATLAB-R2024b%20verified-orange)](docs/SCALE.md)
+
+**以PID自动整定为验证床的校准决策与安全外壳。** 200 KB的CPU小模型回答类型化问题：
+`choice`（选哪个增益步长）、`score`（当前响应多好）、`noul`（下一步是否健康）。外壳对答案做
+温度缩放、构造split-conformal标签集合，在集合为空、过宽或方向冲突时于**执行前**保持该轴，
+并由确定性的`SafetyGate`在测量变差后回滚。同一核心可作为float32、零动态内存的C99移植，
+在MATLAB/Simulink中运行，也可用于纯Python的VLA动作掩码。
+
+```bash
+git clone https://github.com/lijiawei255/jev-tune && cd jev-tune && pip install -e .
+jev-tune demo --plants 12                    # 留出对象：头 vs Z-N vs CMA-ES，约20 s
+python -m jev_tune.domains.light.vla_mask    # 同一外壳用于类别型机器人动作
+```
+
+| 层 | 模块 | 默认 |
+| :--- | :--- | :--- |
+| 温度缩放 | `core.primitives` | 开 |
+| split-conformal集合与否决 | `core.policy.ConformalPolicy` | core与C为`hard_hold`；PID回路为`monitor`（[原因](docs/TRADEOFFS.md)） |
+| 事前Hold | `core.policy.decide` | 按策略，逐轴记录原因 |
+| 回滚 | `core.gate.SafetyGate` | 开 |
+
+> **受Jev启发，与TypeSafe AI无隶属关系。** 实现的是Jev*接口*（类型化`choice`/`score`/`noul`），
+> 不是Jev模型：不含Jev/Laya权重、文本输入或API（[借用了什么](docs/JEV_MAPPING.md)）。
+> 适用边界、负结果、跨CPU复现失败与免责声明见[BOUNDARIES](docs/BOUNDARIES.md)；冻结研究见[ARCHIVE](docs/ARCHIVE.md)。
+
 ## 让你的 Agent 直接接管
 
 如果你用编程 Agent（Claude Code、Codex、OpenCode、Cursor——任何能执行命令的），
@@ -88,7 +76,7 @@ solver      ...
 
 *动图使用本项目自建模型及真实graph/discovery记录，展示误差汇合点、增益路径分类和
 确认扰动仿真；图来自生成模型及其公开图记录。公开输入和重生成步骤见
-[`OPEN_SOURCE`](docs/OPEN_SOURCE.md)。*
+[`OPEN_SOURCE`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/OPEN_SOURCE.md)。*
 
 ## 从哪读起
 
@@ -99,7 +87,7 @@ solver      ...
 | 弄清模型为什么调不了 | `jev-tune doctor --model <文件>` |
 | 判断我的模型适不适合 | [`docs/APPLICABILITY.md`](docs/APPLICABILITY.md) |
 | 搞清“类型化决策”到底是什么 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| 自己核对数字 | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md)、[`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md)、[`docs/CLAIMS.md`](docs/CLAIMS.md) |
+| 自己核对数字 | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md)、[`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md)、[[`docs/CLAIMS.md`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/CLAIMS.md)](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/CLAIMS.md) |
 | 用 Agent 或 MCP 驱动 | [`AGENTS.md`](AGENTS.md) |
 | 处理没见过的对象族 | [`docs/SPECIALIZE.md`](docs/SPECIALIZE.md) |
 | 批量跑几百个模型 | [`docs/SCALE.md`](docs/SCALE.md) |
@@ -119,7 +107,7 @@ solver      ...
 ![七种方法在同一批对象上比赛](assets/race.gif)
 
 *同一批 40 个未见对象，七种调参方式。**图里每个数字都是实测的**：每 N 次实验后的
-中位代价来自 `scripts/12_make_race.py` 的一次真实运行；右图问的是"多久能拿到一个
+中位代价来自 [`scripts/12_make_race.py`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/scripts/12_make_race.py) 的一次真实运行；右图问的是"多久能拿到一个
 能用的控制器"（J ≤ 0.6），按 0.4 秒/次折算。斜线阴影那行是在环路上接一个托管模型
 的 Agent——它的一次往返实测**中位 5.3 秒**（GLM-5.3-Flash，40 次调用，其中 13 次
 输出无法解析）。手工调参不画曲线是刻意的——它给出的是「几小时之后的一组增益」，
@@ -134,36 +122,16 @@ solver      ...
 
 ---
 
-独立校准结果及覆盖边界见[温度与分裂CP](docs/CONFORMAL.md)。旧CP硬保持代价逊于温度单独校准；默认monitor保留温度单独校准的提案；标签覆盖定理或保持动作均不证明闭环安全。
 
-<!-- joint-risk-rollout:start -->
-**联合动作风险的多轮验收：未通过。** 冻结协议在<!-- claim:joint_rollout_n -->1024<!-- /claim -->个独立测试对象上，门控策略有<!-- claim:joint_rollout_any_harm -->2<!-- /claim -->条轨迹至少一次有害执行；名义单侧95%精确二项上界量为<!-- claim:joint_rollout_risk_upper -->0.006135<!-- /claim -->。门控/配对monitor对照的最终平均J为<!-- claim:joint_rollout_gated_mean -->2.303682<!-- /claim -->/<!-- claim:joint_rollout_monitor_mean -->1.297619<!-- /claim -->，p90为<!-- claim:joint_rollout_gated_p90 -->3.416603<!-- /claim -->/<!-- claim:joint_rollout_monitor_p90 -->2.314045<!-- /claim -->。首步执行率的名义单侧95%下界为<!-- claim:joint_rollout_first_lower -->0.479684<!-- /claim -->，预注册最低要求为0.50。全部判据、逐步独立校准、原始轨迹与适用范围见[联合风险多轮研究](docs/JOINT_RISK_ROLLOUT.md)。这是保留的v1数值记录；计算二项量不单独证明机器实现的事件独立性。此结果不把联合风险门默认接入通用Python、C或MATLAB部署；失败判据不会通过改阈值掩盖。
-<!-- joint-risk-rollout:end -->
-
-<!-- trajectory-risk-v2:zh:start -->
-### 多步联合风险：预注册新实验 FAIL
-
-唯一主要候选为`trajectory_selected`；状态为`research_only`。在1024个新独立测试对象上，8条轨迹出现有害执行，风险的名义单侧95%二项上界为0.014052，首步执行率名义下界为0.559971；本轮实现的统计前提另见下文。主要候选/配对monitor的最终mean J为2.158651/1.357796，p90 J为3.149694/2.294926，实际运行仿真数为2770/21504。未通过项：最终平均代价非劣 (`empirical_mean_cost_noninferior`); 最终p90代价非劣 (`empirical_p90_cost_noninferior`)。最终mean与p90均按零松弛要求和monitor比较；仅减少有害探索事件不足以通过全部验收。
-
-旧v1失败结果保留。旧测试已经用于事后诊断，不能再作新方案的独立验证；本轮只用新测试验收事先指定的主要候选，其他组不按测试成绩选优上线。本轮同时改变训练轨迹、数据量、标准化和风险初态特征语义，是整体方案比较，不是单因素因果实验。
-
-旧固定路径诊断发现700/1024株保留monitor最优必须经过有害步。这证明旧记录中仅截断、不改提案的门控无法同时满足原风险与零松弛均值条件；不证明所有新策略都不可能。替代联合动作可改变路径，但是否成功由本轮真实验收决定。
-
-见[旧失败诊断](docs/ROLLOUT_DIAGNOSIS.md)、[新完整研究](docs/TRAJECTORY_RISK.md)及其JSON/原始分片。通用Python/C/MATLAB部署默认保持原样；即使数值判据通过，也不能绕过独立实现有效性审计或扩展注册的运行器、模拟分布和时域。
-
-**额外的实现有效性审计：未建立；deployment_allowed=false。** 冻结数值判据与这一审计分开报告。本轮批次形状/行位置引起的输出依赖，使逐对象固定映射、校准/测试CP分数交换性及轨迹事件独立性均未建立。因此表内CP及单侧95%二项量只作名义计算，不能宣称本机器实现已获得精确CP/PAC保证；仅写一般交换性假设不足以弥补这一缺口。这是原数值验收之外的额外失败，继续禁止部署；需固定推理映射、重新校准和新的前瞻验证。 见[实现有效性审计](research/results/trajectory_risk_validity.json)。
-
-配对指相同初始对象与观测，不要求活跃批次不同的跨组提案/轨迹逐位相同。每组仍按自身真实动作、严格零容差标签、CP集合与历史计账；不从测试差异拟合新的验收容差。严格科学证据重建及规范化记录的精确重放，验证范围限于记录的参考环境；Python/C99运行时的跨平台支持不意味着研究轨迹可跨平台逐位复现。见[发布验证范围](docs/RELEASE_VERIFICATION.md)。 [配对数值诊断](research/results/trajectory_risk_pairing_diagnosis.json)。 [固定输入批次诊断](research/results/batch_inference_diagnosis.json)另计1次诊断仿真；相同输入复制到不同批次/行位置时，base_step最大差为1.24583552e-07。这是事后数值机制检查，未重建原完整批次，不是新的独立验收，未改动原始动作或边界。
-<!-- trajectory-risk-v2:zh:end -->
 
 ## 15 秒看懂
 
 | | |
 | :--- | :--- |
 | **做什么** | 看刚测到的响应，决定下一步把 PID 增益乘多少 |
-| **多快** | ONNX前向中位<!-- claim:decision_ms -->0.022<!-- /claim --> ms；Python默认类型化/弃权路径中位<!-- claim:typed_decision_ms -->0.375<!-- /claim --> ms、p99 <!-- claim:typed_decision_p99_ms -->1.230<!-- /claim --> ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |
+| **多快** | ONNX前向中位0.022 ms；Python默认类型化/弃权路径中位0.375 ms、p99 1.230 ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |
 | **历史MATLAB运行** | v0.2实验课电机的**5次实验**将记录代价从**1.238降至0.598**。这是旧目标下的历史测量，不是当前重跑；之前的扫描修复和v0.9时间网格积分修正都没有更新这些数字。见[STEP4_RESULTS](docs/STEP4_RESULTS.md)。 |
-| **多能泛化** | 历史验证族中位0.482；冻结热工族中位1.833，对应基线与oracle先验见下表；独立的v0.9固定起点评测见[PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md)。 |
+| **多能泛化** | 历史验证族中位0.482；冻结热工族中位1.833，对应基线与oracle先验见下表；独立的v0.9固定起点评测见[PRACTICAL_BUDGET](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/PRACTICAL_BUDGET.md)。 |
 
 ![前后对比](assets/before_after.png)
 
@@ -187,7 +155,7 @@ solver      ...
 
 **对比普通预测头和优化器**：一次前向的计算成本不等于更少仿真或更好的控制器。
 [ABLATION](docs/ABLATION.md)报告匹配划分的回归/argmax对照；一个训练权重与三个评测样本
-不能证明类型接口具有普遍因果优势。[PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md)在固定
+不能证明类型接口具有普遍因果优势。[PRACTICAL_BUDGET](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/PRACTICAL_BUDGET.md)在固定
 起点下同时列返回代价和实际调用。结果取决于对象与先验，head并非在所有组和指标上优于传统基线。
 
 **为什么不用`pidtune`？** 有合适线性模型时，应把`pidtune`作为基线并回到完整模型验证。
@@ -384,7 +352,7 @@ jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
 | `shrunk_zn` | 4.854 | 5.158 | 1 |
 | `simplex` | 2.302 | 3.146 | 20 |
 
-这些冻结行与v0.9[实用预算评测](docs/PRACTICAL_BUDGET.md)分开；后者列实际调用，也不证明head全面优于基线。历史辨识→pidtune行保留原实现的失败边界。计账规则见[BENCHMARK](docs/BENCHMARK.md)，扫描恢复/回退见[原始表](research/results/benchmark_table_thermal_deadtime.md)。
+这些冻结行与v0.9[实用预算评测](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/PRACTICAL_BUDGET.md)分开；后者列实际调用，也不证明head全面优于基线。历史辨识→pidtune行保留原实现的失败边界。计账规则见[BENCHMARK](docs/BENCHMARK.md)，扫描恢复/回退见[原始表](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)。
 
 **历史Simulink模型结果（直流电机，旧目标）**
 
@@ -417,30 +385,18 @@ jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
 ## 仓库结构
 
 ```
-src/jev_tune/
-  plants.py       植物动物园 + 向量化闭环仿真
-  metrics.py      响应 -> 标量代价
-  state.py        20 个特征 + 2×64 曲线
-  primitives.py   Choice / Score / Noul（唯一输出面）
-  decode.py       期望值解码、信赖域、区间细化
-  model.py        决策头 + 一步预测价值网
-  train.py        数据 -> 决策头（`expert.py` 是规则专家）
-  baselines.py    Z-N、继电、单纯形、CMA-ES、BO
-  identified.py   辨识 -> pidtune（工程界基线）
-  discover.py     在陌生模型上找增益、信号与参考
-  evaluate.py     基准测试用的留出回路
-  plot.py         前后对比图
-  scenarios.py    10 个"动物园外"场景（泛化测试）
-  simulink.py、matlab_runner.py、matlab_worker.py   MATLAB 桥接与 worker
-  mcp_server.py   七个 MCP 工具
-  cli.py          status / demo / doctor / discover / matlab / loop / batch / check
-matlab/          Fast Restart 桥接、手写前向、test_discover.m
-scripts/         00 合并分块、00b 重标注、01 数据、02 训练、03 评估、
-                 04 onnx、05 报告、06 MATLAB 权重、07 演示素材、08 泛化、
-                 09 架构图、10 专家化、11 鲁棒性、12 竞赛图、13 跟踪演示、
-                 14 Agent 基线、15 GIF、16 claims 校验
-docs/            调研报告、架构、各阶段结果、claims、示例
-assets/          README 用到的 GIF 和图片
+src/jev_tune/core/           numpy-only shell: primitives, policy, calibration, gate
+src/jev_tune/domains/pid/    PID test bed: plants, metrics, state, expert, model, train,
+                             decision backends, evaluate, baselines, MATLAB bridge, plot
+src/jev_tune/domains/light/  linear_shell.py (ordered numeric), vla_mask.py (categorical)
+src/jev_tune/cli.py          status / demo / doctor / discover / matlab / loop / batch / check
+src/jev_tune/mcp_server.py   the seven MCP tools
+c/                           C99 float32 reference, zero malloc, generated vectors
+matlab/                      Fast Restart bridge, hand-written forward pass, tests
+scripts/                     01 dataset, 02 train, 03 evaluate, 04 ONNX, 06 MATLAB weights,
+                             10 specialize, 11 robustness, 18 export C, 20 abstention,
+                             22 calibrate-only, archive.py, docs_relink.py
+docs/                        design, results, BOUNDARIES, TRADEOFFS, ARCHIVE
 ```
 
 ## 我的任务能用吗
@@ -465,7 +421,6 @@ assets/          README 用到的 GIF 和图片
 
 | 文档 | 回答什么 |
 | :--- | :--- |
-| [`docs/PHASE0_RESEARCH_REPORT.md`](docs/PHASE0_RESEARCH_REPORT.md) | 生态家底、CPU 延迟真相、方案修正 |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 原语契约与一次迭代 |
 | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md) | 延迟、校准、留出基准 |
 | [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) | 真实 Simulink 模型，以及那次值得记录的退步 |
@@ -489,17 +444,23 @@ assets/          README 用到的 GIF 和图片
 | 更多对象族 | 有公开动力学的、动物园里没有的 |
 | 翻译 | 目前有英文和简体中文 |
 
-## 引用
+## 如何引用
+
+请优先引用**概念DOI [10.5281/zenodo.23624699](https://doi.org/10.5281/zenodo.23624699)**，它始终指向
+最新正式归档版本。若需固定到某一版本，请引用该版本DOI（见Zenodo记录页）。
 
 ```bibtex
-@software{li2026jevtune,
-  author = {Li, Jiawei},
-  title  = {jev-tune: System-1 typed decisions for PID autotuning},
-  year   = {2026},
-  url    = {https://github.com/lijiawei255/jev-tune},
+@software{li_jevtune,
+  author  = {Li, Jiawei},
+  title   = {jev-tune: a Jev-inspired calibrated decision and safety shell for typed PID autotuning},
+  doi     = {10.5281/zenodo.23624699},
+  url     = {https://github.com/lijiawei255/jev-tune},
   license = {MIT}
 }
 ```
+
+机器可读的引用信息（作者、ORCID、DOI）见仓库根目录[`CITATION.cff`](CITATION.cff)，
+GitHub的“Cite this repository”按钮即读取该文件。
 
 ## 致谢与边界
 
@@ -513,10 +474,8 @@ assets/          README 用到的 GIF 和图片
   与之无隶属、无背书关系。
 * **MATLAB** / **Simulink** 是 The MathWorks, Inc. 的商标。
 * 用了哪些第三方代码、哪些刻意没有放进来、各自的许可证：[`NOTICE.md`](NOTICE.md)。
-* 完整源码、模型、数据的分发及排除清单：[`OPEN_SOURCE`](docs/OPEN_SOURCE.md)。
+* 完整源码、模型、数据的分发及排除清单：[`OPEN_SOURCE`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/OPEN_SOURCE.md)。
 
 ## 许可证
 
 MIT © JIAWEI LI — 见 [`LICENSE`](LICENSE)。
-
-CP解耦专项诊断与独立联合动作风险实验见[CP_DIAGNOSIS](docs/CP_DIAGNOSIS.md)、[JOINT_RISK](docs/JOINT_RISK.md)。联合风险头保持研究用途，不默认部署。

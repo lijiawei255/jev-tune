@@ -21,7 +21,7 @@ Both are answered with measurements, not adjectives.
 
 Across 200 plants, returned measured-best costs have worse_pct as listed above. This is bookkeeping, not a bound on trial costs or stability. OOD search divergence: 5; final divergence: 5. Total rollbacks: 0. Gate-on/off unchanged pairs: 40/40 at absolute tolerance 1e-06.
 
-Parameter bounds do not prove stability. A 0.6×best rollback proposal must be measured. Per-plant budget is 20; original model files are copied. Source: `research/results/robustness.json`, reproduced by `python scripts/11_robustness.py`.
+Parameter bounds do not prove stability. A 0.6×best rollback proposal must be measured. Per-plant budget is 20; original model files are copied. Source: [`research/results/robustness.json`](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1), reproduced by `python scripts/11_robustness.py`.
 
 ## 2. Which control tasks fit
 
@@ -54,7 +54,7 @@ The current MATLAB adapter accepts a finite positive step reference (numeric
 `--ref-source` or configuration, or a resolved `auto` reference). It validates
 controller conversion and logged signals before reporting success. Configuration
 and runtime checks do not certify an arbitrary user model; the release's
-[adapter evidence](../research/results/model_adaptation.json) identifies the
+[adapter evidence](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1) identifies the
 generated fixtures actually tested.
 
 ---
@@ -98,7 +98,7 @@ measured-best storage and deterministic rollback rule. Reusing these components
 requires a domain-specific action adapter, metric, state and data validation.
 Neither gain bounds nor a rollback proposal establish safe experiments.
 
-The [practical budget study](PRACTICAL_BUDGET.md) separates actual calls from
+The [practical budget study](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/PRACTICAL_BUDGET.md) separates actual calls from
 allowed budgets and preserves bad starts and failed trials. It does not enable
 the paused joint-risk research policy or replace validation on a user's model.
 
@@ -123,7 +123,7 @@ the paused joint-risk research policy or replace validation on a user's model.
 
 200株返回实测最优值，其worse_pct如上表；这是记账性质，不约束试验过程代价或证明稳定性。分布外搜索发散5株，最终发散5株，总回滚0次。门开关有40/40对在绝对容差1e-06下无实质差异。
 
-参数限幅不证明稳定性，0.6×best回滚提案仍需测量。逐株预算20，原模型先复制再整定。证据见`research/results/robustness.json`，复现用`python scripts/11_robustness.py`。
+参数限幅不证明稳定性，0.6×best回滚提案仍需测量。逐株预算20，原模型先复制再整定。证据见[`research/results/robustness.json`](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)，复现用`python scripts/11_robustness.py`。
 
 ## 2. 哪些任务适合
 
@@ -153,7 +153,7 @@ the paused joint-risk research policy or replace validation on a user's model.
 
 当前MATLAB适配器接受有限正阶跃参考值：数值`--ref-source`、配置，或已确定的`auto`。
 报告成功前检查控制器转换与记录信号。配置和运行检查不证明任意用户模型都正确；本次发布的
-[适配验证证据](../research/results/model_adaptation.json)列明实际测试的生成夹具。
+[适配验证证据](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)列明实际测试的生成夹具。
 
 ## 3. 适配工作量（诚实估计）
 
@@ -184,7 +184,7 @@ the paused joint-risk research policy or replace validation on a user's model.
 期望值解码、"专家 = 在同一动作词表上搜索"的训练配方、实测最优存储与确定性回滚规则。
 复用仍需领域专用动作适配、指标、状态与数据验证；增益限幅和回滚提案都不保证试验安全。
 
-[实用预算评测](PRACTICAL_BUDGET.md)分别报告实际次数与预算上限，保留差初态和失败试验。
+[实用预算评测](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/PRACTICAL_BUDGET.md)分别报告实际次数与预算上限，保留差初态和失败试验。
 它不启用已暂停的联合风险研究策略，也不替代用户模型上的实际验证。
 
 ---

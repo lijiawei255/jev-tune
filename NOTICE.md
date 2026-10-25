@@ -11,8 +11,8 @@ The inventory below covers the current source tree and release assets. The
 v0.10.1 distribution separates experimental payloads from reachable Git history
 and publishes sanitized source and provenance metadata. Public manifests bind
 the distributed bytes and map historical identities; they do not preserve every
-original commit identity or signature. See [DISTRIBUTION](docs/DISTRIBUTION.md)
-for source-proof and reproduction boundaries and [OPEN_SOURCE](docs/OPEN_SOURCE.md)
+original commit identity or signature. See [DISTRIBUTION](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/DISTRIBUTION.md)
+for source-proof and reproduction boundaries and [OPEN_SOURCE](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/OPEN_SOURCE.md)
 for the versioned artifact inventory.
 
 ## What is in the repository
@@ -36,7 +36,7 @@ files are not included in the current source tree or release package.
 | External motor-valve benchmark model and geometry | Used locally for measurements; no redistribution licence is asserted. Reproduction requires a model the user is authorized to use. |
 | MATLAB / Simulink engine sources | Proprietary MathWorks code. The MATLAB bridge only *calls* documented APIs (`sim`, `set_param`, `pidtune`); nothing from MathWorks is copied. |
 | Jev / Laya model weights | Not used at runtime. The project implements the *interface*, not the model. |
-| Local data chunks and unbound experimental weights | Intermediate files are not swept into a release. Four pinned synthetic data files are available separately; see [OPEN_SOURCE](docs/OPEN_SOURCE.md). |
+| Local data chunks and unbound experimental weights | Intermediate files are not swept into a release. Four pinned synthetic data files are available separately; see [OPEN_SOURCE](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/OPEN_SOURCE.md). |
 
 ## Runtime dependencies (not redistributed, only required)
 
@@ -88,8 +88,8 @@ redistribute your trained specialists, your plant models, or your results.
 
 以下清单针对当前源码树和发布附件。v0.10.1从可达Git历史中分离实验载荷，并公开经过
 脱敏的源码及来源元数据。公开清单绑定分发字节并映射历史身份，不承诺保留全部原始提交
-身份或签名。源码证明与复现边界见[DISTRIBUTION](docs/DISTRIBUTION.md)，版本化产物
-清单见[OPEN_SOURCE](docs/OPEN_SOURCE.md)。
+身份或签名。源码证明与复现边界见[DISTRIBUTION](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/DISTRIBUTION.md)，版本化产物
+清单见[OPEN_SOURCE](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/OPEN_SOURCE.md)。
 
 ### 仓库里有什么
 
@@ -111,7 +111,7 @@ redistribute your trained specialists, your plant models, or your results.
 | 外部电机阀门基准模型及几何 | 仅用于本地测量，不主张拥有转发许可；复现需自行提供有权使用的模型。 |
 | MATLAB / Simulink 引擎源码 | MathWorks 专有代码。MATLAB 侧只**调用**公开 API（`sim`、`set_param`、`pidtune`），未复制任何代码。 |
 | Jev / Laya 权重 | 运行时不使用。本项目实现的是**接口**，不是模型。 |
-| 本地数据中间分块及未绑定实验权重 | 不会把临时目录扫进发布包；四份有pin的合成数据另行提供，见[OPEN_SOURCE](docs/OPEN_SOURCE.md)。 |
+| 本地数据中间分块及未绑定实验权重 | 不会把临时目录扫进发布包；四份有pin的合成数据另行提供，见[OPEN_SOURCE](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/OPEN_SOURCE.md)。 |
 
 ### 运行时依赖（只要求安装，不转发）
 

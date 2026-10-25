@@ -4,6 +4,8 @@
 
 ## English
 
+> v0.11 defaults: split-CP `hard_hold` in `jev_tune.core` and `c/jev_config.h`, `monitor` in the PID evaluator; measured costs in [TRADEOFFS](TRADEOFFS.md). Statements below that say "default monitor" describe the PID loop.
+
 This project uses PID autotuning as a measured testbed for a separable
 **Calibrated Decision & Safety Shell**: typed answers, peripheral calibration,
 bounded numeric proposals, explicit refusal policies and independently recorded
@@ -18,10 +20,10 @@ uses. The implemented non-PID transfer is an offline reference-denoising task,
 with its own training, labels and additive actuator. It supplies evidence about
 component reuse, not VLA perception, robot behavior, physiology or a clinical
 system. Its actual acceptance, objective spend and failures are generated in
-[NONPID_TRANSFER](NONPID_TRANSFER.md) and the
-[primary JSON](../research/results/nonpid_transfer/report.json).
+[NONPID_TRANSFER](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/NONPID_TRANSFER.md) and the
+[primary JSON](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1).
 
-The [numerical comparison](NUMERICAL_REPRODUCIBILITY.md) has a specific scope:
+The [numerical comparison](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/NUMERICAL_REPRODUCIBILITY.md) has a specific scope:
 its step delta is the original comparison machine's common decoding of the two
 archived logits/temperature inputs. It does not measure actions actually
 executed on two machines or compare complete closed-loop trajectories. A
@@ -30,18 +32,18 @@ platform and commit; future numerical backends require fresh verification.
 The independent recorded-evidence audit remains conditional on its stated
 arithmetic assumptions, and the original strict refit failures remain preserved.
 The default hosted check of the derived comparison also failed. The separate
-[post-incident observation audit](RUNTIME_OBSERVATIONS.md) preserves that failure
+[post-incident observation audit](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/RUNTIME_OBSERVATIONS.md) preserves that failure
 and verifies newly archived outputs; it does not rename strict replay as passed.
 
 ### Five implemented capabilities and their evidence
 
 | Capability | Actual implementation and evidence | Boundary that remains with the new domain |
 | :--- | :--- | :--- |
-| Typed decision contract | [`Choice`, `Option`, `Score`, `Noul`, `Answer`](../src/jev_tune/primitives.py), the PID [`DecisionBackend`](../src/jev_tune/decision.py), and [primitive tests](../tests/test_primitives.py) carry distributions and named payloads on the execution path. | The shipped backend, question registry, features, score rubric and weights are PID-specific. Interface reuse does not transfer a learned representation or an outcome probability. |
-| Frozen-model peripheral calibration | [`fit_frozen_calibration`](../src/jev_tune/calibration.py) fits per-axis temperatures and then independent split-CP thresholds from frozen logits and labeled sampling-unit IDs. [Calibration tests](../tests/test_frozen_calibration.py) check split separation, finite-sample endpoints and unchanged inputs. [RECALIBRATION](RECALIBRATION.md) supplies generated timings and small-sample diagnostics. | Valid labels, representative sampling, a fixed inference mapping and calibration/test exchangeability must be established. IDs and a supplied model hash alone do not prove those premises. |
-| Bounded numeric decoding | [`decide`](../src/jev_tune/decode.py) consumes ordered `Option.delta` payloads, takes the full calibrated expectation, shrinks by vocabulary-normalized variance and clips the step. [Shell tests](../tests/test_shell_contract.py) hold the mean fixed while changing variance and actually exceed the clipping bound. | The caller defines units, coordinate normalization, numeric versus categorical semantics, actuator bounds and transition validity. The PID `apply_step` remains multiplicative and domain-specific. |
-| Explicit refusal and separate fallback | `AbstainPolicy`, `ConformalPolicy` and `Decision` retain executed holds, proposed steps, complete CP sets and hypothetical veto reasons. [`evaluate_head`](../src/jev_tune/evaluate.py) records post-measurement rollback as a separate transition; [runtime accounting tests](../tests/test_runtime_accounting.py) and [shell tests](../tests/test_shell_contract.py) exercise the ordering and real call counts. | Holding a parameter does not establish that its present value is safe. The PID rollback rule is a testbed heuristic. A new domain owns safe-state selection, persistent-Hold handling and an independently validated supervisor. |
-| Inspectable portability boundary | The C99 [`jev_decide_checked`](../c/jev_head.h) entry validates the fixed PID inference chain and clears actions on rejection. [Checked-shell tests](../tests/test_checked_shell.py), [portable vectors and tests](../tests/test_portability.py), [MATLAB parity evidence](../research/results/matlab_parity_v0100.json) and [runtime evidence](../research/results/matlab_runtime.json) cover specific host implementations. | Fixed PID exports are not generic new-domain firmware. STM32/FPGA work still needs a board implementation, numerical validation, resource measurements and target timing evidence. Host agreement is not hardware qualification. |
+| Typed decision contract | [`Choice`, `Option`, `Score`, `Noul`, `Answer`](../src/jev_tune/core/primitives.py), the PID [`DecisionBackend`](../src/jev_tune/domains/pid/decision.py), and [primitive tests](../tests/test_primitives.py) carry distributions and named payloads on the execution path. | The shipped backend, question registry, features, score rubric and weights are PID-specific. Interface reuse does not transfer a learned representation or an outcome probability. |
+| Frozen-model peripheral calibration | [`fit_frozen_calibration`](../src/jev_tune/core/calibration.py) fits per-axis temperatures and then independent split-CP thresholds from frozen logits and labeled sampling-unit IDs. [Calibration tests](../tests/test_frozen_calibration.py) check split separation, finite-sample endpoints and unchanged inputs. [RECALIBRATION](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/RECALIBRATION.md) supplies generated timings and small-sample diagnostics. | Valid labels, representative sampling, a fixed inference mapping and calibration/test exchangeability must be established. IDs and a supplied model hash alone do not prove those premises. |
+| Bounded numeric decoding | [`decide`](../src/jev_tune/core/policy.py) consumes ordered `Option.delta` payloads, takes the full calibrated expectation, shrinks by vocabulary-normalized variance and clips the step. [Shell tests](../tests/test_shell_contract.py) hold the mean fixed while changing variance and actually exceed the clipping bound. | The caller defines units, coordinate normalization, numeric versus categorical semantics, actuator bounds and transition validity. The PID `apply_step` remains multiplicative and domain-specific. |
+| Explicit refusal and separate fallback | `AbstainPolicy`, `ConformalPolicy` and `Decision` retain executed holds, proposed steps, complete CP sets and hypothetical veto reasons. [`evaluate_head`](../src/jev_tune/domains/pid/evaluate.py) records post-measurement rollback as a separate transition; [runtime accounting tests](../tests/test_runtime_accounting.py) and [shell tests](../tests/test_shell_contract.py) exercise the ordering and real call counts. | Holding a parameter does not establish that its present value is safe. The PID rollback rule is a testbed heuristic. A new domain owns safe-state selection, persistent-Hold handling and an independently validated supervisor. |
+| Inspectable portability boundary | The C99 [`jev_decide_checked`](../c/jev_head.h) entry validates the fixed PID inference chain and clears actions on rejection. [Checked-shell tests](../tests/test_checked_shell.py), [portable vectors and tests](../tests/test_portability.py), [MATLAB parity evidence](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1) and [runtime evidence](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1) cover specific host implementations. | Fixed PID exports are not generic new-domain firmware. STM32/FPGA work still needs a board implementation, numerical validation, resource measurements and target timing evidence. Host agreement is not hardware qualification. |
 
 ### What runs, and what each answer controls
 
@@ -86,8 +88,8 @@ reached states, a harmful-action bound, stability or a performance guarantee.
 Changing the model, quantization, population, inference mapping or action
 selection can invalidate inherited calibration premises. The paused complex
 joint-risk results and reproduction entry remain in
-[TRAJECTORY_RISK](TRAJECTORY_RISK.md) and
-[`44_verify_historical_research.py`](../scripts/44_verify_historical_research.py);
+[TRAJECTORY_RISK](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/TRAJECTORY_RISK.md) and
+[`44_verify_historical_research.py`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/scripts/44_verify_historical_research.py);
 they are not enabled as a general runtime safety head.
 
 ### Peripheral recalibration after freezing the model
@@ -102,8 +104,8 @@ Neither a checkpoint hash nor unique IDs verify that recorded logits really
 came from the claimed model; the caller must bind that provenance.
 
 The small-sample benchmark, its raw clock observations and the distinction
-between fitting and data collection are in [RECALIBRATION](RECALIBRATION.md) and
-[recalibration_benchmark.json](../research/results/recalibration_benchmark.json).
+between fitting and data collection are in [RECALIBRATION](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/RECALIBRATION.md) and
+[recalibration_benchmark.json](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1).
 Each reported sample count belongs to each of two independent fitting splits,
 not a shared pool reused to fit both stages. Every fixed combination is reported;
 test diagnostics do not select a sample count, model or threshold. The main
@@ -156,6 +158,8 @@ physiological safe state.
 
 ## 简体中文
 
+> v0.11默认值：`jev_tune.core`与`c/jev_config.h`为split-CP `hard_hold`，PID评测器为`monitor`；实测代价见[TRADEOFFS](TRADEOFFS.md)。下文“默认monitor”指PID回路。
+
 本项目以PID自动整定为可实测验证床，提供可拆解的**Calibrated Decision & Safety
 Shell（校准决策与安全边界参考壳）**：类型化回答、外围校准、有界数值建议、显式拒绝
 策略和独立计账的回退。名称描述软件边界与可观察决策，不意味着已经证明物理安全或
@@ -165,25 +169,25 @@ Shell（校准决策与安全边界参考壳）**：类型化回答、外围校�
 该参考架构面向未来VLA、闭环神经调控研究及嵌入式移植，帮助拆解、检查和测试组件。
 这些是拟议使用方向。已实现的非PID迁移是带参考信号的离线去噪参数标定，另有训练、
 标签和加法执行器。它验证组件复用，不构成视觉、机器人行为、生理机制或临床系统
-证据。实际验收、目标调用开销与失败结论由[NONPID_TRANSFER](NONPID_TRANSFER.md)
-及[主实验JSON](../research/results/nonpid_transfer/report.json)生成。
+证据。实际验收、目标调用开销与失败结论由[NONPID_TRANSFER](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/NONPID_TRANSFER.md)
+及[主实验JSON](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)生成。
 
-[数值比较](NUMERICAL_REPRODUCIBILITY.md)中的step差异，是原比较机器对两端归档
+[数值比较](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/NUMERICAL_REPRODUCIBILITY.md)中的step差异，是原比较机器对两端归档
 logits/温度输入的统一解码差异，不是两台机器实际执行动作之差，也没有比较完整闭环
 轨迹。严格比较重算通过只支持所记录的版本、平台及commit；未来数值后端仍须重新
 验证。独立记录证据审计继续受明确算术假设限制，原严格重新拟合失败仍完整保留。
-派生比较在默认托管环境的严格检查也失败；独立的[事后观察审计](RUNTIME_OBSERVATIONS.md)
+派生比较在默认托管环境的严格检查也失败；独立的[事后观察审计](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/RUNTIME_OBSERVATIONS.md)
 保留该失败并核验新归档输出，不能将它改称严格重放通过。
 
 ### 五项已实现能力及证据
 
 | 能力 | 真实实现与证据 | 新领域仍需承担的边界 |
 | :--- | :--- | :--- |
-| 类型化决策契约 | [`Choice`、`Option`、`Score`、`Noul`、`Answer`](../src/jev_tune/primitives.py)、PID [`DecisionBackend`](../src/jev_tune/decision.py)与[基础类型测试](../tests/test_primitives.py)，在实际运行路径传递分布与具名载荷。 | 已有后端、问题注册、特征、质量分档与权重为PID专用；复用接口不等于迁移已学表征或结果概率。 |
-| 冻结模型外围校准 | [`fit_frozen_calibration`](../src/jev_tune/calibration.py)从冻结logits和带采样单元ID的标签先拟合逐轴温度，再拟合独立Split CP；[校准测试](../tests/test_frozen_calibration.py)覆盖分区隔离、有限样本端点及输入不变。[RECALIBRATION](RECALIBRATION.md)生成实测耗时与小样本诊断。 | 需要有效标签、代表性采样、固定推理映射及校准/测试交换性；ID和提供的模型哈希本身不能证明这些前提。 |
-| 有界数值解码 | [`decide`](../src/jev_tune/decode.py)读取有序`Option.delta`，按完整校准分布取期望，按词表方差归一化缩步，再限幅。[参考壳测试](../tests/test_shell_contract.py)固定非零均值仅改变方差，并真正触及限幅。 | 单位、坐标归一化、数值/类别动作语义、执行器边界及状态转移合法性由调用方定义；PID `apply_step`仍是专用乘法更新。 |
-| 显式拒绝与独立回退 | `AbstainPolicy`、`ConformalPolicy`和`Decision`保留实际保持、建议步长、完整CP集合及假设否决原因；[`evaluate_head`](../src/jev_tune/evaluate.py)将测量后回滚记录为独立转移。[计账测试](../tests/test_runtime_accounting.py)及[参考壳测试](../tests/test_shell_contract.py)验证顺序和真实调用数。 | 保持参数不证明当前参数安全；PID回退是验证床启发式规则。新领域需要自行验证安全状态、连续Hold处理及独立监督器。 |
-| 可检查的移植边界 | C99 [`jev_decide_checked`](../c/jev_head.h)检查固定PID推理链并在拒绝时清空动作。[检查入口测试](../tests/test_checked_shell.py)、[跨语言向量测试](../tests/test_portability.py)、[MATLAB对齐证据](../research/results/matlab_parity_v0100.json)及[运行时证据](../research/results/matlab_runtime.json)覆盖特定宿主实现。 | 固定PID导出物不是新领域通用固件；STM32/FPGA仍需板端实现、数值验证、资源测量和目标时序证据。宿主一致不等于硬件确认。 |
+| 类型化决策契约 | [`Choice`、`Option`、`Score`、`Noul`、`Answer`](../src/jev_tune/core/primitives.py)、PID [`DecisionBackend`](../src/jev_tune/domains/pid/decision.py)与[基础类型测试](../tests/test_primitives.py)，在实际运行路径传递分布与具名载荷。 | 已有后端、问题注册、特征、质量分档与权重为PID专用；复用接口不等于迁移已学表征或结果概率。 |
+| 冻结模型外围校准 | [`fit_frozen_calibration`](../src/jev_tune/core/calibration.py)从冻结logits和带采样单元ID的标签先拟合逐轴温度，再拟合独立Split CP；[校准测试](../tests/test_frozen_calibration.py)覆盖分区隔离、有限样本端点及输入不变。[RECALIBRATION](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/RECALIBRATION.md)生成实测耗时与小样本诊断。 | 需要有效标签、代表性采样、固定推理映射及校准/测试交换性；ID和提供的模型哈希本身不能证明这些前提。 |
+| 有界数值解码 | [`decide`](../src/jev_tune/core/policy.py)读取有序`Option.delta`，按完整校准分布取期望，按词表方差归一化缩步，再限幅。[参考壳测试](../tests/test_shell_contract.py)固定非零均值仅改变方差，并真正触及限幅。 | 单位、坐标归一化、数值/类别动作语义、执行器边界及状态转移合法性由调用方定义；PID `apply_step`仍是专用乘法更新。 |
+| 显式拒绝与独立回退 | `AbstainPolicy`、`ConformalPolicy`和`Decision`保留实际保持、建议步长、完整CP集合及假设否决原因；[`evaluate_head`](../src/jev_tune/domains/pid/evaluate.py)将测量后回滚记录为独立转移。[计账测试](../tests/test_runtime_accounting.py)及[参考壳测试](../tests/test_shell_contract.py)验证顺序和真实调用数。 | 保持参数不证明当前参数安全；PID回退是验证床启发式规则。新领域需要自行验证安全状态、连续Hold处理及独立监督器。 |
+| 可检查的移植边界 | C99 [`jev_decide_checked`](../c/jev_head.h)检查固定PID推理链并在拒绝时清空动作。[检查入口测试](../tests/test_checked_shell.py)、[跨语言向量测试](../tests/test_portability.py)、[MATLAB对齐证据](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)及[运行时证据](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)覆盖特定宿主实现。 | 固定PID导出物不是新领域通用固件；STM32/FPGA仍需板端实现、数值验证、资源测量和目标时序证据。宿主一致不等于硬件确认。 |
 
 ### 实际执行链与各类回答的作用
 
@@ -212,8 +216,8 @@ PID路径是`state.build_state`→`NumericBackend.answer`或`OnnxBackend.answer`
 此处Split CP的数学目标是在采样前提成立时逐轴包含teacher标签的边际覆盖，不包括
 全部轴同时覆盖、通过门控后的条件覆盖、自适应到达状态覆盖、有害动作概率上界、
 稳定性或性能保证。模型、量化、分布、推理映射或动作选择变化，均可能使旧校准前提
-失效。暂停的复杂联合风险结果与复现入口保留于[TRAJECTORY_RISK](TRAJECTORY_RISK.md)
-和[`44_verify_historical_research.py`](../scripts/44_verify_historical_research.py)，
+失效。暂停的复杂联合风险结果与复现入口保留于[TRAJECTORY_RISK](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/TRAJECTORY_RISK.md)
+和[`44_verify_historical_research.py`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/scripts/44_verify_historical_research.py)，
 未作为通用运行时安全头启用。
 
 ### 冻结模型后的外围重标定
@@ -224,8 +228,8 @@ PID路径是`state.build_state`→`NumericBackend.answer`或`OnnxBackend.answer`
 温度固定后才拟合CP。检查点哈希或唯一ID也不能单独证明logits来自所声称模型；
 该来源绑定由调用方负责。
 
-小样本基准、原始时钟观测及拟合/采集成本区分见[RECALIBRATION](RECALIBRATION.md)
-和[recalibration_benchmark.json](../research/results/recalibration_benchmark.json)。
+小样本基准、原始时钟观测及拟合/采集成本区分见[RECALIBRATION](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/RECALIBRATION.md)
+和[recalibration_benchmark.json](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)。
 每个样本量分别属于两个独立拟合分区，不是同一批样本同时拟合两阶段。所有预定组合
 全部报告，不用测试诊断选择样本量、模型或阈值；主实验校准产物保持不变。
 

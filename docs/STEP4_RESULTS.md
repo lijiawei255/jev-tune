@@ -2,9 +2,9 @@
 
 > [English](#step-4--real-simulink-model-no-python-at-runtime) · [简体中文](#step-4-结果中文)
 
-> **Historical measurement.** These costs and traces predate the v0.9.0 correction from median-step summation to integration on the actual MATLAB time grid. They are preserved, not rerun with the new objective, and are not directly comparable with current costs. Current adapter regressions and their limits: [MODEL_ADAPTATION](MODEL_ADAPTATION.md).
+> **Historical measurement.** These costs and traces predate the v0.9.0 correction from median-step summation to integration on the actual MATLAB time grid. They are preserved, not rerun with the new objective, and are not directly comparable with current costs. Current adapter regressions and their limits: [MODEL_ADAPTATION](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/MODEL_ADAPTATION.md).
 >
-> **历史测量。** 本页代价与轨迹早于v0.9.0将“采样间隔中位数求和”改为实际MATLAB时间网格积分的修正。保留原记录，不冒充新目标下的重跑，不能与当前代价直接比较。当前适配回归及边界见[MODEL_ADAPTATION](MODEL_ADAPTATION.md)。
+> **历史测量。** 本页代价与轨迹早于v0.9.0将“采样间隔中位数求和”改为实际MATLAB时间网格积分的修正。保留原记录，不冒充新目标下的重跑，不能与当前代价直接比较。当前适配回归及边界见[MODEL_ADAPTATION](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/MODEL_ADAPTATION.md)。
 
 
 > Plant: a DC-motor position-loop benchmark (`motor_valve_model.slx`,
@@ -18,7 +18,7 @@
 
 ## Why the bridge is built this way
 
-Measured earlier on the same model (`research/bench/`):
+Measured earlier on the same model ([`research/bench/`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/research/bench)):
 
 | mode | per run |
 | :--- | ---: |
@@ -36,7 +36,7 @@ therefore:
 3. keeps a deterministic safety gate: the best gain set seen so far is always
    returned, and a blow-up triggers `best × 0.6` instead of trusting `noul`.
 
-Parity of the MATLAB forward pass against the exported reference: **max |Δ| = 7.6e-06**, re-measured in v0.3 against the current weights (the earlier figure, 6.1e-05, predated a re-export; see `docs/CLAIMS.md`).
+Parity of the MATLAB forward pass against the exported reference: **max |Δ| = 7.6e-06**, re-measured in v0.3 against the current weights (the earlier figure, 6.1e-05, predated a re-export; see [`docs/CLAIMS.md`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/CLAIMS.md)).
 
 ## Result
 
@@ -181,7 +181,7 @@ python scripts/07_make_demo.py
 
 ### 桥接为什么这么做
 
-同一模型上的实测（`research/bench/`）：
+同一模型上的实测（[`research/bench/`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/research/bench)）：
 
 | 模式 | 每次 |
 | :--- | ---: |

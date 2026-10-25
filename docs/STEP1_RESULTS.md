@@ -1,4 +1,4 @@
-> Historical study record (through v0.4.1). Its timing path excluded default abstention, and older benchmark/risk counts have been superseded by v0.5.0. Current results: [CLAIMS](CLAIMS.md), [BENCHMARK](BENCHMARK.md), [COMPUTE](COMPUTE.md).
+> Historical study record (through v0.4.1). Its timing path excluded default abstention, and older benchmark/risk counts have been superseded by v0.5.0. Current results: [CLAIMS](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/CLAIMS.md), [BENCHMARK](BENCHMARK.md), [COMPUTE](COMPUTE.md).
 > 历史研究记录（截至v0.4.1）：当时时延不含默认显式弃权，旧基准/风险计数已由v0.5.0替代；当前结果见上述文档。
 
 # Step 1 + 2 results — numeric decision head
@@ -37,7 +37,7 @@ Target was "decision < 1 ms"; the forward is ~5× inside it, the typed decision 
 inside it at p50 and slightly over at p99.
 
 Full iteration on the lab model: decision + Simulink Fast Restart run
-**111 ms** (StopTime = 10 s, measured in `research/bench/`) ≈ 0.11 s.
+**111 ms** (StopTime = 10 s, measured in [`research/bench/`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/research/bench)) ≈ 0.11 s.
 Without Fast Restart the same model costs 869 ms per run, so the bridge — not
 the model — would dominate.
 
@@ -72,7 +72,7 @@ context for what a shipped typed-decision model looks like; it was not measured
 here, and the tasks and datasets differ.
 
 The temperatures are ≈1.0 (0.996 / 0.919 / 0.958), so applying them changes
-little; `scripts/17_ablation.py` has an `A2T_no_calib` row that measures the
+little; [`scripts/17_ablation.py`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/scripts/17_ablation.py) has an `A2T_no_calib` row that measures the
 difference instead of assuming it.
 
 ## KPI 3 — held-out benchmark (120 plants, unseen family)
@@ -159,7 +159,7 @@ method (Z-N 1.95 → 2.50, BO 0.39 → 0.58).
 ## The agent row is now measured, not assumed
 
 The README compares against "an LLM agent in the loop". That row used to be an
-assumption (3 s per turn). It is now a measurement: `scripts/14_agent_baseline.py`
+assumption (3 s per turn). It is now a measurement: [`scripts/14_agent_baseline.py`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/scripts/14_agent_baseline.py)
 asks a hosted model (Together AI, `zai-org/GLM-5.3-Flash`, temperature 0) for the
 next gain step once per experiment. Two held-out plants, 20 experiments each,
 same cost function.
@@ -180,7 +180,7 @@ Two honest caveats: this is one model at one moment, and the number measures
 *this* prompt. A better prompt or a non-reasoning model would be faster and more
 parseable; the 0.19 ms figure does not depend on either.
 
-Raw log: `research/results/agent_baseline_900.json` (every request and response).
+Raw log: [`research/results/agent_baseline_900.json`](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1) (every request and response).
 
 ## Objectives other than a step response
 
@@ -257,7 +257,7 @@ ONNX Runtime，单线程，batch=1，2 000 次重复：
 前向约在预算内 5 倍，完整类型化决策 p50 在预算内、p99 略超。
 
 那台实验课电机的完整一次迭代：决策 + Fast Restart 仿真 **111 ms**（StopTime=10 s，
-见 `research/bench/`）≈ 0.11 s。不开 Fast Restart 同样模型每次 869 ms——瓶颈会是桥接
+见 [`research/bench/`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/research/bench)）≈ 0.11 s。不开 Fast Restart 同样模型每次 869 ms——瓶颈会是桥接
 而不是模型。
 
 参数量与乘加数：**40 683** 与 **83 584**/次决策（`docs/COMPUTE.md`）；C99 参考实现为
@@ -284,7 +284,7 @@ Laya 的数字与出处：Laya 仓库的 `BENCHMARKS.md` 报告**出厂 ECE 0.46
 0.081（"Calibration" 表）。这里只把它当作"一个已发布的类型化决策模型长什么样"的
 参照；它不是本仓库测的，任务与数据也不同。
 
-温度≈1.0（0.996 / 0.919 / 0.958），应用它们影响很小；`scripts/17_ablation.py` 有
+温度≈1.0（0.996 / 0.919 / 0.958），应用它们影响很小；[`scripts/17_ablation.py`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/scripts/17_ablation.py) 有
 `A2T_no_calib` 一行把它测出来，而不是假设。
 
 ### KPI 3：留出基准（120 株，未见族）
@@ -357,7 +357,7 @@ v2 在该基准上最强。之所以发布 v3，是因为**只有它能迁移到
 ## 智能体那行：从"假设"变成了"实测"
 
 README 里对比的"把大模型接进环路"原本是个假设（每次 3 秒）。现在是实测：
-`scripts/14_agent_baseline.py` 在 2 个留出对象、每个 20 次实验、同一代价函数下，每次实验向托管
+[`scripts/14_agent_baseline.py`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/scripts/14_agent_baseline.py) 在 2 个留出对象、每个 20 次实验、同一代价函数下，每次实验向托管
 模型（Together AI，`zai-org/GLM-5.3-Flash`，temperature 0）要一次增益调整。
 
 | | Agent 在环 | Jev 决策头 |
@@ -374,7 +374,7 @@ README 里对比的"把大模型接进环路"原本是个假设（每次 3 秒�
 两个诚实的限定：这只是一个模型、一个时刻的结果，而且测的是*这个*提示词；更好的
 提示词或非推理模型会更快、更可解析。但 0.19 毫秒那一侧不受提示词影响。
 
-原始日志：`research/results/agent_baseline_900.json`（每一次请求和响应都在里面）。
+原始日志：[`research/results/agent_baseline_900.json`](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)（每一次请求和响应都在里面）。
 
 ## 阶跃之外的目标函数
 

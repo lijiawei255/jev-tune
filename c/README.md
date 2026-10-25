@@ -205,6 +205,6 @@ int8实验将权重取整后反量化，仍使用float32内核，并会改变部
 
 社区移植可登记语言/平台、维护者、向量schema/模型hash及是否实测硬件；目前没有登记项目。
 
-Real MATLAB measurement-accounting regression: `python scripts/24_verify_matlab_runtime.py`; evidence in `research/results/matlab_runtime.json`.
+Real MATLAB measurement-accounting regression: `python scripts/24_verify_matlab_runtime.py`; evidence in [`research/results/matlab_runtime.json`](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1).
 
-MATLAB真实测量计账回归：`python scripts/24_verify_matlab_runtime.py`，证据见`research/results/matlab_runtime.json`。
+MATLAB真实测量计账回归：`python scripts/24_verify_matlab_runtime.py`，证据见[`research/results/matlab_runtime.json`](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1)。

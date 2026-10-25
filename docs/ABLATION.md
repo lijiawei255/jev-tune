@@ -76,7 +76,7 @@ Independent evaluation teacher-label coverage per axis [0.9199, 0.9062, 0.8828];
 * temperature scaling in the legacy ladder: off minus on median cost is +0.014; calibration is not assumed to improve closed-loop cost.
 
 
-A0 is not a runtime path: `src/jev_tune` contains no direct-regression decoder. It exists only in `scripts/17_ablation.py`, because the project's claim is precisely that the typed path is worth its constraints, and that claim needs a control.
+A0 is not a runtime path: `src/jev_tune` contains no direct-regression decoder. It exists only in [`scripts/17_ablation.py`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/scripts/17_ablation.py), because the project's claim is precisely that the typed path is worth its constraints, and that claim needs a control.
 
 ---
 
@@ -137,5 +137,5 @@ CP alpha=0.1, n=512, rank=462, qhat=[0.9068, 0.8765, 0.9069].
 
 
 A0 不是运行路径：`src/jev_tune` 里没有「直接回归增益」的解码器。它只存在于
-`scripts/17_ablation.py`，因为本项目的主张正是「类型化路径值得它的约束」，
+[`scripts/17_ablation.py`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/scripts/17_ablation.py)，因为本项目的主张正是「类型化路径值得它的约束」，
 而这个主张需要一个对照。

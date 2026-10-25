@@ -1,62 +1,40 @@
 [English](README.md) · [简体中文](README.zh-CN.md)
 
-<!-- transfer-shell:en:start -->
-**Scope: a decomposable Calibrated Decision & Safety Shell with a PID testbed.** A new non-PID offline denoising task includes three genuinely trained models and independent testing; policy-benefit acceptance is `negative_stop`. At budget20, learned mean MSE spans 0.01555577–0.01582834, versus simplex 0.01423997. Stable benefit was not established; this policy investigation stops. Prospective acquisition used 76683 objective calls; standalone training/calibration labels cost 27345 per model. Negative raw evidence, frozen protocols and reproduction remain available; complex risk research stays paused.
-
-Using 16, 32 or 64 labeled states in EACH independent temperature/CP split (32, 64 or 128 total), the nine host fit-time medians span 4.601500–5.744300 ms. Label acquisition, inference, communication and device execution are excluded. This does not validate cross-day, VLA, clinical or target-board operation. The non-PID study did not replace the PID model or default policy; this release separately hardens C/MATLAB input and numeric handling. The C99 checked entry rejects invalid states/temperatures/policies and numeric failures, clears stale actions and holds every axis. Default CP retains complete monitor sets; explicit hard_hold can veto before actuation. Post-measurement rollback is domain-owned recovery, not a physical-safety proof.
-
-Numerical replay scope: the original strict 46/48 checks passed on the original machine and failed across CPUs; those failures remain preserved. A local pass is not a cross-CPU pass. The separate 52 audit checks original-record evidence under explicit arithmetic assumptions and reconstructs its action chain from independently checked recorded probabilities. It does not recover bitwise replay, prove the causal history of training, or promise equivalent actions or trajectories across CPUs. The diagnostic step delta applies both archived logits/T inputs to the original comparison machine's decoder; it is not a difference between actions actually executed on two machines. Strict recomputation of 54's derived floating summaries also failed in the default hosted environment. New 57/58 preserve and independently audit post-incident observations from both default environments; they do not turn 54's failure into a pass or establish future backend identity.
-
-See [shell and transfer boundaries](docs/SAFETY_SHELL.md), [complete non-PID evidence](docs/NONPID_TRANSFER.md), [small-sample recalibration](docs/RECALIBRATION.md), [numerical reproducibility and evidence boundaries](docs/NUMERICAL_REPRODUCIBILITY.md), [post-incident observation audit](docs/RUNTIME_OBSERVATIONS.md), and [host resources](docs/COMPUTE.md).
-<!-- transfer-shell:en:end -->
-
-**Distribution:** ordinary `git clone https://github.com/lijiawei255/jev-tune.git`
-retains the complete implementation, tests, documentation, formal PID artifacts and six non-PID
-model/calibration JSON files. Research records are restored from pinned Release attachments only
-when needed; runtime reuse needs no research-data download. No sparse-clone flags are required.
-Then read [`AGENTS.md`](AGENTS.md). The optional motor-valve model and recorded results are available
-through `python scripts/65_restore_benchmark.py`; see its [pinned manifest](research/distribution/motor_valve_benchmark_v0101.json).
-Before pytest or claims, restore data with `python scripts/59_research_data.py --fetch all`,
-then historical sources with `python scripts/history_sources.py --root . --restore-pinned`.
-Public manifests distinguish unchanged original scientific objects from sanitized metadata
-derivatives. For a new verification checkout use script 60; publication acceptance requires the
-actual pinned assets and verification receipts. See [distribution, history mapping and reproduction](docs/DISTRIBUTION.md).
-
 # jev-tune
 
-<!-- practical-mainline:en:start -->
-**Current mainline: real-model adaptation, applicability boundaries and simulation-budget value.**
-Deeper joint-risk research is paused. Its failed acceptance, raw trajectories, frozen protocols and reproduction scripts remain available; the risk head stays in research mode and is not enabled in production. Complete CP sets and their existing coverage boundaries remain unchanged.
-On the current checkout, use `python scripts/44_verify_historical_research.py --check` to verify the frozen research against an isolated historical source view. Original study commands remain available on v0.8.0; they must not silently substitute today's repaired runtime for their recorded sources.
-
-The practical audit prioritizes controller equivalence, unambiguous measurements, time-based costs, truthful failure status and complete simulation accounting. See [MODEL_ADAPTATION](docs/MODEL_ADAPTATION.md) and [PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md). Generated Simulink fixtures validate adapter behavior; they do not establish performance on an unseen external model or physical hardware.
-
-Earlier MATLAB cost figures, traces and animations below are historical: the corrected time-grid integration changes that objective. They are retained as records, not current performance measurements.
-Cross-job model/sweep caching is disabled to preserve each source model and configuration; historical warm-job throughput tables do not describe the current implementation.
-<!-- practical-mainline:en:end -->
-
-
 [![tests](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml/badge.svg)](https://github.com/lijiawei255/jev-tune/actions/workflows/ci.yml)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.23624699.svg)](https://doi.org/10.5281/zenodo.23624699)
 [![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.10%20%7C%203.12-blue)](pyproject.toml)
-[![MATLAB](https://img.shields.io/badge/MATLAB-R2024b%20verified-orange)](docs/SCALE.md#4-matlab-versions)
-[![measured latency](https://img.shields.io/badge/latency-host%20measured-blue)](docs/COMPUTE.md)
-[![model size](https://img.shields.io/badge/model-200%20KB-lightgrey)](docs/STEP1_RESULTS.md)
-[![platform](https://img.shields.io/badge/platform-Python%20any%20OS%20%C2%B7%20MATLAB%20Windows-lightgrey)](docs/SCALE.md#4-matlab-versions)
-[![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
-[![中文](https://img.shields.io/badge/README-简体中文-red)](README.zh-CN.md)
+[![MATLAB](https://img.shields.io/badge/MATLAB-R2024b%20verified-orange)](docs/SCALE.md)
 
-**PID autotuning with typed probabilistic decisions and explicit abstention.**
-The numeric head uses one CPU forward pass. Complete CP sets are monitored independently of actuation.
-Hard Hold is an explicit comparison policy; unchanged deterministic trials stop without repeated simulation.
+**A calibrated decision & safety shell, proven on PID autotuning.** A 200 KB CPU
+head answers typed questions — `choice` (which gain step), `score` (how good is
+this response), `noul` (is the next step healthy). The shell temperature-scales
+those answers, builds split-conformal label sets, can hold an axis *before*
+actuation when its set is empty, too wide or contradictory, and lets a
+deterministic `SafetyGate` roll back after a bad measurement. The same core runs
+as a float32, zero-malloc C99 port, inside MATLAB/Simulink, and on a pure-Python
+VLA action mask.
 
-> **Jev-inspired, not affiliated.** It uses the *Jev interface* — the three typed
-> primitives `choice` / `score` / `noul` with calibrated probabilities — not the
-> hosted Jev model or Laya's 421 M text encoder. The runtime policy is a 200 KB
-> numeric head trained in this repo; Laya is only mentioned as a text baseline
-> that was never wired in. This project is **not affiliated with, endorsed by, or
-> sponsored by TypeSafe AI**. What is borrowed and what is not:
-> [`docs/JEV_MAPPING.md`](docs/JEV_MAPPING.md).
+```bash
+git clone https://github.com/lijiawei255/jev-tune && cd jev-tune && pip install -e .
+jev-tune demo --plants 12                    # held-out plants: head vs Z-N vs CMA-ES, ~20 s
+python -m jev_tune.domains.light.vla_mask    # the same shell on categorical robot actions
+```
+
+| layer | module | default |
+| :--- | :--- | :--- |
+| temperature scaling | `core.primitives` | on |
+| split-conformal sets + veto | `core.policy.ConformalPolicy` | `hard_hold` in core and C; `monitor` in the PID loop ([why](docs/TRADEOFFS.md)) |
+| a-priori Hold | `core.policy.decide` | per policy, reason recorded per axis |
+| rollback | `core.gate.SafetyGate` | on |
+
+> **Jev-inspired, not affiliated with TypeSafe AI.** It implements the Jev
+> *interface* (typed `choice` / `score` / `noul` answers), not the Jev model:
+> no Jev or Laya weights, no text input, no API ([what is borrowed](docs/JEV_MAPPING.md)).
+> Scope limits, negative results, cross-CPU replay failures and disclaimers:
+> [BOUNDARIES](docs/BOUNDARIES.md). Frozen research: [ARCHIVE](docs/ARCHIVE.md).
 
 ## Let your agent do it
 
@@ -110,8 +88,8 @@ a cascade and reporting success would be worse than saying so. See
 records. It shows the error junction, gain-path classification and confirming
 perturbation simulations. The diagram uses the generated model and its public graph records.
 The public inputs and regeneration recipe are listed in
-[`OPEN_SOURCE`](docs/OPEN_SOURCE.md).
-Regenerate with `scripts/15_make_discovery_gif.py`.*
+[`OPEN_SOURCE`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/OPEN_SOURCE.md).
+Regenerate with [`scripts/15_make_discovery_gif.py`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/scripts/15_make_discovery_gif.py).*
 
 ## Where to read next
 
@@ -128,7 +106,7 @@ Regenerate with `scripts/15_make_discovery_gif.py`.*
 | check the compute numbers (MACs, RAM, int8) | [`docs/COMPUTE.md`](docs/COMPUTE.md) |
 | borrow the pattern for another domain | [`docs/TRANSFER.md`](docs/TRANSFER.md) |
 | check how the budget is accounted | [`docs/BENCHMARK.md`](docs/BENCHMARK.md) |
-| check the numbers myself | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md), [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md), [`docs/CLAIMS.md`](docs/CLAIMS.md) |
+| check the numbers myself | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md), [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md), [[`docs/CLAIMS.md`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/CLAIMS.md)](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/CLAIMS.md) |
 | drive it from an agent or MCP | [`AGENTS.md`](AGENTS.md) |
 | handle a plant family it has not seen | [`docs/SPECIALIZE.md`](docs/SPECIALIZE.md) |
 | run hundreds of models | [`docs/SCALE.md`](docs/SCALE.md) |
@@ -137,7 +115,7 @@ Regenerate with `scripts/15_make_discovery_gif.py`.*
 ![seven methods racing on the same plants](assets/race.gif)
 
 *Seven ways to tune the same 40 unseen plants. **Every number is measured**:
-median cost after N experiments from one run of `scripts/12_make_race.py`, and
+median cost after N experiments from one run of [`scripts/12_make_race.py`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/scripts/12_make_race.py), and
 the right panel asks the question that matters — how long until the controller
 is usable (J ≤ 0.6) — at 0.4 s per experiment. The hatched row is an agent with a
 hosted model in the loop: its turn took a measured **5.3 s median** (GLM-5.3-Flash,
@@ -154,36 +132,16 @@ experiments (~0.55 s of simulation); the stall detector stopped the loop at nine
 
 ---
 
-See [Temperature + Split CP](docs/CONFORMAL.md) for the independent calibration results and precise coverage limits. Historical CP hard-hold costs are worse than the temperature-only control; default monitor preserves the temperature-only proposal; neither a label-coverage theorem nor a hold certifies closed-loop safety.
 
-<!-- joint-risk-rollout:start -->
-**Joint-action risk rollout acceptance: not passed.** On <!-- claim:joint_rollout_n -->1024<!-- /claim --> independent test plants under the frozen protocol, <!-- claim:joint_rollout_any_harm -->2<!-- /claim --> gated trajectories contained a harmful execution; the nominal exact-binomial one-sided 95% upper quantity is <!-- claim:joint_rollout_risk_upper -->0.006135<!-- /claim -->. Gated/matched-monitor final mean J is <!-- claim:joint_rollout_gated_mean -->2.303682<!-- /claim -->/<!-- claim:joint_rollout_monitor_mean -->1.297619<!-- /claim -->, and p90 is <!-- claim:joint_rollout_gated_p90 -->3.416603<!-- /claim -->/<!-- claim:joint_rollout_monitor_p90 -->2.314045<!-- /claim -->. The nominal one-sided 95% lower quantity for first-stage execution is <!-- claim:joint_rollout_first_lower -->0.479684<!-- /claim -->; its preregistered minimum is 0.50. See [JOINT_RISK_ROLLOUT](docs/JOINT_RISK_ROLLOUT.md) for every criterion, independent stage calibration, raw trajectories and scope. This preserves the v1 numerical record; calculating binomial quantities does not itself establish independence of implemented trajectory events. This does not enable a joint-risk gate by default in general Python, C or MATLAB deployment; failed criteria are not hidden by retuning thresholds.
-<!-- joint-risk-rollout:end -->
-
-<!-- trajectory-risk-v2:en:start -->
-### Multistep joint risk: new preregistered study FAIL
-
-The sole primary candidate is `trajectory_selected`; status is `research_only`. On 1024 new independent test plants, 8 trajectories had a harmful execution. The nominal one-sided 95% binomial risk upper bound is 0.014052; the nominal first-execution lower bound is 0.559971. Implementation assumptions are audited below. Primary/matched-monitor final mean J is 2.158651/1.357796, p90 J is 3.149694/2.294926, and actual operating simulations are 2770/21504. Failed criteria: final mean cost noninferiority (`empirical_mean_cost_noninferior`); final p90 cost noninferiority (`empirical_p90_cost_noninferior`). Final mean and p90 are compared with monitor with zero slack; reducing harmful exploration alone does not pass the complete acceptance.
-
-The v1 failure is preserved. Old tests have been used for retrospective diagnosis and cannot independently validate the new design. Only the primary candidate fixed before data is assessed for acceptance on the new test; explanatory arms cannot be selected for deployment after testing. The new comparison changes training trajectories, data volume, scaling and initial risk-feature semantics together; it is not a single-factor causal experiment.
-
-On the recorded old paths, preserving the monitor optimum requires a harmful transition for 700/1024 plants. Thus a gate that only truncates those paths cannot meet both the original risk and zero-slack mean criteria. This is a finite-record diagnosis, not an impossibility theorem for all new policies. Alternative joint actions can change paths; their success is decided by the measured new acceptance.
-
-See the [old failure diagnosis](docs/ROLLOUT_DIAGNOSIS.md), [full new study](docs/TRAJECTORY_RISK.md), and their JSON/raw shards. General Python/C/MATLAB deployment defaults remain unchanged. Passing numerical criteria alone cannot bypass the separate implementation-validity audit or expand the registered runner, population and horizon.
-
-**Additional implementation-validity audit: NOT ESTABLISHED; deployment_allowed=false.** Frozen numerical criteria and this audit are separate. Observed dependence on batch shape/row position leaves a canonical per-object mapping, calibration/test CP-score exchangeability, and independence of trajectory events unestablished in this run. The CP and one-sided 95% binomial quantities are therefore nominal calculations, not established exact CP/PAC guarantees for this machine implementation. A generic exchangeability disclaimer does not close this gap. This is an additional failure beyond the frozen numerical acceptance; deployment remains prohibited. A fixed inference mapping, fresh calibration and new prospective validation are required. See the [implementation-validity audit](research/results/trajectory_risk_validity.json).
-
-Pairing fixes initial plants and observations; it does not require bitwise-identical cross-arm proposals or histories under different active batch layouts. Each arm retains its own actual actions, strict zero-tolerance labels, CP sets and history accounting; no new acceptance tolerance is fitted to test differences. Strict scientific-evidence reconstruction and exact canonical-record replay are verified within the recorded reference environment; Python/C99 runtime portability does not imply bitwise reproduction of study trajectories across platforms. See the [release verification scope](docs/RELEASE_VERIFICATION.md). [Pairing diagnosis](research/results/trajectory_risk_pairing_diagnosis.json). The [Fixed-input batch diagnosis](research/results/batch_inference_diagnosis.json) charges 1 additional diagnostic simulations. Repeating identical inputs at different batch shapes/row positions gives a maximum base_step difference of 1.24583552e-07. This is a post-hoc numerical mechanism check, not reconstruction of the full original cohort or new independent acceptance; recorded actions and boundaries remain unchanged.
-<!-- trajectory-risk-v2:en:end -->
 
 ## The 15-second version
 
 | | |
 | :--- | :--- |
 | **What it does** | picks the next PID gain step from the measured response and records probability/set diagnostics |
-| **How fast** | ONNX forward <!-- claim:decision_ms -->0.022<!-- /claim --> ms median; Python default typed/abstention path <!-- claim:typed_decision_ms -->0.375<!-- /claim --> ms median, <!-- claim:typed_decision_p99_ms -->1.230<!-- /claim --> ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |
+| **How fast** | ONNX forward 0.022 ms median; Python default typed/abstention path 0.375 ms median, 1.230 ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |
 | **Historical MATLAB run** | **5 experiments** on the lab motor cut the recorded cost from **1.238 to 0.598** in v0.2. These are historical measurements under the old objective, not a current rerun; neither the earlier sweep repair nor the v0.9 time-grid correction updates those numbers. See [STEP4_RESULTS](docs/STEP4_RESULTS.md). |
-| **How it generalises** | Historical validation median 0.482; frozen thermal median 1.833. Their baselines and oracle priors are shown below; the separate v0.9 fixed-start comparison is in [PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md). |
+| **How it generalises** | Historical validation median 0.482; frozen thermal median 1.833. Their baselines and oracle priors are shown below; the separate v0.9 fixed-start comparison is in [PRACTICAL_BUDGET](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/PRACTICAL_BUDGET.md). |
 
 ![before and after](assets/before_after.png)
 
@@ -213,7 +171,7 @@ across a whole family of plants, so a new plant needs no re-tuning of the tuner.
 
 **Comparison with ordinary heads and optimizers.** Current matched-split regression/argmax controls are in [ABLATION](docs/ABLATION.md). One training checkpoint and three evaluation draws do not establish a general causal advantage of the type interface. The gate, calibrated thresholds and matched-coverage random hold are reported separately.
 
-The fixed-start comparison in [PRACTICAL_BUDGET](docs/PRACTICAL_BUDGET.md) reports
+The fixed-start comparison in [PRACTICAL_BUDGET](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/PRACTICAL_BUDGET.md) reports
 returned cost and actual calls together. Results depend on the plant and prior;
 the head does not outperform the classical baselines across all groups or metrics.
 
@@ -433,7 +391,7 @@ breakdown, current caveats and version matrix:
 | `shrunk_zn` | 4.854 | 5.158 | 1 |
 | `simplex` | 2.302 | 3.146 | 20 |
 
-These frozen rows are separate from the v0.9 [practical budget study](docs/PRACTICAL_BUDGET.md), which reports actual calls and does not show uniform head superiority. Historical identify→pidtune rows retain their original implementation's failure limitations. See [BENCHMARK](docs/BENCHMARK.md) for accounting and [raw tables](research/results/benchmark_table_thermal_deadtime.md) for sweep recovery/fallback details.
+These frozen rows are separate from the v0.9 [practical budget study](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/PRACTICAL_BUDGET.md), which reports actual calls and does not show uniform head superiority. Historical identify→pidtune rows retain their original implementation's failure limitations. See [BENCHMARK](docs/BENCHMARK.md) for accounting and [raw tables](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1) for sweep recovery/fallback details.
 
 **Historical Simulink model result (lab DC motor, old objective)**
 
@@ -498,36 +456,18 @@ not as validation of anything measured here:
 ## Repository layout
 
 ```
-src/jev_tune/
-  primitives.py  Choice / Score / Noul           (domain-agnostic shell)
-  decision.py    protocol + concrete PID backend, T/CP loading
-  decode.py      numeric expectation, shrink, CP/legacy abstention
-  evaluate.py    PID budget accounting, gate, trace, CP adapter   (PID loop)
-  plants.py      plant zoo + vectorised closed-loop simulation    (PID testbed)
-  metrics.py     response -> scalar cost                          (PID testbed)
-  state.py       20 features + 2x64 traces                        (PID testbed)
-  expert.py      coordinate line search over the vocabulary       (PID testbed)
-  model.py       the decision head and the lookahead value net
-  train.py       dataset -> head
-  baselines.py   Z-N, swept Z-N, shrunken Z-N, relay, hill climb, simplex, CMA-ES, BO
-  identified.py  identify -> pidtune (the practitioner baseline)
-  discover.py    find the gains, signal and reference of an unknown model
-  plot.py        the before/after figure
-  scenarios.py   10 out-of-zoo scenarios, for generalisation
-  simulink.py, matlab_runner.py, matlab_worker.py   MATLAB bridge and worker
-  mcp_server.py  the seven MCP tools
-  cli.py         status / demo / doctor / discover / matlab / loop / batch / check
-c/               C99 inference reference + language-neutral test vectors
-matlab/          Fast Restart bridge, hand-written forward pass, test_discover.m
-scripts/         00 merge chunks, 00b relabel, 01 dataset, 02 train, 03 evaluate,
-                 04 onnx + latency, 05 report, 06 matlab weights, 07 demo assets,
-                 08 generalise, 09 arch figure, 10 specialize, 11 robustness,
-                 12 race, 13 tracking demo, 14 agent baseline, 15 gifs,
-                 16 check claims, 17 ablation, 18 export C, 20 abstention,
-                 21 hardware, 22 calibrate-only
-docs/            architecture, benchmark accounting, step results, claims,
-                 JEV mapping, transfer guide, ablation, abstention, compute
-assets/          the GIFs and figures used above
+src/jev_tune/core/           numpy-only shell: primitives, policy, calibration, gate
+src/jev_tune/domains/pid/    PID test bed: plants, metrics, state, expert, model, train,
+                             decision backends, evaluate, baselines, MATLAB bridge, plot
+src/jev_tune/domains/light/  linear_shell.py (ordered numeric), vla_mask.py (categorical)
+src/jev_tune/cli.py          status / demo / doctor / discover / matlab / loop / batch / check
+src/jev_tune/mcp_server.py   the seven MCP tools
+c/                           C99 float32 reference, zero malloc, generated vectors
+matlab/                      Fast Restart bridge, hand-written forward pass, tests
+scripts/                     01 dataset, 02 train, 03 evaluate, 04 ONNX, 06 MATLAB weights,
+                             10 specialize, 11 robustness, 18 export C, 20 abstention,
+                             22 calibrate-only, archive.py, docs_relink.py
+docs/                        design, results, BOUNDARIES, TRADEOFFS, ARCHIVE
 ```
 
 ## Is it for my problem?
@@ -555,7 +495,6 @@ language switcher at the top. That applies to this README
 
 | document | what it answers |
 | :--- | :--- |
-| [`docs/PHASE0_RESEARCH_REPORT.md`](docs/PHASE0_RESEARCH_REPORT.md) | what the ecosystem actually offers, and the CPU-latency reality check |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | the `choice`/`score`/`noul` contract and one tuning iteration |
 | [`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md) | latency, calibration, held-out benchmark |
 | [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) | the real Simulink model, and the regression that was worth recording |
@@ -582,19 +521,25 @@ The gaps where help is most useful right now:
 
 Good first issues are labelled on GitHub.
 
-## Citation
+## How to cite
+
+Please cite the **concept DOI [10.5281/zenodo.23624699](https://doi.org/10.5281/zenodo.23624699)**;
+it always resolves to the latest archived release. To pin one release, cite its
+version DOI, listed on the Zenodo record page.
 
 ```bibtex
-@software{li2026jevtune,
-  author = {Li, Jiawei},
-  title  = {jev-tune: System-1 typed decisions for PID autotuning},
-  year   = {2026},
-  url    = {https://github.com/lijiawei255/jev-tune},
+@software{li_jevtune,
+  author  = {Li, Jiawei},
+  title   = {jev-tune: a Jev-inspired calibrated decision and safety shell for typed PID autotuning},
+  doi     = {10.5281/zenodo.23624699},
+  url     = {https://github.com/lijiawei255/jev-tune},
   license = {MIT}
 }
 ```
 
-There is also a [`CITATION.cff`](CITATION.cff) if your tool reads it.
+Machine-readable citation metadata (authors, ORCID, DOI) is in
+[`CITATION.cff`](CITATION.cff) at the repository root; GitHub's "Cite this
+repository" button reads it.
 
 ## Acknowledgements and scope
 
@@ -613,7 +558,7 @@ There is also a [`CITATION.cff`](CITATION.cff) if your tool reads it.
 * **MATLAB** / **Simulink** are trademarks of The MathWorks, Inc.
 * Which third-party code is used, what is deliberately absent, and under which
   licences: [`NOTICE.md`](NOTICE.md).
-* Complete source/model/data distribution and exclusions: [`OPEN_SOURCE`](docs/OPEN_SOURCE.md).
+* Complete source/model/data distribution and exclusions: [`OPEN_SOURCE`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/OPEN_SOURCE.md).
 
 ## Licence
 
@@ -622,5 +567,3 @@ MIT © JIAWEI LI — see [`LICENSE`](LICENSE).
 ---
 
 阅读其他语言：[简体中文](README.zh-CN.md)
-
-Current CP-decoupling diagnostics and the independent joint-action risk experiment: [CP_DIAGNOSIS](docs/CP_DIAGNOSIS.md), [JOINT_RISK](docs/JOINT_RISK.md). The risk experiment is research-only.

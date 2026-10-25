@@ -1,8 +1,8 @@
 # Worked examples
 
-> Recorded console examples below are historical. For current MATLAB objective semantics, actual simulation accounting and adapter checks, see [MODEL_ADAPTATION](MODEL_ADAPTATION.md). `iters` is a tuning-loop allowance; discovery and setup add simulations.
+> Recorded console examples below are historical. For current MATLAB objective semantics, actual simulation accounting and adapter checks, see [MODEL_ADAPTATION](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/MODEL_ADAPTATION.md). `iters` is a tuning-loop allowance; discovery and setup add simulations.
 >
-> 下列终端示例为历史记录。当前MATLAB目标定义、实际仿真计账和适配验证见[MODEL_ADAPTATION](MODEL_ADAPTATION.md)。`iters`限制调参循环，发现与准备阶段另有仿真开销。
+> 下列终端示例为历史记录。当前MATLAB目标定义、实际仿真计账和适配验证见[MODEL_ADAPTATION](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/MODEL_ADAPTATION.md)。`iters`限制调参循环，发现与准备阶段另有仿真开销。
 
 Three real runs, copied from the terminal on the machine described in
 `docs/STEP4_RESULTS.md` (Windows 11, MATLAB R2024b Update 6, Python 3.12).

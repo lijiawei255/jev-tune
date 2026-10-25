@@ -5,7 +5,12 @@ type: software
 authors:
   - family-names: "Li"
     given-names: "Jiawei"
+    orcid: "https://orcid.org/0009-0002-8322-4474"
 license: MIT
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.23624699"
+    description: "Zenodo concept DOI (latest archived version)"
 repository-code: "https://github.com/lijiawei255/jev-tune"
 url: "https://github.com/lijiawei255/jev-tune"
 abstract: >-

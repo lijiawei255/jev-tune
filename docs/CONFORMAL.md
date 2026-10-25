@@ -4,6 +4,8 @@
 
 ## English
 
+> v0.11 defaults: split-CP `hard_hold` in `jev_tune.core` and `c/jev_config.h`, `monitor` in the PID evaluator; measured costs in [TRADEOFFS](TRADEOFFS.md). Statements below that say "default monitor" describe the PID loop.
+
 The frozen checkpoint is calibrated on three disjoint, freshly simulated IID
 plant samples, with one initial ZN state per plant: temperature fitting, CP
 quantile fitting, and empirical evaluation. No evaluation label selects T,
@@ -31,18 +33,18 @@ CP calibration n=512, rank=462, alpha=0.1, k_max=3; independent evaluation n=512
 
 | axis | Temperature | q_hat | empirical label coverage | average set size |
 | :--- | ---: | ---: | ---: | ---: |
-| Kp | <!-- claim:temperature_Kp -->1.891494<!-- /claim --> | <!-- claim:cp_qhat_Kp -->0.906791<!-- /claim --> | <!-- claim:cp_coverage_Kp -->0.919922<!-- /claim --> | <!-- claim:cp_set_size_Kp -->3.015625<!-- /claim --> |
-| Ki | <!-- claim:temperature_Ki -->1.521889<!-- /claim --> | <!-- claim:cp_qhat_Ki -->0.876490<!-- /claim --> | <!-- claim:cp_coverage_Ki -->0.906250<!-- /claim --> | <!-- claim:cp_set_size_Ki -->1.906250<!-- /claim --> |
-| Kd | <!-- claim:temperature_Kd -->1.502246<!-- /claim --> | <!-- claim:cp_qhat_Kd -->0.906878<!-- /claim --> | <!-- claim:cp_coverage_Kd -->0.882812<!-- /claim --> | <!-- claim:cp_set_size_Kd -->2.576172<!-- /claim --> |
+| Kp | 1.891494 | 0.906791 | 0.919922 | 3.015625 |
+| Ki | 1.521889 | 0.876490 | 0.906250 | 1.906250 |
+| Kd | 1.502246 | 0.906878 | 0.882812 | 2.576172 |
 
 | variant | mean of draw medians | p90 summary | rollbacks |
 | :--- | ---: | ---: | ---: |
-| C0_MLP_regression | <!-- claim:abl_regression_head -->0.455395<!-- /claim --> | 1.527834 | 0 |
-| C1_uncalibrated | <!-- claim:uncalibrated_median -->0.435726<!-- /claim --> | 1.060245 | 0 |
-| C2_temperature_only | <!-- claim:temperature_only_median -->0.453664<!-- /claim --> | 1.029825 | 0 |
-| C3_temperature_CP | <!-- claim:abl_typed_vs_regression -->0.672046<!-- /claim --> | 1.309521 | 0 |
-| C4_CP_monitor | <!-- claim:cp_monitor_median -->0.453664<!-- /claim --> | 1.029825 | 0 |
-| C5_CP_hold_stop | <!-- claim:cp_hold_stop_median -->0.701220<!-- /claim --> | 1.353294 | 0 |
+| C0_MLP_regression | 0.455395 | 1.527834 | 0 |
+| C1_uncalibrated | 0.435726 | 1.060245 | 0 |
+| C2_temperature_only | 0.453664 | 1.029825 | 0 |
+| C3_temperature_CP | 0.672046 | 1.309521 | 0 |
+| C4_CP_monitor | 0.453664 | 1.029825 | 0 |
+| C5_CP_hold_stop | 0.701220 | 1.353294 | 0 |
 
 Historical hard_hold minus Temp Only paired mean cost difference: +0.240389; paired normal-approximation 95% CI (mean +/- 1.96 SE) [+0.194164, +0.286614]. These are measured differences, not a safety benefit.
 
@@ -71,8 +73,8 @@ an invalid guarantee. Current control costs and tails are in ABLATION/BENCHMARK;
 prediction-set coverage is a different quantity from executed-action coverage.
 
 The actual-action target is separate from these teacher labels.
-[JOINT_RISK](JOINT_RISK.md) records the initial-state study;
-[JOINT_RISK_ROLLOUT](JOINT_RISK_ROLLOUT.md) records a new finite-horizon protocol.
+[JOINT_RISK](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/JOINT_RISK.md) records the initial-state study;
+[JOINT_RISK_ROLLOUT](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/JOINT_RISK_ROLLOUT.md) records a new finite-horizon protocol.
 That protocol freezes the risk model and temperature, uses new independent
 calibration plants at each step under the frozen prefix, and allocates a fixed
 trajectory error budget across steps. It does not pool correlated states from
@@ -86,7 +88,7 @@ calibration and fresh-trajectory randomness. The final test's nominal exact-bino
 one-sided quantity requires independent trajectory events for its coverage
 interpretation; the numerical calculation alone does not establish that premise
 in the machine implementation. The current batch-context validity gap is explicitly
-documented in [TRAJECTORY_RISK](TRAJECTORY_RISK.md). Neither statement
+documented in [TRAJECTORY_RISK](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/TRAJECTORY_RISK.md). Neither statement
 is a bound on the harmful fraction conditional on acceptance, a requirement that
 every finite test achieve nominal coverage, or a physical safety certificate.
 The registered cost, activity and simulation-count criteria must also pass;
@@ -98,6 +100,8 @@ gains always come from measured operating history. Suppressing exploration by
 stopping early can lower event frequency while worsening final cost.
 
 ## 简体中文
+
+> v0.11默认值：`jev_tune.core`与`c/jev_config.h`为split-CP `hard_hold`，PID评测器为`monitor`；实测代价见[TRADEOFFS](TRADEOFFS.md)。下文“默认monitor”指PID回路。
 
 冻结权重后，使用三个新生成、互不相交的IID模拟对象样本：温度拟合、CP分位数拟合、
 经验评估。每株仅取一个初始ZN状态；评估标签不参与T、q_hat、alpha或k_max选择。
@@ -116,18 +120,18 @@ CP校准n=512、rank=462、alpha=0.1、k_max=3；独立评估n=512。
 
 | axis | Temperature | q_hat | empirical label coverage | average set size |
 | :--- | ---: | ---: | ---: | ---: |
-| Kp | <!-- claim:temperature_Kp -->1.891494<!-- /claim --> | <!-- claim:cp_qhat_Kp -->0.906791<!-- /claim --> | <!-- claim:cp_coverage_Kp -->0.919922<!-- /claim --> | <!-- claim:cp_set_size_Kp -->3.015625<!-- /claim --> |
-| Ki | <!-- claim:temperature_Ki -->1.521889<!-- /claim --> | <!-- claim:cp_qhat_Ki -->0.876490<!-- /claim --> | <!-- claim:cp_coverage_Ki -->0.906250<!-- /claim --> | <!-- claim:cp_set_size_Ki -->1.906250<!-- /claim --> |
-| Kd | <!-- claim:temperature_Kd -->1.502246<!-- /claim --> | <!-- claim:cp_qhat_Kd -->0.906878<!-- /claim --> | <!-- claim:cp_coverage_Kd -->0.882812<!-- /claim --> | <!-- claim:cp_set_size_Kd -->2.576172<!-- /claim --> |
+| Kp | 1.891494 | 0.906791 | 0.919922 | 3.015625 |
+| Ki | 1.521889 | 0.876490 | 0.906250 | 1.906250 |
+| Kd | 1.502246 | 0.906878 | 0.882812 | 2.576172 |
 
 | variant | mean of draw medians | p90 summary | rollbacks |
 | :--- | ---: | ---: | ---: |
-| C0_MLP_regression | <!-- claim:abl_regression_head -->0.455395<!-- /claim --> | 1.527834 | 0 |
-| C1_uncalibrated | <!-- claim:uncalibrated_median -->0.435726<!-- /claim --> | 1.060245 | 0 |
-| C2_temperature_only | <!-- claim:temperature_only_median -->0.453664<!-- /claim --> | 1.029825 | 0 |
-| C3_temperature_CP | <!-- claim:abl_typed_vs_regression -->0.672046<!-- /claim --> | 1.309521 | 0 |
-| C4_CP_monitor | <!-- claim:cp_monitor_median -->0.453664<!-- /claim --> | 1.029825 | 0 |
-| C5_CP_hold_stop | <!-- claim:cp_hold_stop_median -->0.701220<!-- /claim --> | 1.353294 | 0 |
+| C0_MLP_regression | 0.455395 | 1.527834 | 0 |
+| C1_uncalibrated | 0.435726 | 1.060245 | 0 |
+| C2_temperature_only | 0.453664 | 1.029825 | 0 |
+| C3_temperature_CP | 0.672046 | 1.309521 | 0 |
+| C4_CP_monitor | 0.453664 | 1.029825 | 0 |
+| C5_CP_hold_stop | 0.701220 | 1.353294 | 0 |
 
 Historical hard_hold minus Temp Only paired mean cost difference: +0.240389; paired normal-approximation 95% CI (mean +/- 1.96 SE) [+0.194164, +0.286614]. These are measured differences, not a safety benefit.
 
@@ -140,15 +144,15 @@ Historical hard_hold minus Temp Only paired mean cost difference: +0.240389; pai
 理论出处见上方一手教程与讲义。改权重或T后需独立重拟CP；专门化和小样本温度适配实验显式关闭CP，
 不沿用失效保证。控制代价及尾部风险见ABLATION/BENCHMARK，集合覆盖率与实际动作执行率分别报告。
 
-实际动作的风险目标与上述专家标签分开。[JOINT_RISK](JOINT_RISK.md)记录初态研究，
-[JOINT_RISK_ROLLOUT](JOINT_RISK_ROLLOUT.md)记录新的有限步协议：冻结风险模型与温度，
+实际动作的风险目标与上述专家标签分开。[JOINT_RISK](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/JOINT_RISK.md)记录初态研究，
+[JOINT_RISK_ROLLOUT](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/JOINT_RISK_ROLLOUT.md)记录新的有限步协议：冻结风险模型与温度，
 每步在固定前缀策略下用新独立对象校准，并在各步分配固定轨迹错误预算。
 不能将同一轨迹内相关状态混成IID校准样本。只允许执行整组已评价动作；修改动作或另作回滚
 不继承原标签保证。到达该步的校准样本不足时采用全标签集合保守保持。
 
 在逐步包含关系与交换性成立时，通过并集界约束注册时域内任一已评价动作被有害执行的概率，
 该界对校准与新轨迹抽样取边际。最终测试的名义精确单侧二项量只有在轨迹事件独立等前提成立时
-才有相应覆盖解释；数值计算本身不建立机器实现的前提，当前批次上下文缺口见[TRAJECTORY_RISK](TRAJECTORY_RISK.md)。
+才有相应覆盖解释；数值计算本身不建立机器实现的前提，当前批次上下文缺口见[TRAJECTORY_RISK](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/TRAJECTORY_RISK.md)。
 两者均不等于获准子集中的条件有害率界，不要求每个有限测试样本恰达名义覆盖，更不是物理安全证书。
 预注册的代价、活动率与仿真计数条件也须分别满足；按原协议报告结果与受限部署结论，
 不在看到测试结果后改协议。
