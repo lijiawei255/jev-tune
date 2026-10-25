@@ -2,13 +2,13 @@
  "generated_by": "scripts/18_export_c.py",
  "schema_version": 5,
  "model_sha256": "8546f50dc25c1027d16c2d7da38b2320b23f9b82ba90b48a8315068c875ea82c",
- "configuration_sha256": "907bf15e967293ae76e368626fa460b2526acbd2d22ddfe3a0d3461ba8ffd339",
+ "configuration_sha256": "a222c2cf1163114ace318bb0d9a4be701646c69503e3107de257c3e1dc3a6452",
  "calibration_sha256": "2e690d4b6d258ec2db020321221a27aa666f580ffed99f55126a9ae49b9ebd2d",
  "hash_normalization": "CRLF to LF for text files; binary files byte-exact; configuration sorted JSON",
  "numeric_format": {
   "weights_and_C_arrays": "IEEE754 binary32",
-  "JSON_reference": "Python floats; compare with supplied tolerances",
-  "conformal_threshold": "IEEE754 binary32 p_min, exact image of binary64 qhat"
+  "conformal_threshold": "IEEE754 binary32 p_min, exact image of binary64 qhat",
+  "JSON_reference": "Python floats; compare with supplied tolerances"
  },
  "configuration": {
   "multipliers": [
@@ -49,6 +49,11 @@
     0.8764900883463167,
     0.9068780226271902
    ],
+   "p_min_per_axis": [
+    0.09320919960737228,
+    0.12350991368293762,
+    0.0931219831109047
+   ],
    "alpha": 0.1,
    "k_max": 3,
    "mode": "monitor",
@@ -59,12 +64,7 @@
    "method": "split_conformal_lac",
    "n_calibration": 512,
    "quantile_rank": 462,
-   "fit_split": "cp_fit",
-   "p_min_per_axis": [
-    0.09320919960737228,
-    0.12350991368293762,
-    0.0931219831109047
-   ]
+   "fit_split": "cp_fit"
   },
   "gain_bounds": [
    0.0001,
@@ -15062,18 +15062,18 @@
      0.0,
      0.0
     ],
+    "p_min_per_axis": [
+     1.0,
+     1.0,
+     1.0
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     1.0,
-     1.0,
-     1.0
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -15203,18 +15203,18 @@
      0.0,
      0.0
     ],
+    "p_min_per_axis": [
+     1.0,
+     1.0,
+     1.0
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     1.0,
-     1.0,
-     1.0
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -15344,18 +15344,18 @@
      0.0,
      0.0
     ],
+    "p_min_per_axis": [
+     1.0,
+     1.0,
+     1.0
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     1.0,
-     1.0,
-     1.0
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.3010299956639812,
@@ -15485,18 +15485,18 @@
      0.0,
      0.0
     ],
+    "p_min_per_axis": [
+     1.0,
+     1.0,
+     1.0
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     1.0,
-     1.0,
-     1.0
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -15626,18 +15626,18 @@
      0.0,
      0.0
     ],
+    "p_min_per_axis": [
+     1.0,
+     1.0,
+     1.0
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     1.0,
-     1.0,
-     1.0
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.3010299956639812,
@@ -15767,18 +15767,18 @@
      0.0,
      0.0
     ],
+    "p_min_per_axis": [
+     1.0,
+     1.0,
+     1.0
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     1.0,
-     1.0,
-     1.0
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -15908,18 +15908,18 @@
      0.0,
      0.0
     ],
+    "p_min_per_axis": [
+     1.0,
+     1.0,
+     1.0
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     1.0,
-     1.0,
-     1.0
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.3010299956639812,
@@ -16049,18 +16049,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "hard_hold",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -16190,18 +16190,18 @@
      0.75,
      0.75
     ],
+    "p_min_per_axis": [
+     0.25,
+     0.25,
+     0.25
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "hard_hold",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.25,
-     0.25,
-     0.25
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -16331,18 +16331,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "hard_hold",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -16472,18 +16472,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "hard_hold",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.19723090336407237,
@@ -16613,18 +16613,18 @@
      0.875,
      0.875
     ],
+    "p_min_per_axis": [
+     0.125,
+     0.125,
+     0.125
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "hard_hold",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.125,
-     0.125,
-     0.125
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.20666485860953868,
@@ -16754,18 +16754,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "hard_hold",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.20666485860953868,
@@ -16895,18 +16895,18 @@
      0.0,
      0.0
     ],
+    "p_min_per_axis": [
+     1.0,
+     1.0,
+     1.0
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "hard_hold",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     1.0,
-     1.0,
-     1.0
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -17036,18 +17036,18 @@
      0.9999999999990905,
      0.9999999999990905
     ],
+    "p_min_per_axis": [
+     9.09439190621697e-13,
+     9.09439190621697e-13,
+     9.09439190621697e-13
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "hard_hold",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     9.09439190621697e-13,
-     9.09439190621697e-13,
-     9.09439190621697e-13
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.3010299956638291,
@@ -17177,18 +17177,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "hard_hold",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -17318,18 +17318,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "hard_hold",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -17459,18 +17459,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     4.651217511063635e-05,
@@ -17600,18 +17600,18 @@
      0.75,
      0.75
     ],
+    "p_min_per_axis": [
+     0.25,
+     0.25,
+     0.25
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.25,
-     0.25,
-     0.25
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.09357313512356565,
@@ -17741,18 +17741,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -17882,18 +17882,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.19723090336407237,
@@ -18023,18 +18023,18 @@
      0.875,
      0.875
     ],
+    "p_min_per_axis": [
+     0.125,
+     0.125,
+     0.125
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.125,
-     0.125,
-     0.125
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.20666485860953868,
@@ -18164,18 +18164,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.20666485860953868,
@@ -18305,18 +18305,18 @@
      0.0,
      0.0
     ],
+    "p_min_per_axis": [
+     1.0,
+     1.0,
+     1.0
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     1.0,
-     1.0,
-     1.0
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -18446,18 +18446,18 @@
      0.9999999999990905,
      0.9999999999990905
     ],
+    "p_min_per_axis": [
+     9.09439190621697e-13,
+     9.09439190621697e-13,
+     9.09439190621697e-13
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     9.09439190621697e-13,
-     9.09439190621697e-13,
-     9.09439190621697e-13
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.3010299956638291,
@@ -18587,18 +18587,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
@@ -18728,18 +18728,18 @@
      0.5,
      0.5
     ],
+    "p_min_per_axis": [
+     0.5,
+     0.5,
+     0.5
+    ],
     "alpha": 0.1,
     "k_max": 3,
     "mode": "monitor",
     "inclusion": "(1 - p) <= qhat in float64; ports use float32 p >= p_min (identical sets)",
     "would_hold": "empty or size > k_max or both positive and negative payloads",
     "execution": "monitor records diagnostics; hard_hold applies would_hold as a veto",
-    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety",
-    "p_min_per_axis": [
-     0.5,
-     0.5,
-     0.5
-    ]
+    "coverage_target": "per-axis teacher-label coverage, not closed-loop safety"
    },
    "step": [
     0.0,
