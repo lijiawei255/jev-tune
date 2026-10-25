@@ -7,6 +7,14 @@ file that produced them is named next to them.
 
 ## English
 
+## [0.11.0] - 2026-10-25
+
+* Split the package into `jev_tune.core` (numpy-only shell: primitives, policy, calibration, `SafetyGate`), `jev_tune.domains.pid` (complete PID test bed) and `jev_tune.domains.light` (`linear_shell.py`, new `vla_mask.py`). Old import paths are removed; see `AGENTS.md`.
+* C99 port is float32 only (`expf`, no `double`, zero malloc). The CP rule is `p >= p_min` with `p_min = conformal_inclusion_threshold(qhat)`, which selects the same sets as the float64 rule for every float32 probability, including near-one quantiles. `jev_conformal.qhat` (double) becomes `p_min` (float); `c/test_vectors.json` schema 5.
+* Hold defaults: split-CP `hard_hold` in `core` and `c/jev_config.h`; the PID evaluator and CLI keep `monitor`. Measured trade-off in `docs/TRADEOFFS.md` (fewer harmful steps and experiments, higher final cost including p90/max).
+* `SafetyGate` replaces the inline rollback rule and is checked against the C vectors. The ONNX backend rejects incomplete question sets; `demo`/`loop` run without torch; `loop` returns `no_ultimate_gain` instead of a traceback; broad `except Exception` handlers narrowed to four outer boundaries; MATLAB discovery reads per-user and machine-wide registry keys.
+* Frozen research, negative results and their verifiers move to tag `v0.10.2-archive` (`python scripts/archive.py [--verify]`, `docs/ARCHIVE.md`); README first screen reduced to pitch + quickstart, boundaries in `docs/BOUNDARIES.md`. Citation metadata gains ORCID and the Zenodo concept DOI.
+
 ## [0.10.2] - 2026-10-25
 
 * Install the editable project with the setup script's selected Python and report that interpreter and the activation command. Fail immediately when a PowerShell installation command fails.
@@ -366,6 +374,14 @@ six-method benchmark, the robustness study (200/200 plants not worse than the
 start) and the scale economics. See the release notes.
 
 ## 简体中文
+
+## [0.11.0] - 2026-10-25
+
+* 拆分为`jev_tune.core`（仅numpy的外壳）、`jev_tune.domains.pid`（完整PID实验场）与`jev_tune.domains.light`（`linear_shell.py`及新增`vla_mask.py`），删除旧导入路径。
+* C99移植全部为float32（`expf`、无`double`、零动态内存）；CP判据改为`p >= p_min`，与float64规则对每个float32概率集合一致；`jev_conformal.qhat`改为`p_min`，测试向量schema 5。
+* Hold默认值：core与`c/jev_config.h`为`hard_hold`，PID评测器与CLI保持`monitor`；取舍实测见`docs/TRADEOFFS.md`。
+* 新增`SafetyGate`并与C向量对齐；ONNX后端拒绝不完整问题集；`demo`/`loop`无需torch；宽泛异常收窄到四个最外层边界；MATLAB注册表发现覆盖机器级安装。
+* 冻结研究与负结果移至`v0.10.2-archive`标签（`scripts/archive.py`）；README首屏精简，边界下沉至`docs/BOUNDARIES.md`；引用元数据加入ORCID与Zenodo概念DOI。
 
 ## [0.10.2] - 2026-10-25
 

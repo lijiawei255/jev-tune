@@ -20,8 +20,9 @@ unchanged, at the Git tag **`v0.10.2-archive`**:
 
 Their data stay the hash-pinned attachments of the existing `v0.10.0` and
 `v0.10.1` GitHub Releases, which the archived scripts already download and
-verify; the `v0.10.2-archive` Release adds the tag's source snapshot. The tag is
-the recoverable entry; nothing is rewritten:
+verify. The `v0.11.0` Release carries the tag's source snapshot as
+`jev-tune-v0.10.2-archive-source.zip`. The tag is the recoverable entry;
+nothing is rewritten:
 
 ```bash
 python scripts/archive.py            # opens .archive/v0.10.2-archive as a worktree
@@ -37,6 +38,6 @@ from archived runs link to the tag or the Release.
 `main`保留运行时外壳、PID实验场、轻量实例、C99/MATLAB移植及其测试。v0.10.2的其余内容
 原样冻结在Git标签**`v0.10.2-archive`**：冻结协议、核验与发布脚本、非PID去噪迁移
 （`negative_stop`）、联合/轨迹风险、重标定、校准运行时诊断、跨CPU数值复现记录及对应文档、
-研究模块、消融对照权重和[`examples/denoise_transfer/`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/examples/denoise_transfer)。数据仍为既有`v0.10.0`、`v0.10.1` GitHub Release中按哈希固定的附件（归档脚本自行下载核验），`v0.10.2-archive` Release另附该标签源码快照。
+研究模块、消融对照权重和[`examples/denoise_transfer/`](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/examples/denoise_transfer)。数据仍为既有`v0.10.0`、`v0.10.1` GitHub Release中按哈希固定的附件（归档脚本自行下载核验）；`v0.11.0` Release附带该标签源码快照`jev-tune-v0.10.2-archive-source.zip`。
 `python scripts/archive.py`以worktree打开标签，`--verify`在其中恢复固定数据并运行claims核验。
 冻结研究记录的哈希指向标签内文件，`main`后续修改不会使其失效。
