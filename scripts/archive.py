@@ -58,7 +58,8 @@ def main(argv: list[str] | None = None) -> int:
     for cmd in VERIFY:
         print("[archive] python " + " ".join(cmd))
         code = subprocess.run([sys.executable, *cmd], cwd=path,
-                              env={**os.environ, "PYTHONPATH": "src"}).returncode
+                              env={**os.environ, "PYTHONPATH": "src",
+                                   "PYTHONIOENCODING": "utf-8"}).returncode
         if code:
             return code
     return 0
