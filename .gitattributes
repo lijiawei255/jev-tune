@@ -2,6 +2,7 @@
 # Explicit paths below match research/distribution/research_data_v0101.json.
 # Experimental payloads are Release-only after the data-history cleanup.
 # export-ignore is an additional source-archive guard; CI rejects tracking them.
+*.h text eol=lf
 research/results/calibration_runtime_sources/windows_failure_log.txt -text -whitespace
 research/results/calibration_runtime_sources/** -text -whitespace
 
