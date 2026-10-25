@@ -3,7 +3,7 @@ function R = test_portability(outputFile)
 root = fileparts(fileparts(mfilename('fullpath')));
 W = load(fullfile(root, 'models', 'jev_head_weights.mat'));
 V = jsondecode(fileread(fullfile(root, 'c', 'test_vectors.json')));
-assert(V.schema_version == 4);
+assert(V.schema_version == 5);
 assert(strcmp(W.model_sha256, V.model_sha256));
 assert(strcmp(W.calibration_sha256, V.calibration_sha256));
 assert(isequal(W.temperature(:), V.configuration.temperature(:)));
