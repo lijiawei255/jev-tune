@@ -83,7 +83,7 @@ With the sweep fixed (auto-ranging, first crossing, decay ratio >= 0.9):
 | :--- | ---: | ---: | ---: |
 | v0.2 sweep (the table above) | 1.238 | 0.598 | 5 / 9 |
 | v0.3 sweep | 0.674 | 0.674 | 6 (no improvement) |
-| the lab's own gains (280/300/30) | 0.392 | --- | --- |
+| the example hand-tuned gains (280/300/30) | 0.392 | --- | --- |
 
 The head does not improve the corrected start: it proposes smaller gains, they
 are worse, the stall detector stops it, and the safety gate returns the start.
@@ -99,7 +99,7 @@ particular gain. Ziegler-Nichols assumes a clear boundary; this plant has none.
 The v0.2 numbers stay in place rather than being rewritten: they are what that
 release measured, and `assets/tuning.gif` is that run.
 
-With the own-gains floor added afterwards, the same model returns the lab's own
+With the own-gains floor added afterwards, the same model returns the example hand-tuned
 gains (J = 0.3925) rather than the ZN start, because nothing the head tries beats
 them. That is the correct outcome, and the reason the promise is now worded as
 "never worse than the better of the start and your existing gains".
@@ -136,7 +136,7 @@ plants in the zoo) *increased* Kd's error instead of decreasing it:
 
 Diagnosis: v2's zoo only had generous actuators, so the expert never had to use
 derivative action for damping — every plant could be fixed by backing off the
-proportional gain. The lab motor cannot (it saturates), which is why adding
+proportional gain. The example motor model cannot (it saturates), which is why adding
 tight-actuator plants (headroom 1.0 / 1.6 / 2.5) fixed the transfer, at the cost
 of a heavier tail on the synthetic benchmark.
 
@@ -205,10 +205,10 @@ MATLAB 前向与 PyTorch 的偏差：**6.1e-05**。
 
 | 增益组 | Kp | Ki | Kd | 代价 J | 实验次数 |
 | :--- | ---: | ---: | ---: | ---: | ---: |
-| 实验课 Z-N（他们的 Ku=278） | 167 | 673 | 10.4 | 1.290 | — |
+| 示例人工调参 Z-N（他们的 Ku=278） | 167 | 673 | 10.4 | 1.290 | — |
 | 我们的 Z-N 起点 | 240 | 1160 | 12.4 | 1.238 | 0 |
 | **Jev 头（发布版，第 5 次找到）** | **90.7** | **160.9** | **15.5** | **0.598** | **5 / 9** |
-| 实验课人工调参 | 280 | 300 | 30.0 | 0.393 | 数小时 |
+| 示例人工调参 | 280 | 300 | 30.0 | 0.393 | 数小时 |
 
 **代价 −52%，最好的一组出现在第 5 次实验**，约 0.55 s 仿真（111 ms/次）。
 停滞检测在第 9 次停下。
@@ -239,11 +239,11 @@ MATLAB 前向与 PyTorch 的偏差：**6.1e-05**。
 | :--- | ---: | ---: | ---: |
 | v0.2 的扫描（上表） | 1.238 | 0.598 | 5 / 9 |
 | v0.3 的扫描 | 0.674 | 0.674 | 6（未改善） |
-| 实验课自带的增益（280/300/30） | 0.392 | — | — |
+| 示例人工调参增益（280/300/30） | 0.392 | — | — |
 
 决策头没有改善修正后的起点：它提出更小的增益，结果更差，停滞检测把它停下，安全闸把
 起点原样返回。**这是"不比起点差"这条保证在起作用，不是整定成功。** 诚实的结论是：
-这台电机本来就有不错的实验课增益，上面那个 −52% 测的是"从一个被坏扫描推得过激的起点
+这台电机本来就有不错的示例人工调参增益，上面那个 −52% 测的是"从一个被坏扫描推得过激的起点
 恢复回来"。
 
 Kp 扫描还说明为什么"极限增益"在这里不好用：把 I、D 置零后，从 40 到 600 的每个增益上
@@ -273,7 +273,7 @@ v0.2 的数字原样保留而不是改写：那是那个版本测出来的东西
 
 ### 一个值得记录的退步
 
-中间版本（7 档词表但动物园里**没有**执行器饱和对象）在那台实验课上把 Kd 越调越错：
+中间版本（7 档词表但动物园里**没有**执行器饱和对象）在那个示例电机模型上把 Kd 越调越错：
 
 | 版本 | 选中的 Kd | 代价 |
 | :--- | ---: | ---: |

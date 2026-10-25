@@ -23,6 +23,11 @@ jev-tune demo --plants 12                    # held-out plants: head vs Z-N vs C
 python -m jev_tune.domains.light.vla_mask    # the same shell on categorical robot actions
 ```
 
+### If you are a human
+
+Start with the [three reading paths](docs/START.md). Agents should continue with
+[`AGENTS.md`](AGENTS.md).
+
 | layer | module | default |
 | :--- | :--- | :--- |
 | temperature scaling | `core.primitives` | on |
@@ -125,8 +130,8 @@ produces a single gain set after hours, not a series of experiments.*
 ![tuning a real Simulink DC motor](assets/tuning.gif)
 
 *Historical run under the earlier objective and sweep; see the corrections in
-[`STEP4_RESULTS`](docs/STEP4_RESULTS.md). Every frame is one recorded closed-loop experiment on the lab
-DC-motor model in Simulink. The tuner is choosing `Kp`, `Ki`, `Kd` itself; the
+[`STEP4_RESULTS`](docs/STEP4_RESULTS.md). Every frame is one recorded closed-loop experiment on the example
+motor model in Simulink. The tuner is choosing `Kp`, `Ki`, `Kd` itself; the
 right panel is the cost it is minimising. The best gains appeared after five
 experiments (~0.55 s of simulation); the stall detector stopped the loop at nine.*
 
@@ -140,14 +145,14 @@ experiments (~0.55 s of simulation); the stall detector stopped the loop at nine
 | :--- | :--- |
 | **What it does** | picks the next PID gain step from the measured response and records probability/set diagnostics |
 | **How fast** | ONNX forward 0.022 ms median; Python default typed/abstention path 0.375 ms median, 1.230 ms p99. Host timing, not WCET; see [COMPUTE](docs/COMPUTE.md). |
-| **Historical MATLAB run** | **5 experiments** on the lab motor cut the recorded cost from **1.238 to 0.598** in v0.2. These are historical measurements under the old objective, not a current rerun; neither the earlier sweep repair nor the v0.9 time-grid correction updates those numbers. See [STEP4_RESULTS](docs/STEP4_RESULTS.md). |
+| **Historical MATLAB run** | **5 experiments** on the example motor model cut the recorded cost from **1.238 to 0.598** in v0.2. These are historical measurements under the old objective, not a current rerun; neither the earlier sweep repair nor the v0.9 time-grid correction updates those numbers. See [STEP4_RESULTS](docs/STEP4_RESULTS.md). |
 | **How it generalises** | Historical validation median 0.482; frozen thermal median 1.833. Their baselines and oracle priors are shown below; the separate v0.9 fixed-start comparison is in [PRACTICAL_BUDGET](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/PRACTICAL_BUDGET.md). |
 
 ![before and after](assets/before_after.png)
 
 *Historical v0.2 illustration under the old cost definition, not a current rerun.
 Same plant, three gain sets. Grey: the Ziegler-Nichols start. Blue: after five
-experiments. Dashed: the lab's hand-tuned solution. That run started from a
+experiments. Dashed: the example hand-tuned solution. That run started from a
 Ziegler-Nichols estimate produced by the Ku sweep as it was in v0.2; the sweep
 was wrong in three ways and has since been fixed — see the correction in
 [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md#correction-the-ku-sweep-was-wrong).*
@@ -393,7 +398,7 @@ breakdown, current caveats and version matrix:
 
 These frozen rows are separate from the v0.9 [practical budget study](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/PRACTICAL_BUDGET.md), which reports actual calls and does not show uniform head superiority. Historical identify→pidtune rows retain their original implementation's failure limitations. See [BENCHMARK](docs/BENCHMARK.md) for accounting and [raw tables](https://github.com/lijiawei255/jev-tune/releases/tag/v0.10.1) for sweep recovery/fallback details.
 
-**Historical Simulink model result (lab DC motor, old objective)**
+**Historical Simulink model result (example motor model, old objective)**
 
 This table preserves the v0.2 record. It is not a v0.9 rerun and cannot be
 compared numerically with the corrected time-grid objective.
@@ -546,7 +551,7 @@ repository" button reads it.
 * **Several test benches, not one.** The method and the shipped head were
   developed on a synthetic plant zoo (2 000 plants across six families) and
   checked on ten out-of-distribution control scenarios plus a small generated
-  model (`matlab/make_demo_model.m`). The **lab motor model** is
+  model (`matlab/make_demo_model.m`). The **example motor model** is
   simply one more bench: a realistic Simulink plant that happened to be at hand.
   The published training code uses synthetic simulations; benchmark observations
   influenced later zoo design, so this is a development example. The current

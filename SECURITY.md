@@ -19,9 +19,9 @@ run arbitrary MATLAB code when loaded.
 
 | Version | Supported |
 | :--- | :--- |
-| `main` | yes |
-| tagged releases | best effort |
-| older forks | no |
+| `1.0.x` | current support |
+| `main` | ongoing support |
+| earlier tags | best effort |
 
 ## Reporting a vulnerability
 
@@ -61,7 +61,7 @@ You can expect an acknowledgement within a few days. There is no bug bounty.
 
 ### 支持版本
 
-`main` 分支持续支持；打标签的版本尽力而为；老的分支不支持。
+`1.0.x` 当前支持；`main` 持续支持；更早 tags 尽力而为。
 
 ### 报告漏洞
 

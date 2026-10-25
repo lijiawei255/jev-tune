@@ -20,6 +20,10 @@ jev-tune demo --plants 12                    # 留出对象：头 vs Z-N vs CMA-
 python -m jev_tune.domains.light.vla_mask    # 同一外壳用于类别型机器人动作
 ```
 
+### 如果你是人
+
+从[三条阅读路径](docs/START.md)开始；Agent 请继续阅读 [`AGENTS.md`](AGENTS.md)。
+
 | 层 | 模块 | 默认 |
 | :--- | :--- | :--- |
 | 温度缩放 | `core.primitives` | 开 |
@@ -130,14 +134,14 @@ solver      ...
 | :--- | :--- |
 | **做什么** | 看刚测到的响应，决定下一步把 PID 增益乘多少 |
 | **多快** | ONNX前向中位0.022 ms；Python默认类型化/弃权路径中位0.375 ms、p99 1.230 ms。宿主时延不代表WCET，见[COMPUTE](docs/COMPUTE.md)。 |
-| **历史MATLAB运行** | v0.2实验课电机的**5次实验**将记录代价从**1.238降至0.598**。这是旧目标下的历史测量，不是当前重跑；之前的扫描修复和v0.9时间网格积分修正都没有更新这些数字。见[STEP4_RESULTS](docs/STEP4_RESULTS.md)。 |
+| **历史MATLAB运行** | v0.2示例电机模型的**5次实验**将记录代价从**1.238降至0.598**。这是旧目标下的历史测量，不是当前重跑；之前的扫描修复和v0.9时间网格积分修正都没有更新这些数字。见[STEP4_RESULTS](docs/STEP4_RESULTS.md)。 |
 | **多能泛化** | 历史验证族中位0.482；冻结热工族中位1.833，对应基线与oracle先验见下表；独立的v0.9固定起点评测见[PRACTICAL_BUDGET](https://github.com/lijiawei255/jev-tune/blob/v0.10.2-archive/docs/PRACTICAL_BUDGET.md)。 |
 
 ![前后对比](assets/before_after.png)
 
 *旧代价定义下的v0.2历史图，不代表当前重跑。同一个被控对象、三组增益。
 灰色：Ziegler-Nichols 起点；蓝色：5 次实验后；
-虚线：实验课人工调参的结果。那次运行的起点来自 v0.2 的 Ku 扫描，而那个扫描有三处缺陷，
+虚线：示例人工调参的结果。那次运行的起点来自 v0.2 的 Ku 扫描，而那个扫描有三处缺陷，
 已修复——见 [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md) 的更正一节。*
 
 ---
@@ -362,7 +366,7 @@ jev-tune loop --num 1 --den "1 0.6 1" --delay 0.02
 | :--- | ---: | ---: | ---: | ---: |
 | Z-N 起点 | 240 | 1160 | 12.4 | 1.238 |
 | **Jev 头（第 5 次实验找到）** | 90.7 | 160.9 | 15.5 | **0.598** |
-| 实验课人工调参 | 280 | 300 | 30.0 | 0.393 |
+| 示例人工调参 | 280 | 300 | 30.0 | 0.393 |
 
 细节、caveat 与复现命令：[`docs/STEP1_RESULTS.md`](docs/STEP1_RESULTS.md)、
 [`docs/STEP4_RESULTS.md`](docs/STEP4_RESULTS.md)。

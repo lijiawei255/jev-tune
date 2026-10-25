@@ -153,7 +153,7 @@ quality. Tracking or disturbance rejection needs new metrics and a retrain
 2. MCP 服务器阻塞会不会吃掉规模效应；
 3. 别人的 MATLAB 不是 R2024b 还能不能跑。
 
-> 下面所有数字都来自本机实测（一台实验课电机，10 s 仿真时长，20 次实验），
+> 下面所有数字都来自本机实测（一个示例电机模型，10 s 仿真时长，20 次实验），
 > 只有"LLM 往返 3 s"是假设，已标注。
 >
 > 阶段表对应**不带** `--auto` 的 `jev-tune matlab`。带 `--auto` 时（README 里

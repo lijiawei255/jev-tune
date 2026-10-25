@@ -7,6 +7,13 @@ file that produced them is named next to them.
 
 ## English
 
+## [1.0.0] - 2026-10-25
+
+* Stable reference release for the `src/jev_tune/core` + `src/jev_tune/domains/pid` + `src/jev_tune/domains/light` architecture.
+* Research evidence, negative results and their verifiers remain in tag `v0.10.2-archive`.
+* Add bilingual `docs/START.md` reading paths and human/agent navigation, clarify example-model wording, refresh `assets/tuning.gif`, and update package, citation and support metadata.
+* This is not a neuromodulation product and has not passed a safety review.
+
 ## [0.11.0] - 2026-10-25
 
 * Split the package into `jev_tune.core` (numpy-only shell: primitives, policy, calibration, `SafetyGate`), `jev_tune.domains.pid` (complete PID test bed) and `jev_tune.domains.light` (`linear_shell.py`, new `vla_mask.py`). Old import paths are removed; see `AGENTS.md`.
@@ -374,6 +381,13 @@ six-method benchmark, the robustness study (200/200 plants not worse than the
 start) and the scale economics. See the release notes.
 
 ## 简体中文
+
+## [1.0.0] - 2026-10-25
+
+* 稳定参考版；架构为 `src/jev_tune/core` + `src/jev_tune/domains/pid` + `src/jev_tune/domains/light`。
+* 研究证据、负结果及其验证器仍保留在 `v0.10.2-archive` 标签。
+* 新增双语 `docs/START.md` 阅读路径和人类/Agent 导航，澄清示例模型措辞，更新 `assets/tuning.gif`，并更新包、引用和支持政策元数据。
+* 本项目不是神经调控产品，也未通过安全审查。
 
 ## [0.11.0] - 2026-10-25
 
